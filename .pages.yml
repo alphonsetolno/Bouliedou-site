@@ -1,0 +1,148 @@
+media:
+  input: images
+  output: /images
+
+content:
+  - name: site
+    label: Contenu du site
+    type: file
+    path: content.json
+    format: json
+    fields:
+      - name: hero
+        label: "Accueil — grand bandeau"
+        type: object
+        fields:
+          - { name: eyebrow_fr, label: "Petit titre au-dessus (FR)", type: string }
+          - { name: eyebrow_en, label: "Petit titre au-dessus (EN)", type: string }
+          - { name: title_fr, label: "Grand titre (FR)", type: text }
+          - { name: title_en, label: "Grand titre (EN)", type: text }
+          - { name: text_fr, label: "Phrase d'introduction (FR)", type: text }
+          - { name: text_en, label: "Phrase d'introduction (EN)", type: text }
+          - name: chips
+            label: "Étiquettes (les 4 pastilles)"
+            type: object
+            list: true
+            fields:
+              - { name: label_fr, label: "Texte (FR)", type: string }
+              - { name: label_en, label: "Texte (EN)", type: string }
+      - name: poles
+        label: "Nos pôles d'activité"
+        type: object
+        fields:
+          - { name: kicker_fr, label: "Sur-titre (FR)", type: string }
+          - { name: kicker_en, label: "Sur-titre (EN)", type: string }
+          - { name: h2_fr, label: "Titre (FR)", type: string }
+          - { name: h2_en, label: "Titre (EN)", type: string }
+          - { name: intro_fr, label: "Introduction (FR)", type: text }
+          - { name: intro_en, label: "Introduction (EN)", type: text }
+          - name: items
+            label: "Les pôles"
+            type: object
+            list: true
+            fields:
+              - { name: icon, label: "Icône", type: select, options: { values: [commerce, agribusiness, elevage, services] } }
+              - { name: title_fr, label: "Titre (FR)", type: string }
+              - { name: title_en, label: "Titre (EN)", type: string }
+              - { name: text_fr, label: "Description (FR)", type: text }
+              - { name: text_en, label: "Description (EN)", type: text }
+      - name: gallery
+        label: "Galerie photos"
+        type: object
+        fields:
+          - { name: kicker_fr, label: "Sur-titre (FR)", type: string }
+          - { name: kicker_en, label: "Sur-titre (EN)", type: string }
+          - { name: h2_fr, label: "Titre (FR)", type: string }
+          - { name: h2_en, label: "Titre (EN)", type: string }
+          - { name: intro_fr, label: "Introduction (FR)", type: text }
+          - { name: intro_en, label: "Introduction (EN)", type: text }
+          - name: items
+            label: "Photos (ajoutez / remplacez ici)"
+            type: object
+            list: true
+            fields:
+              - { name: image, label: "Photo", type: image }
+              - { name: caption_fr, label: "Légende (FR)", type: string }
+              - { name: caption_en, label: "Légende (EN)", type: string }
+      - name: about
+        label: "À propos"
+        type: object
+        fields:
+          - { name: kicker_fr, label: "Sur-titre (FR)", type: string }
+          - { name: kicker_en, label: "Sur-titre (EN)", type: string }
+          - { name: h2_fr, label: "Titre (FR)", type: string }
+          - { name: h2_en, label: "Titre (EN)", type: string }
+          - { name: p1_fr, label: "Paragraphe 1 (FR)", type: text }
+          - { name: p1_en, label: "Paragraphe 1 (EN)", type: text }
+          - { name: p2_fr, label: "Paragraphe 2 (FR)", type: text }
+          - { name: p2_en, label: "Paragraphe 2 (EN)", type: text }
+          - name: cards
+            label: "Petites cartes (à droite)"
+            type: object
+            list: true
+            fields:
+              - { name: title_fr, label: "Titre (FR)", type: string }
+              - { name: title_en, label: "Titre (EN)", type: string }
+              - { name: text_fr, label: "Texte (FR)", type: string }
+              - { name: text_en, label: "Texte (EN)", type: string }
+      - name: why
+        label: "Pourquoi nous choisir"
+        type: object
+        fields:
+          - { name: kicker_fr, label: "Sur-titre (FR)", type: string }
+          - { name: kicker_en, label: "Sur-titre (EN)", type: string }
+          - { name: h2_fr, label: "Titre (FR)", type: string }
+          - { name: h2_en, label: "Titre (EN)", type: string }
+          - name: items
+            label: "Les arguments"
+            type: object
+            list: true
+            fields:
+              - { name: title_fr, label: "Titre (FR)", type: string }
+              - { name: title_en, label: "Titre (EN)", type: string }
+              - { name: text_fr, label: "Texte (FR)", type: text }
+              - { name: text_en, label: "Texte (EN)", type: text }
+      - name: custom_sections
+        label: "Sections supplémentaires (page d'accueil)"
+        type: object
+        list: true
+        fields:
+          - { name: kicker_fr, label: "Sur-titre (FR)", type: string }
+          - { name: kicker_en, label: "Sur-titre (EN)", type: string }
+          - { name: title_fr, label: "Titre (FR)", type: string }
+          - { name: title_en, label: "Titre (EN)", type: string }
+          - { name: body_fr, label: "Texte (FR) — sautez une ligne vide pour un nouveau paragraphe", type: text }
+          - { name: body_en, label: "Texte (EN)", type: text }
+      - name: contact
+        label: "Contact"
+        type: object
+        fields:
+          - { name: kicker_fr, label: "Sur-titre (FR)", type: string }
+          - { name: kicker_en, label: "Sur-titre (EN)", type: string }
+          - { name: h2_fr, label: "Titre (FR)", type: string }
+          - { name: h2_en, label: "Titre (EN)", type: string }
+          - { name: intro_fr, label: "Introduction (FR)", type: text }
+          - { name: intro_en, label: "Introduction (EN)", type: text }
+          - { name: phone, label: "Téléphone (affiché)", type: string }
+          - { name: whatsapp, label: "Numéro WhatsApp (chiffres seuls, ex: 224623010818)", type: string }
+          - { name: email, label: "E-mail", type: string }
+          - { name: address_fr, label: "Adresse (FR)", type: string }
+          - { name: address_en, label: "Adresse (EN)", type: string }
+          - { name: maps_query, label: "Recherche Google Maps (ex: Bouliedou, Conakry)", type: string }
+      - name: footer
+        label: "Pied de page"
+        type: object
+        fields:
+          - { name: about_fr, label: "Phrase (FR)", type: text }
+          - { name: about_en, label: "Phrase (EN)", type: text }
+          - { name: website, label: "Site web affiché", type: string }
+      - name: pages
+        label: "Pages supplémentaires (nouvelles pages)"
+        type: object
+        list: true
+        fields:
+          - { name: slug, label: "Adresse web (sans espace, ex: nos-services)", type: string }
+          - { name: title_fr, label: "Titre de la page (FR)", type: string }
+          - { name: title_en, label: "Titre de la page (EN)", type: string }
+          - { name: body_fr, label: "Contenu (FR) — sautez une ligne vide pour un nouveau paragraphe", type: text }
+          - { name: body_en, label: "Contenu (EN)", type: text }
