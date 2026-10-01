@@ -1,16 +1,28 @@
 {
   "hero": {
-    "eyebrow_fr": "Une société, quatre métiers",
+    "eyebrow_fr": "Une société, quatre métiers à votre service",
     "eyebrow_en": "One company, four businesses",
     "title_fr": "Votre partenaire de confiance pour <span class=\"hl\">le commerce et le développement</span> en Guinée.",
     "title_en": "Your trusted partner for <span class=\"hl\">trade and development</span> in Guinea.",
     "text_fr": "Bouliedou Global Business réunit le commerce, l'agribusiness, l'élevage et les prestations de services sous une même maison — avec exigence, proximité et ambition.",
     "text_en": "Bouliedou Global Business brings trade, agribusiness, livestock and professional services together under one roof — with rigor, closeness and ambition.",
     "chips": [
-      { "label_fr": "Commerce", "label_en": "Trade" },
-      { "label_fr": "Agribusiness", "label_en": "Agribusiness" },
-      { "label_fr": "Élevage", "label_en": "Livestock" },
-      { "label_fr": "Prestations de services", "label_en": "Professional services" }
+      {
+        "label_fr": "Commerce",
+        "label_en": "Trade"
+      },
+      {
+        "label_fr": "Agribusiness",
+        "label_en": "Agribusiness"
+      },
+      {
+        "label_fr": "Élevage",
+        "label_en": "Livestock"
+      },
+      {
+        "label_fr": "Prestations de services",
+        "label_en": "Professional services"
+      }
     ]
   },
   "poles": {
@@ -59,12 +71,30 @@
     "intro_fr": "Un aperçu de nos activités sur le terrain.",
     "intro_en": "A glimpse of our work on the ground.",
     "items": [
-      { "caption_fr": "Commerce", "caption_en": "Trade", "image": "" },
-      { "caption_fr": "Agribusiness", "caption_en": "Agribusiness", "image": "" },
-      { "caption_fr": "Élevage", "caption_en": "Livestock", "image": "" },
-      { "caption_fr": "Prestations de services", "caption_en": "Services", "image": "" },
-      { "caption_fr": "Nos réalisations", "caption_en": "Our projects", "image": "" },
-      { "caption_fr": "Notre équipe", "caption_en": "Our team", "image": "" }
+      {
+        "caption_fr": "Commerce",
+        "caption_en": "Trade"
+      },
+      {
+        "caption_fr": "Agribusiness",
+        "caption_en": "Agribusiness"
+      },
+      {
+        "caption_fr": "Élevage",
+        "caption_en": "Livestock"
+      },
+      {
+        "caption_fr": "Prestations de services",
+        "caption_en": "Services"
+      },
+      {
+        "caption_fr": "Nos réalisations",
+        "caption_en": "Our projects"
+      },
+      {
+        "caption_fr": "Notre équipe",
+        "caption_en": "Our team"
+      }
     ]
   },
   "about": {
@@ -77,9 +107,24 @@
     "p2_fr": "Ancrés à Conakry et tournés vers l'international, nous mettons la même exigence dans chacun de nos pôles — pour créer de la valeur, localement et durablement.",
     "p2_en": "Rooted in Conakry and open to the world, we apply the same standard across every one of our businesses — to create value, locally and sustainably.",
     "cards": [
-      { "title_fr": "Interlocuteur unique", "title_en": "One single partner", "text_fr": "Quatre métiers, un seul contact de confiance.", "text_en": "Four businesses, one trusted contact." },
-      { "title_fr": "Ancrage local", "title_en": "Local roots", "text_fr": "Une connaissance fine du marché guinéen.", "text_en": "A deep knowledge of the Guinean market." },
-      { "title_fr": "Vision & ambition", "title_en": "Vision & ambition", "text_fr": "Bâtir une entreprise qui dure et qui grandit.", "text_en": "Building a company that lasts and grows." }
+      {
+        "title_fr": "Interlocuteur unique",
+        "title_en": "One single partner",
+        "text_fr": "Quatre métiers, un seul contact de confiance.",
+        "text_en": "Four businesses, one trusted contact."
+      },
+      {
+        "title_fr": "Ancrage local",
+        "title_en": "Local roots",
+        "text_fr": "Une connaissance fine du marché guinéen.",
+        "text_en": "A deep knowledge of the Guinean market."
+      },
+      {
+        "title_fr": "Vision & ambition",
+        "title_en": "Vision & ambition",
+        "text_fr": "Bâtir une entreprise qui dure et qui grandit.",
+        "text_en": "Building a company that lasts and grows."
+      }
     ]
   },
   "why": {
@@ -88,13 +133,32 @@
     "h2_fr": "La fiabilité d'un partenaire, la force d'un groupe",
     "h2_en": "The reliability of a partner, the strength of a group",
     "items": [
-      { "title_fr": "Diversification", "title_en": "Diversification", "text_fr": "Plusieurs métiers maîtrisés, pour répondre à des besoins variés.", "text_en": "Several businesses mastered, to meet varied needs." },
-      { "title_fr": "Proximité", "title_en": "Closeness", "text_fr": "Une équipe disponible, qui connaît le terrain et ses réalités.", "text_en": "An available team that knows the ground and its realities." },
-      { "title_fr": "Fiabilité", "title_en": "Reliability", "text_fr": "Des engagements tenus et une qualité constante.", "text_en": "Commitments kept and consistent quality." },
-      { "title_fr": "Ambition", "title_en": "Ambition", "text_fr": "Une vision de croissance, au service de nos clients et du pays.", "text_en": "A growth vision, serving our clients and the country." }
+      {
+        "title_fr": "Diversification",
+        "title_en": "Diversification",
+        "text_fr": "Plusieurs métiers maîtrisés, pour répondre à des besoins variés.",
+        "text_en": "Several businesses mastered, to meet varied needs."
+      },
+      {
+        "title_fr": "Proximité",
+        "title_en": "Closeness",
+        "text_fr": "Une équipe disponible, qui connaît le terrain et ses réalités.",
+        "text_en": "An available team that knows the ground and its realities."
+      },
+      {
+        "title_fr": "Fiabilité",
+        "title_en": "Reliability",
+        "text_fr": "Des engagements tenus et une qualité constante.",
+        "text_en": "Commitments kept and consistent quality."
+      },
+      {
+        "title_fr": "Ambition",
+        "title_en": "Ambition",
+        "text_fr": "Une vision de croissance, au service de nos clients et du pays.",
+        "text_en": "A growth vision, serving our clients and the country."
+      }
     ]
   },
-  "custom_sections": [],
   "contact": {
     "kicker_fr": "Contact",
     "kicker_en": "Contact",
@@ -113,6 +177,5 @@
     "about_fr": "Commerce, agribusiness, élevage et prestations de services — une société guinéenne au service de vos projets.",
     "about_en": "Trade, agribusiness, livestock and professional services — a Guinean company at the service of your projects.",
     "website": "www.bouliedou.com"
-  },
-  "pages": []
+  }
 }
