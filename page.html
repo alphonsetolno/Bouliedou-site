@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Bouliedou Global Business</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800;900&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--green:#0C4A39;--green-deep:#06382C;--green-900:#042A20;--gold:#C2993F;--gold-soft:#D8B65F;--gold-deep:#A87C2E;--ivory:#FBF8EF;--cream:#F5EFDE;--paper:#FFFFFF;--ink:#1B2821;--muted:#5B6B62;--line:#E7E1CF;--maxw:1140px;}
+  *{box-sizing:border-box}body{margin:0;background:var(--ivory);color:var(--ink);font-family:"Manrope",sans-serif;line-height:1.7;-webkit-font-smoothing:antialiased}
+  h1,h2,h3{font-family:"Montserrat",sans-serif}a{color:inherit;text-decoration:none}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 clamp(18px,4vw,36px)}
+  .nav{position:sticky;top:0;z-index:50;background:rgba(251,248,239,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  .nav-in{display:flex;align-items:center;justify-content:space-between;height:68px}
+  .brand{display:flex;align-items:center;gap:11px}.brand .mk{width:44px;height:44px}
+  .brand .n{font-family:"Montserrat";font-weight:800;font-size:17px;color:var(--green);letter-spacing:.3px}
+  .brand .s{font-family:"Montserrat";font-weight:600;font-size:7.5px;letter-spacing:.22em;color:var(--gold);text-transform:uppercase;margin-top:3px;display:block}
+  .back{font-weight:700;font-size:14px;color:var(--green)}
+  .phead{background:linear-gradient(160deg,var(--green) 0%,var(--green-deep) 60%,var(--green-900) 100%);color:#fff;padding:clamp(48px,8vw,88px) 0}
+  .phead h1{font-weight:800;font-size:clamp(28px,5vw,46px);margin:0;letter-spacing:-.01em}
+  .pbody{padding:clamp(40px,7vw,80px) 0;max-width:760px}
+  .pbody p{font-size:16.5px;color:#3a4a41;margin:0 0 18px}
+  .lang{display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--paper)}
+  .lang button{font:inherit;font-weight:700;font-size:12px;padding:6px 10px;border:0;background:transparent;color:var(--muted);cursor:pointer}
+  .lang button.on{background:var(--green);color:#fff}
+  footer{background:var(--green-900);color:rgba(255,255,255,.6);padding:40px 0;text-align:center;font-size:13px}
+  .notfound{padding:100px 0;text-align:center;color:var(--muted)}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="bgb" viewBox="0 0 300 300">
+    <path d="M150 12 L269.5 81 L269.5 219 L150 288 L30.5 219 L30.5 81 Z" fill="none" stroke="var(--mk-stroke,#0C4A39)" stroke-width="15" stroke-linejoin="round"/>
+    <path d="M150 12 L269.5 81" fill="none" stroke="var(--mk-gold,#C2993F)" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="150" y="156" text-anchor="middle" dominant-baseline="central" font-size="100" font-family="Montserrat, sans-serif" font-weight="800" letter-spacing="-3"><tspan fill="var(--mk-stroke,#0C4A39)">B</tspan><tspan fill="var(--mk-gold,#C2993F)">G</tspan><tspan fill="var(--mk-stroke,#0C4A39)">B</tspan></text>
+  </symbol>
+</defs></svg>
+
+<div class="nav"><div class="wrap nav-in">
+  <a href="/" class="brand"><svg class="mk" viewBox="0 0 300 300"><use href="#bgb"/></svg>
+    <span><span class="n">BOULIEDOU</span><span class="s">Global Business</span></span></a>
+  <div style="display:flex;align-items:center;gap:14px">
+    <a class="back" href="/" id="backlink">← Accueil</a>
+    <div class="lang"><button id="lfr" class="on" onclick="setLang('fr')">FR</button><button id="len" onclick="setLang('en')">EN</button></div>
+  </div>
+</div></div>
+
+<div class="phead"><div class="wrap"><h1 id="ptitle"></h1></div></div>
+<div class="wrap"><div class="pbody" id="pbody"></div></div>
+<footer><div class="wrap">© <span id="yr"></span> Bouliedou Global Business</div></footer>
+
+<script>
+var LANG='fr'; try{var s=localStorage.getItem('bgb-lang'); if(s)LANG=s;}catch(e){}
+var PAGE=null, PAGES=[];
+function L(o,b){return o[b+'_'+LANG]||o[b+'_fr']||'';}
+function esc(s){return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function slug(){ var m=location.pathname.match(/\/p\/([^\/?#]+)/); if(m)return decodeURIComponent(m[1]); var q=new URLSearchParams(location.search); return q.get('slug')||''; }
+function draw(){
+  document.getElementById('lfr').classList.toggle('on',LANG==='fr');
+  document.getElementById('len').classList.toggle('on',LANG==='en');
+  document.documentElement.lang=LANG;
+  document.getElementById('backlink').textContent = (LANG==='en'?'← Home':'← Accueil');
+  if(!PAGE){ document.getElementById('ptitle').textContent=(LANG==='en'?'Page not found':'Page introuvable'); document.getElementById('pbody').innerHTML='<p>'+(LANG==='en'?'This page does not exist yet.':"Cette page n'existe pas encore.")+' <a href="/" style="color:var(--green);font-weight:700">'+(LANG==='en'?'Back home':"Retour à l'accueil")+'</a></p>'; return; }
+  document.title='Bouliedou Global Business — '+L(PAGE,'title');
+  document.getElementById('ptitle').textContent=L(PAGE,'title');
+  var body=L(PAGE,'body').split(/\n\n+/).map(function(p){return '<p>'+esc(p)+'</p>';}).join('');
+  document.getElementById('pbody').innerHTML=body;
+}
+function setLang(l){LANG=l; try{localStorage.setItem('bgb-lang',l);}catch(e){} draw();}
+document.getElementById('yr').textContent=new Date().getFullYear();
+fetch('/content.json?v='+Date.now()).then(function(r){return r.json();}).then(function(d){
+  PAGES=d.pages||[]; var sl=slug();
+  for(var i=0;i<PAGES.length;i++){ if(PAGES[i].slug===sl){PAGE=PAGES[i];break;} }
+  draw();
+}).catch(function(e){ draw(); });
+</script>
+</body>
+</html>
