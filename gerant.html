@@ -192,7 +192,7 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
     <button class="tab on" data-tab="home"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg><span>Accueil</span></button>
     <button class="tab" data-tab="clients"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/></svg><span>Clients</span></button>
     <button class="tab" data-tab="orders"><svg viewBox="0 0 24 24"><path d="M6 2 3 6v14a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V6l-3-4z"/><path d="M3 6h18"/></svg><span>Commandes</span></button>
-    <button class="tab" data-tab="catalog"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Catalogue</span></button>
+    <button class="tab" data-tab="menu"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Gestion</span></button>
   </nav>
 </div>
 
@@ -206,7 +206,7 @@ var SUPABASE_KEY = "sb_publishable_HVqsBjVpMiOFKgYL88mu4g_5Vfw-jFu";
 var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 var ME=null, ROLE=null;
-var S={clients:[],products:[],orders:[],deliveries:[],credits:[],payments:[],categories:[]};
+var S={clients:[],products:[],orders:[],deliveries:[],credits:[],payments:[],categories:[],stock:[],expenses:[]};
 var view="home", currentId=null, search="";
 
 function money(n){ n=Number(n)||0; return new Intl.NumberFormat("fr-FR").format(Math.round(n))+" FG"; }
@@ -244,7 +244,9 @@ async function loadAll(){
     sb.from('deliveries').select('*').order('date',{ascending:false}),
     sb.from('credits').select('*').order('date',{ascending:false}),
     sb.from('payments').select('*').order('date',{ascending:false}),
-    sb.from('categories').select('*').order('created_at')
+    sb.from('categories').select('*').order('created_at'),
+    sb.from('stock_entries').select('*').order('date',{ascending:false}),
+    sb.from('expenses').select('*').order('date',{ascending:false})
   ]);
   var err = r.find(function(x){return x.error;});
   if(err){ toast("Erreur de chargement."); console.error(err.error); }
@@ -256,14 +258,29 @@ async function loadAll(){
   S.credits = r[4].data||[];
   S.payments = r[5].data||[];
   S.categories = r[6].data||[];
+  S.stock = r[7].data||[];
+  S.expenses = r[8].data||[];
 }
 
 /* ===== RENDER ===== */
 function render(){
-  document.querySelectorAll(".tab").forEach(function(b){ b.classList.toggle("on", b.dataset.tab===view && !currentId); });
+  var activeTab = (["menu","catalog","stock","expenses"].indexOf(view)>=0)?"menu":view;
+  document.querySelectorAll(".tab").forEach(function(b){ b.classList.toggle("on", b.dataset.tab===activeTab && !currentId); });
   var root=document.getElementById("root");
   if(currentId){ root.innerHTML=renderClient(currentId); return; }
-  root.innerHTML = view==="home"?renderHome() : view==="clients"?renderClients() : view==="orders"?renderOrders() : renderCatalog();
+  root.innerHTML = view==="home"?renderHome() : view==="clients"?renderClients() : view==="orders"?renderOrders()
+    : view==="menu"?renderMenu() : view==="stock"?renderStock() : view==="expenses"?renderExpenses() : renderCatalog();
+}
+function renderMenu(){
+  var h='<div class="view-title">Gestion</div><p class="view-sub">Catalogue, stock et dépenses.</p><div class="clist">';
+  h+=menuCard("catalog","Catalogue","Produits, interfaces et prix");
+  h+=menuCard("stock","Stock","Entrées, sorties et stock restant");
+  h+=menuCard("expenses","Dépenses","Salaires, loyer, électricité…");
+  h+='</div>';
+  return h;
+}
+function menuCard(go,title,sub){
+  return '<button class="c-card" data-go="'+go+'"><div class="c-main"><div class="c-name">'+esc(title)+'</div><div class="c-meta">'+esc(sub)+'</div></div><span class="solde ok" style="color:var(--green);font-size:18px">›</span></button>';
 }
 
 function renderHome(){
@@ -432,6 +449,103 @@ function renderCatalog(){
     h+='</div>';
   });
   return h;
+}
+
+/* ===== STOCK ===== */
+function allProdOptions(){
+  var o='<option value="">— Libre / autre —</option>';
+  S.products.forEach(function(p){ var c=prodCat(p); o+='<option value="'+p.id+'">'+esc(p.name)+(c?(" — "+esc(c.order_unit)):"")+'</option>'; });
+  return o;
+}
+function stockByProduct(){
+  var m={};
+  S.stock.forEach(function(x){ if(!x.product_id) return; if(!m[x.product_id]) m[x.product_id]={entree:0,sortie:0}; m[x.product_id][x.kind==='sortie'?'sortie':'entree']+=Number(x.qty)||0; });
+  return m;
+}
+function rnd(n){ return Math.round((Number(n)||0)*100)/100; }
+function renderStock(){
+  var h='<button class="add-link" data-go="menu" style="margin:2px 0 12px">‹ Gestion</button>';
+  h+='<div class="view-title">Stock</div><p class="view-sub">Marchandises achetées et en magasin.</p>';
+  var totalAchat=S.stock.filter(function(x){return x.kind==='entree';}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
+  h+='<div class="kpis"><div class="kpi"><div class="lab"><i style="background:var(--gold)"></i>Valeur des achats</div><div class="val sm tnum">'+money(totalAchat)+'</div></div>'
+    +'<div class="kpi"><div class="lab"><i style="background:var(--green)"></i>Mouvements</div><div class="val tnum">'+S.stock.length+'</div></div></div>';
+  h+='<div class="d-actions" style="margin-top:14px"><button class="btn btn-green" data-addstock="entree">+ Entrée (achat)</button><button class="btn btn-ghost" data-addstock="sortie">− Sortie</button></div>';
+  var m=stockByProduct(), keys=Object.keys(m);
+  h+='<div class="section-h"><h2>En stock</h2></div>';
+  if(keys.length===0) h+='<div class="item-empty">Aucun stock enregistré pour le moment.</div>';
+  else { h+='<div class="card"><div class="items">'; keys.forEach(function(pid){
+    var p=prodById(pid), c=p?prodCat(p):null, net=m[pid].entree-m[pid].sortie;
+    h+='<div class="item"><div class="body"><div class="top"><span class="lab">'+esc(p?p.name:"Produit")+'</span><span class="amt tnum" style="color:'+(net>0?'var(--good)':'var(--muted)')+'">'+rnd(net)+' '+esc(c?c.order_unit:'')+'</span></div>'
+      +'<div class="sub">Entrées '+rnd(m[pid].entree)+' · Sorties '+rnd(m[pid].sortie)+'</div></div></div>';
+  }); h+='</div></div>'; }
+  h+='<div class="section-h"><h2>Mouvements récents</h2></div>';
+  if(S.stock.length===0) h+='<div class="item-empty">Aucun mouvement.</div>';
+  else { h+='<div class="card"><div class="items">'; S.stock.forEach(function(x){
+    var tag=x.kind==='sortie'?'<span class="pill annulée">sortie</span>':'<span class="pill livrée">entrée</span>';
+    h+='<div class="item"><div class="body"><div class="top"><span class="lab">'+esc(x.label||"—")+'</span>'+((x.kind==='entree'&&x.amount)?'<span class="amt tnum">'+money(x.amount)+'</span>':'')+'</div>'
+      +'<div class="sub">'+tag+' '+(x.qty!=null?(rnd(x.qty)+' '+esc(x.unit||'')):'')+' · '+fmtDate(x.date)+(x.supplier?(' · '+esc(x.supplier)):'')+'</div></div>'
+      +'<button class="del" data-del="stock_entries:'+x.id+'" aria-label="Supprimer">×</button></div>';
+  }); h+='</div></div>'; }
+  return h;
+}
+function stockForm(kind){
+  var isEnt=kind!=='sortie';
+  var h='<h3>'+(isEnt?"Entrée de stock (achat)":"Sortie de stock")+'</h3>';
+  h+='<div class="field"><label for="s_prod">Produit</label><select id="s_prod">'+allProdOptions()+'</select></div>';
+  h+=fld("Désignation","text","s_label","","Nom de la marchandise");
+  h+='<div class="field"><label>Quantité (<span id="s_unit">unité</span>)</label><input id="s_qty" type="number" inputmode="decimal" min="0" placeholder="0"></div>';
+  if(isEnt){ h+=fld("Coût total d'achat (FG)","number","s_amount","","0")+fld("Fournisseur","text","s_supplier","","(facultatif)"); }
+  h+=fld("Date","date","s_date",today(),"");
+  h+='<div class="sheet-actions"><button class="btn btn-ghost" data-cancel="1">Annuler</button><button class="btn btn-green" data-savestock="'+(isEnt?'entree':'sortie')+'">Enregistrer</button></div>';
+  openSheet(h);
+  var sel=document.getElementById("s_prod");
+  sel.addEventListener("change",function(){ var p=prodById(sel.value), c=p?prodCat(p):null, u=document.getElementById("s_unit"), lab=document.getElementById("s_label");
+    if(u) u.textContent=c?c.order_unit:"unité"; if(p&&lab) lab.value=p.name; });
+}
+async function saveStock(kind){
+  var pid=V("s_prod")||null, p=pid?prodById(pid):null, c=p?prodCat(p):null;
+  var qty=numOrNull("s_qty"); if(!qty||qty<=0){ toast("Indiquez la quantité."); return; }
+  var data={kind:kind, product_id:pid, label:V("s_label")||(p?p.name:(kind==='entree'?"Entrée":"Sortie")), qty:qty, unit:c?c.order_unit:null, date:V("s_date")||today()};
+  if(kind==='entree'){ data.amount=Number(V("s_amount"))||0; data.supplier=V("s_supplier")||null; }
+  var res=await sb.from('stock_entries').insert(data);
+  if(res.error){ toast("Erreur : "+res.error.message); return; }
+  closeSheet(); toast("Enregistré"); await refresh();
+}
+
+/* ===== DÉPENSES ===== */
+function catLabel(c){ var m={salaire:"Salaire",transport:"Transport",electricite:"Électricité",loyer:"Loyer",communication:"Communication",autre:"Autre"}; return m[c]||c||"Autre"; }
+function renderExpenses(){
+  var h='<button class="add-link" data-go="menu" style="margin:2px 0 12px">‹ Gestion</button>';
+  h+='<div class="view-title">Dépenses</div><p class="view-sub">Dépenses de fonctionnement.</p>';
+  var total=S.expenses.reduce(function(a,x){return a+(Number(x.amount)||0);},0);
+  var ym=today().slice(0,7);
+  var mois=S.expenses.filter(function(x){return String(x.date||"").slice(0,7)===ym;}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
+  h+='<div class="kpis"><div class="kpi"><div class="lab"><i style="background:var(--crit)"></i>Ce mois-ci</div><div class="val sm tnum">'+money(mois)+'</div></div>'
+    +'<div class="kpi"><div class="lab"><i style="background:var(--muted)"></i>Total enregistré</div><div class="val sm tnum">'+money(total)+'</div></div></div>';
+  h+='<button class="btn btn-green btn-block" data-addexp="1" style="margin:14px 0">+ Nouvelle dépense</button>';
+  if(S.expenses.length===0){ h+='<div class="item-empty">Aucune dépense enregistrée.</div>'; return h; }
+  h+='<div class="card"><div class="items">'; S.expenses.forEach(function(x){
+    h+='<div class="item"><div class="body"><div class="top"><span class="lab">'+esc(x.label||catLabel(x.category))+'</span><span class="amt tnum" style="color:var(--crit)">'+money(x.amount)+'</span></div>'
+      +'<div class="sub">'+esc(catLabel(x.category))+' · '+fmtDate(x.date)+'</div></div>'
+      +'<button class="del" data-del="expenses:'+x.id+'" aria-label="Supprimer">×</button></div>';
+  }); h+='</div></div>';
+  return h;
+}
+function expenseForm(){
+  var cats=[["salaire","Salaire"],["transport","Transport"],["electricite","Électricité"],["loyer","Loyer"],["communication","Communication"],["autre","Autre"]];
+  var opts=cats.map(function(c){return '<option value="'+c[0]+'">'+c[1]+'</option>';}).join('');
+  openSheet('<h3>Nouvelle dépense</h3>'
+    +'<div class="field"><label for="x_cat">Catégorie</label><select id="x_cat">'+opts+'</select></div>'
+    +fld("Libellé","text","x_label","","Ex : Salaire de septembre")
+    +'<div class="field-row">'+fld("Montant (FG)","number","x_amount","","0")+fld("Date","date","x_date",today(),"")+'</div>'
+    +area("Note","x_note","","")
+    +'<div class="sheet-actions"><button class="btn btn-ghost" data-cancel="1">Annuler</button><button class="btn btn-green" data-saveexp="1">Enregistrer</button></div>');
+}
+async function saveExpense(){
+  var amt=Number(V("x_amount"))||0; if(amt<=0){ toast("Indiquez un montant."); return; }
+  var res=await sb.from('expenses').insert({category:V("x_cat")||"autre", label:V("x_label")||null, amount:amt, date:V("x_date")||today(), note:V("x_note")||null});
+  if(res.error){ toast("Erreur : "+res.error.message); return; }
+  closeSheet(); toast("Dépense enregistrée"); await refresh();
 }
 
 /* ===== SHEETS ===== */
@@ -632,9 +746,14 @@ function orderSheet(id){
 
 /* ===== EVENTS ===== */
 document.addEventListener("click",function(e){
-  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin]");
+  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin],[data-go],[data-addstock],[data-savestock],[data-addexp],[data-saveexp]");
   if(!el) return; var d=el.dataset;
   if(d.tab!==undefined){ currentId=null; view=d.tab; render(); }
+  else if(d.go!==undefined){ currentId=null; view=d.go; window.scrollTo(0,0); render(); }
+  else if(d.addstock!==undefined){ stockForm(d.addstock); }
+  else if(d.savestock!==undefined){ saveStock(d.savestock); }
+  else if(d.addexp!==undefined){ expenseForm(); }
+  else if(d.saveexp!==undefined){ saveExpense(); }
   else if(d.client!==undefined){ currentId=d.client; window.scrollTo(0,0); render(); }
   else if(d.back!==undefined){ currentId=null; render(); }
   else if(d.addclient!==undefined){ clientForm(null); }
