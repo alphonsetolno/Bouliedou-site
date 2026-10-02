@@ -544,12 +544,17 @@ function prodForm(p){
     +'<div class="field"><label for="p_cat">Interface</label><select id="p_cat">'+catOpts+'</select></div>'
     +'<div class="field-row">'
       +'<div class="field"><label>Prix (FG) par <span id="p_su">unité</span></label><input id="p_price" type="number" inputmode="numeric" min="0" value="'+(p.price!=null?esc(p.price):'')+'" placeholder="0"></div>'
-      +'<div class="field"><label>Contenance (<span id="p_su2">unité</span> / <span id="p_ou">commande</span>)</label><input id="p_content" type="number" inputmode="decimal" min="0" value="'+(p.content_per_unit!=null?esc(p.content_per_unit):'')+'" placeholder="facultatif"></div>'
+      +'<div class="field"><label>Contenance (<span id="p_su2">unité</span> / <span id="p_ou">commande</span>)</label><input id="p_content" type="number" inputmode="decimal" min="0" value="'+(p.content_per_unit!=null?esc(p.content_per_unit):'')+'" placeholder="ex : 80"></div>'
     +'</div>'
+    +'<div class="hint" id="p_preview" style="margin:-4px 0 12px"></div>'
     +'<label class="chk" style="margin-bottom:12px"><input type="checkbox" id="p_active"'+(p.active===false?'':' checked')+'><span>Produit actif (visible par les clients)</span></label>'
     +'<div class="sheet-actions">'+(p.id?'<button class="btn btn-danger" data-delprod="'+p.id+'">Supprimer</button>':'<button class="btn btn-ghost" data-cancel="1">Annuler</button>')
     +'<button class="btn btn-green" data-saveprod="'+(p.id||"")+'">Enregistrer</button></div>');
-  var cs=document.getElementById("p_cat"); cs.addEventListener("change",prodUnitSync); prodUnitSync();
+  var cs=document.getElementById("p_cat"); cs.addEventListener("change",prodUnitSync);
+  var pp=document.getElementById("p_price"), pcn=document.getElementById("p_content");
+  if(pp) pp.addEventListener("input",updateProdPreview);
+  if(pcn) pcn.addEventListener("input",updateProdPreview);
+  prodUnitSync();
 }
 function prodUnitSync(){
   var cs=document.getElementById("p_cat"); if(!cs) return;
@@ -558,6 +563,17 @@ function prodUnitSync(){
   if(a)a.textContent=cat?cat.sale_unit:"unité";
   if(b)b.textContent=cat?cat.sale_unit:"unité";
   if(c)c.textContent=cat?cat.order_unit:"commande";
+  updateProdPreview();
+}
+function updateProdPreview(){
+  var cs=document.getElementById("p_cat"); var pv=document.getElementById("p_preview"); if(!cs||!pv) return;
+  var cat=catById(cs.value);
+  var price=Number((document.getElementById("p_price")||{}).value)||0;
+  var cont=Number((document.getElementById("p_content")||{}).value)||0;
+  if(cat && cat.order_unit!==cat.sale_unit){
+    if(price>0 && cont>0) pv.innerHTML='Prix par '+esc(cat.order_unit)+' : <b>'+money(price*cont)+'</b> <span style="color:var(--muted)">('+money(price)+'/'+esc(cat.sale_unit)+' × '+cont+' '+esc(cat.sale_unit)+')</span>';
+    else pv.innerHTML='<span style="color:var(--warn)">Indiquez le prix au '+esc(cat.sale_unit)+' et la contenance ('+esc(cat.sale_unit)+' par '+esc(cat.order_unit)+') pour calculer le prix du '+esc(cat.order_unit)+'.</span>';
+  } else { pv.textContent=''; }
 }
 function catForm(cat){
   cat=cat||{};

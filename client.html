@@ -261,7 +261,7 @@ function renderHome(){
 }
 
 function renderOrder(){
-  var h='<div class="view-title">Commander</div><p class="view-sub">Choisissez vos produits et les quantités.</p>';
+  var h='<div class="view-title">Commander</div><p class="view-sub">Choisissez vos produits et les quantités. Les prix affichés sont indicatifs.</p>';
   var list=productsForMe();
   if(list.length===0){ h+='<div class="item-empty">Aucun produit disponible pour votre compte pour le moment. Contactez Bouliedou.</div>'; return h; }
   // grouper par interface
@@ -351,7 +351,8 @@ function checkoutSheet(){
   }).join('');
   openSheet('<h3>Confirmer la commande</h3>'
     +'<div class="items" style="margin-bottom:12px">'+rows+'</div>'
-    +'<div class="item"><div class="body"><div class="top"><span class="lab" style="font-weight:800">Total</span><span class="amt tnum" style="font-size:16px">'+money(cartTotal())+'</span></div></div></div>'
+    +'<div class="item"><div class="body"><div class="top"><span class="lab" style="font-weight:800">Total indicatif</span><span class="amt tnum" style="font-size:16px">'+money(cartTotal())+'</span></div></div></div>'
+    +'<div style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5">Montant indicatif. Le prix exact (selon le poids réel et le prix du jour) vous sera confirmé par Bouliedou à la livraison.</div>'
     +'<div class="field" style="margin-top:12px"><label for="o_note">Remarque (facultatif)</label><textarea id="o_note" placeholder="Ex : livraison souhaitée cette semaine"></textarea></div>'
     +'<div class="sheet-actions"><button class="btn btn-ghost" data-cancel="1">Annuler</button><button class="btn btn-green" id="confOrder">Envoyer la commande</button></div>');
   document.getElementById("confOrder").addEventListener("click",submitOrder);
