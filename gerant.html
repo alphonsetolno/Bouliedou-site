@@ -226,6 +226,8 @@ function catName(id){ var c=catById(id); return c?c.name:"—"; }
 function prodById(id){ return S.products.find(function(x){return x.id===id;}); }
 function prodCat(p){ return p&&p.category_id?catById(p.category_id):null; }
 function clientCatIds(c){ return (c&&Array.isArray(c.category_ids))?c.category_ids:[]; }
+/* numéro de connexion normalisé (chiffres ; on retire l'indicatif 224) */
+function normPhone(v){ var d=String(v||"").replace(/\D/g,""); if(d.length>9&&d.indexOf("224")===0) d=d.slice(3); return d; }
 /* produits accessibles à un client (selon ses interfaces ; si aucune, tous) */
 function productsForClient(c){
   var ids=clientCatIds(c);
@@ -321,6 +323,16 @@ function renderClient(id){
   var cnames=cids.map(catName).filter(function(n){return n&&n!=="—";});
   h+='<div class="card"><div class="info-row"><span class="k">Interfaces</span><span>'+(cnames.length?esc(cnames.join(" · ")):'<span style="color:var(--muted)">Toutes (non défini)</span>')+'</span></div></div>';
   if(c.note) h+='<div class="card"><div class="info-row"><span class="k">Note</span><span>'+esc(c.note)+'</span></div></div>';
+  if(isAdmin()){
+    var active=!!c.auth_user_id;
+    h+='<div class="card"><div class="card-h"><h3>Accès client (connexion)</h3></div>';
+    if(active) h+='<div class="info-row"><span class="k">État</span><span style="color:var(--good);font-weight:800">Activé</span></div>'
+      +'<div class="info-row"><span class="k">Login</span><span class="tnum">'+esc(normPhone(c.phone)||"—")+'</span></div>';
+    else h+='<div class="item-empty">Aucun accès. Créez un code PIN pour que ce client puisse se connecter à son espace.</div>';
+    h+='<div class="d-actions" style="margin-top:12px"><button class="btn btn-gold" data-pin="'+id+'">'+(active?"Changer le PIN":"Créer l\'accès (PIN)")+'</button>';
+    if(active) h+='<button class="btn btn-danger" data-rmaccess="'+id+'">Retirer l\'accès</button>';
+    h+='</div></div>';
+  }
   h+='<div class="card"><div class="card-h"><h3>Finances</h3></div><div class="money-grid">'
     +'<div class="m"><div class="lab">Crédit</div><div class="v tnum">'+money(t.credit)+'</div></div>'
     +'<div class="m"><div class="lab">Payé</div><div class="v tnum">'+money(t.paye)+'</div></div>'
@@ -556,6 +568,40 @@ function catForm(cat){
     +'<div class="sheet-actions">'+(cat.id?'<button class="btn btn-danger" data-delcat="'+cat.id+'">Supprimer</button>':'<button class="btn btn-ghost" data-cancel="1">Annuler</button>')
     +'<button class="btn btn-green" data-savecat="'+(cat.id||"")+'">Enregistrer</button></div>');
 }
+function pinForm(id){
+  var c=S.clients.find(function(x){return x.id===id;}); if(!c) return;
+  var active=!!c.auth_user_id;
+  openSheet('<h3>'+(active?"Changer le code PIN":"Créer l\'accès client")+'</h3>'
+    +'<div class="hint">Le client se connectera avec son <b>numéro</b> et ce <b>code PIN</b>. Notez bien les deux et communiquez-les-lui.</div>'
+    +fld("Numéro de connexion","tel","pin_phone",normPhone(c.phone),"623010818")
+    +fld("Code PIN (6 chiffres)","text","pin_code","","ex : 240915")
+    +'<div class="sheet-actions"><button class="btn btn-ghost" data-cancel="1">Annuler</button><button class="btn btn-green" data-savepin="'+id+'">Enregistrer</button></div>');
+  var pc=document.getElementById("pin_code"); if(pc){ pc.setAttribute("inputmode","numeric"); pc.setAttribute("maxlength","6"); }
+}
+async function savePin(id){
+  var phone=normPhone(V("pin_phone")), pin=V("pin_code").replace(/\D/g,"");
+  if(phone.length<6){ toast("Numéro invalide."); return; }
+  if(pin.length<6){ toast("Le PIN doit avoir 6 chiffres."); return; }
+  toast("Enregistrement…");
+  var res=await sb.functions.invoke('client-access',{ body:{ action:'set', client_id:id, phone:phone, pin:pin } });
+  var e=fnError(res); if(e){ toast("Erreur : "+e); return; }
+  closeSheet(); toast("Accès enregistré ✓"); await refresh();
+}
+function removeAccess(id){
+  openSheet('<h3>Retirer l\'accès ?</h3><p style="color:var(--muted);font-size:14px;margin:0 0 16px">Le client ne pourra plus se connecter. Ses données (commandes, soldes, paiements) restent conservées.</p><div class="sheet-actions"><button class="btn btn-ghost" data-cancel="1">Annuler</button><button class="btn btn-danger" id="confRm">Retirer</button></div>');
+  document.getElementById("confRm").addEventListener("click",async function(){
+    closeSheet(); toast("…");
+    var res=await sb.functions.invoke('client-access',{ body:{ action:'remove', client_id:id } });
+    var e=fnError(res); if(e){ toast("Erreur : "+e); return; }
+    toast("Accès retiré"); await refresh();
+  });
+}
+/* extrait un message d'erreur lisible d'un appel Edge Function */
+function fnError(res){
+  if(res && res.data && res.data.ok===false) return res.data.error||"échec";
+  if(res && res.error) return (res.error.message||"échec");
+  return null;
+}
 function orderSheet(id){
   var o=S.orders.find(function(x){return x.id===id;}); if(!o) return;
   var rows=(o.items||[]).map(function(it){ var u=it.order_unit||it.unit||""; return '<div class="item"><div class="body"><div class="top"><span class="lab">'+esc(it.label||it.name||"Article")+' — '+(it.qty||1)+(u?(" "+esc(u)):"")+'</span><span class="amt tnum">'+money((it.qty||1)*(it.unit_price||it.price||0))+'</span></div></div></div>'; }).join('')||'<div class="item-empty">Aucun détail.</div>';
@@ -570,7 +616,7 @@ function orderSheet(id){
 
 /* ===== EVENTS ===== */
 document.addEventListener("click",function(e){
-  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat]");
+  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin]");
   if(!el) return; var d=el.dataset;
   if(d.tab!==undefined){ currentId=null; view=d.tab; render(); }
   else if(d.client!==undefined){ currentId=d.client; window.scrollTo(0,0); render(); }
@@ -593,6 +639,9 @@ document.addEventListener("click",function(e){
   else if(d.editcat!==undefined){ catForm(S.categories.find(function(x){return x.id===d.editcat;})); }
   else if(d.savecat!==undefined){ saveCat(d.savecat); }
   else if(d.delcat!==undefined){ delCat(d.delcat); }
+  else if(d.pin!==undefined){ pinForm(d.pin); }
+  else if(d.rmaccess!==undefined){ removeAccess(d.rmaccess); }
+  else if(d.savepin!==undefined){ savePin(d.savepin); }
 });
 document.addEventListener("input",function(e){ if(e.target.id==="searchInput"){ search=e.target.value; render(); var si=document.getElementById("searchInput"); if(si){ si.focus(); si.setSelectionRange(si.value.length,si.value.length);} } });
 
