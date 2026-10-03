@@ -207,7 +207,7 @@ var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 var ME=null, ROLE=null;
 var S={clients:[],products:[],orders:[],deliveries:[],credits:[],payments:[],categories:[],stock:[],expenses:[]};
-var view="home", currentId=null, search="";
+var view="home", currentId=null, search="", profitPeriod="month";
 
 function money(n){ n=Number(n)||0; return new Intl.NumberFormat("fr-FR").format(Math.round(n))+" FG"; }
 function esc(s){ return (s==null?"":String(s)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
@@ -264,18 +264,19 @@ async function loadAll(){
 
 /* ===== RENDER ===== */
 function render(){
-  var activeTab = (["menu","catalog","stock","expenses"].indexOf(view)>=0)?"menu":view;
+  var activeTab = (["menu","catalog","stock","expenses","profit"].indexOf(view)>=0)?"menu":view;
   document.querySelectorAll(".tab").forEach(function(b){ b.classList.toggle("on", b.dataset.tab===activeTab && !currentId); });
   var root=document.getElementById("root");
   if(currentId){ root.innerHTML=renderClient(currentId); return; }
   root.innerHTML = view==="home"?renderHome() : view==="clients"?renderClients() : view==="orders"?renderOrders()
-    : view==="menu"?renderMenu() : view==="stock"?renderStock() : view==="expenses"?renderExpenses() : renderCatalog();
+    : view==="menu"?renderMenu() : view==="stock"?renderStock() : view==="expenses"?renderExpenses() : view==="profit"?renderProfit() : renderCatalog();
 }
 function renderMenu(){
-  var h='<div class="view-title">Gestion</div><p class="view-sub">Catalogue, stock et dépenses.</p><div class="clist">';
+  var h='<div class="view-title">Gestion</div><p class="view-sub">Catalogue, stock, dépenses et bénéfice.</p><div class="clist">';
   h+=menuCard("catalog","Catalogue","Produits, interfaces et prix");
   h+=menuCard("stock","Stock","Entrées, sorties et stock restant");
   h+=menuCard("expenses","Dépenses","Salaires, loyer, électricité…");
+  h+=menuCard("profit","Bénéfice","Résultat : ventes − achats − dépenses");
   h+='</div>';
   return h;
 }
@@ -494,19 +495,50 @@ function stockForm(kind){
   h+='<div class="field"><label for="s_prod">Produit</label><select id="s_prod">'+allProdOptions()+'</select></div>';
   h+=fld("Désignation","text","s_label","","Nom de la marchandise");
   h+='<div class="field"><label>Quantité (<span id="s_unit">unité</span>)</label><input id="s_qty" type="number" inputmode="decimal" min="0" placeholder="0"></div>';
-  if(isEnt){ h+=fld("Coût total d'achat (FG)","number","s_amount","","0")+fld("Fournisseur","text","s_supplier","","(facultatif)"); }
+  if(isEnt){
+    h+='<div class="field-row">'
+      +'<div class="field"><label>Contenance (<span id="s_su">kg</span>/<span id="s_ou">sac</span>)</label><input id="s_content" type="number" inputmode="decimal" min="0" placeholder="ex : 80"></div>'
+      +'<div class="field"><label>Prix du <span id="s_su2">kg</span> (FG)</label><input id="s_price" type="number" inputmode="numeric" min="0" placeholder="0"></div>'
+    +'</div>';
+    h+=fld("Coût total (FG)","number","s_amount","","0");
+    h+='<div class="hint" id="s_preview" style="margin:-4px 0 12px"></div>';
+    h+=fld("Fournisseur","text","s_supplier","","(facultatif)");
+  }
   h+=fld("Date","date","s_date",today(),"");
   h+='<div class="sheet-actions"><button class="btn btn-ghost" data-cancel="1">Annuler</button><button class="btn btn-green" data-savestock="'+(isEnt?'entree':'sortie')+'">Enregistrer</button></div>';
   openSheet(h);
   var sel=document.getElementById("s_prod");
-  sel.addEventListener("change",function(){ var p=prodById(sel.value), c=p?prodCat(p):null, u=document.getElementById("s_unit"), lab=document.getElementById("s_label");
-    if(u) u.textContent=c?c.order_unit:"unité"; if(p&&lab) lab.value=p.name; });
+  sel.addEventListener("change",stockProdSync);
+  if(isEnt){ ["s_qty","s_content","s_price"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input",stockRecalc); }); }
+  stockProdSync();
+}
+function stockProdSync(){
+  var sel=document.getElementById("s_prod"); if(!sel) return;
+  var p=prodById(sel.value), c=p?prodCat(p):null;
+  var u=document.getElementById("s_unit"); if(u) u.textContent=c?c.order_unit:"unité";
+  var su=document.getElementById("s_su"), ou=document.getElementById("s_ou"), su2=document.getElementById("s_su2");
+  if(su) su.textContent=c?c.sale_unit:"unité"; if(ou) ou.textContent=c?c.order_unit:"unité"; if(su2) su2.textContent=c?c.sale_unit:"unité";
+  var lab=document.getElementById("s_label"); if(p&&lab) lab.value=p.name;
+  var cEl=document.getElementById("s_content"), pEl=document.getElementById("s_price");
+  if(p&&cEl&&!cEl.value&&p.content_per_unit) cEl.value=p.content_per_unit;
+  if(p&&pEl&&!pEl.value&&p.price!=null) pEl.value=p.price;
+  stockRecalc();
+}
+function stockRecalc(){
+  var amtEl=document.getElementById("s_amount"); if(!amtEl) return;
+  var qty=Number((document.getElementById("s_qty")||{}).value)||0;
+  var cont=Number((document.getElementById("s_content")||{}).value)||0;
+  var price=Number((document.getElementById("s_price")||{}).value)||0;
+  var pv=document.getElementById("s_preview");
+  var total=qty*(cont>0?cont:1)*price;
+  if(total>0){ amtEl.value=Math.round(total); if(pv) pv.innerHTML='Total : <b>'+money(total)+'</b> <span style="color:var(--muted)">('+rnd(qty)+' × '+rnd(cont||1)+' × '+money(price)+')</span>'; }
+  else if(pv){ pv.textContent=''; }
 }
 async function saveStock(kind){
   var pid=V("s_prod")||null, p=pid?prodById(pid):null, c=p?prodCat(p):null;
   var qty=numOrNull("s_qty"); if(!qty||qty<=0){ toast("Indiquez la quantité."); return; }
   var data={kind:kind, product_id:pid, label:V("s_label")||(p?p.name:(kind==='entree'?"Entrée":"Sortie")), qty:qty, unit:c?c.order_unit:null, date:V("s_date")||today()};
-  if(kind==='entree'){ data.amount=Number(V("s_amount"))||0; data.supplier=V("s_supplier")||null; }
+  if(kind==='entree'){ data.amount=Number(V("s_amount"))||0; data.supplier=V("s_supplier")||null; data.content_per_unit=numOrNull("s_content"); data.unit_price=numOrNull("s_price"); }
   var res=await sb.from('stock_entries').insert(data);
   if(res.error){ toast("Erreur : "+res.error.message); return; }
   closeSheet(); toast("Enregistré"); await refresh();
@@ -546,6 +578,39 @@ async function saveExpense(){
   var res=await sb.from('expenses').insert({category:V("x_cat")||"autre", label:V("x_label")||null, amount:amt, date:V("x_date")||today(), note:V("x_note")||null});
   if(res.error){ toast("Erreur : "+res.error.message); return; }
   closeSheet(); toast("Dépense enregistrée"); await refresh();
+}
+
+/* ===== BÉNÉFICE ===== */
+function inProfitPeriod(dateStr){ if(profitPeriod==="all") return true; return String(dateStr||"").slice(0,7)===today().slice(0,7); }
+function sumP(arr){ return arr.filter(function(x){return inProfitPeriod(x.date);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0); }
+function pline(label,amt,color){
+  return '<div class="item"><div class="body"><div class="top"><span class="lab">'+esc(label)+'</span><span class="amt tnum" style="color:'+color+'">'+money(amt)+'</span></div></div></div>';
+}
+function renderProfit(){
+  var h='<button class="add-link" data-go="menu" style="margin:2px 0 12px">‹ Gestion</button>';
+  h+='<div class="view-title">Bénéfice</div><p class="view-sub">Estimation de votre résultat.</p>';
+  h+='<div class="d-actions" style="margin-bottom:10px">'
+    +'<button class="btn '+(profitPeriod==="month"?"btn-green":"btn-ghost")+'" data-profper="month">Ce mois-ci</button>'
+    +'<button class="btn '+(profitPeriod==="all"?"btn-green":"btn-ghost")+'" data-profper="all">Depuis le début</button></div>';
+  var ventes=sumP(S.credits);
+  var encaisse=sumP(S.payments);
+  var achats=S.stock.filter(function(x){return x.kind==='entree'&&inProfitPeriod(x.date);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
+  var depenses=sumP(S.expenses);
+  var benef=ventes-achats-depenses;
+  h+='<div class="d-head" style="margin-top:4px"><div class="t" style="color:var(--gold-soft)">Bénéfice estimé</div>'
+    +'<h2 style="font-size:27px;margin-top:4px">'+money(benef)+'</h2>'
+    +'<div class="t" style="margin-top:6px">Ventes − Achats de marchandises − Dépenses</div></div>';
+  h+='<div class="card"><div class="items">'
+    +pline("Ventes (marchandises vendues)", ventes, "var(--good)")
+    +pline("Achats de marchandises (stock)", -achats, "var(--crit)")
+    +pline("Dépenses de fonctionnement", -depenses, "var(--crit)")
+    +'<div class="item"><div class="body"><div class="top"><span class="lab" style="font-weight:800">Bénéfice estimé</span><span class="amt tnum" style="color:'+(benef>=0?'var(--good)':'var(--crit)')+'">'+money(benef)+'</span></div></div></div>'
+    +'</div></div>';
+  h+='<div class="card"><div class="card-h"><h3>Trésorerie (argent reçu)</h3></div>'
+    +'<div class="info-row"><span class="k">Encaissé</span><b class="tnum">'+money(encaisse)+'</b></div>'
+    +'<div class="info-row"><span class="k">Reste dû clients</span><b class="tnum" style="color:var(--crit)">'+money(Math.max(0,ventes-encaisse))+'</b></div></div>';
+  h+='<div class="hint" style="margin-top:12px;line-height:1.6">Estimation. « Ventes » = valeur des marchandises vendues (payées ou à crédit). Si vous venez d\'acheter beaucoup de stock non encore vendu, le bénéfice paraîtra plus bas — ce stock sera vendu plus tard.</div>';
+  return h;
 }
 
 /* ===== SHEETS ===== */
@@ -746,7 +811,7 @@ function orderSheet(id){
 
 /* ===== EVENTS ===== */
 document.addEventListener("click",function(e){
-  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin],[data-go],[data-addstock],[data-savestock],[data-addexp],[data-saveexp]");
+  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin],[data-go],[data-addstock],[data-savestock],[data-addexp],[data-saveexp],[data-profper]");
   if(!el) return; var d=el.dataset;
   if(d.tab!==undefined){ currentId=null; view=d.tab; render(); }
   else if(d.go!==undefined){ currentId=null; view=d.go; window.scrollTo(0,0); render(); }
@@ -754,6 +819,7 @@ document.addEventListener("click",function(e){
   else if(d.savestock!==undefined){ saveStock(d.savestock); }
   else if(d.addexp!==undefined){ expenseForm(); }
   else if(d.saveexp!==undefined){ saveExpense(); }
+  else if(d.profper!==undefined){ profitPeriod=d.profper; render(); }
   else if(d.client!==undefined){ currentId=d.client; window.scrollTo(0,0); render(); }
   else if(d.back!==undefined){ currentId=null; render(); }
   else if(d.addclient!==undefined){ clientForm(null); }
