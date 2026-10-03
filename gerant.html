@@ -216,7 +216,7 @@ var SUPABASE_KEY = "sb_publishable_HVqsBjVpMiOFKgYL88mu4g_5Vfw-jFu";
 var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 var ME=null, ROLE=null;
-var S={clients:[],products:[],orders:[],deliveries:[],credits:[],payments:[],categories:[],stock:[],expenses:[],rules:[],people:[]};
+var S={clients:[],products:[],orders:[],deliveries:[],credits:[],payments:[],categories:[],stock:[],expenses:[],rules:[],people:[],backups:[]};
 var view="home", currentId=null, search="", profitPeriod="month", actFilter="all";
 
 function money(n){ n=Number(n)||0; return new Intl.NumberFormat("fr-FR").format(Math.round(n))+" FG"; }
@@ -257,7 +257,8 @@ async function loadAll(){
     sb.from('categories').select('*').order('created_at'),
     sb.from('stock_entries').select('*').order('date',{ascending:false}),
     sb.from('expenses').select('*').order('date',{ascending:false}),
-    sb.from('loyalty_rules').select('*').order('created_at')
+    sb.from('loyalty_rules').select('*').order('created_at'),
+    sb.from('backups').select('id,created_at,note').order('created_at',{ascending:false})
   ]);
   var err = r.find(function(x){return x.error;});
   if(err){ toast("Erreur de chargement."); console.error(err.error); }
@@ -273,6 +274,7 @@ async function loadAll(){
   S.stock = r[7].data||[];
   S.expenses = r[8].data||[];
   S.rules = r[9].data||[];
+  S.backups = (r[10]&&r[10].data)||[];
 }
 
 /* ===== RENDER ===== */
@@ -741,9 +743,33 @@ function runExport(what){
   else if(what==="stock"){ var r=[["Date","Type","Produit","Quantité","Unité","Contenance","Prix unitaire","Coût total","Fournisseur"]]; S.stock.forEach(function(x){ r.push([x.date,x.kind,x.label,x.qty,x.unit,x.content_per_unit,x.unit_price,x.amount,x.supplier]); }); csvDownload("stock.csv",r); }
   toast("Fichier téléchargé");
 }
+async function downloadBackup(id){
+  toast("Préparation…");
+  var res=await sb.from('backups').select('data,created_at').eq('id',id).maybeSingle();
+  if(res.error || !res.data){ toast("Erreur de téléchargement."); return; }
+  var txt=JSON.stringify(res.data.data, null, 2);
+  var blob=new Blob(["﻿"+txt],{type:"application/json;charset=utf-8;"});
+  var a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download="bouliedou-sauvegarde-"+String(res.data.created_at||'').slice(0,10)+".json";
+  document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },500);
+  toast("Sauvegarde téléchargée ✓");
+}
 function renderBackup(){
   var h='<button class="add-link" data-go="menu" style="margin:2px 0 12px">‹ Gestion</button>';
-  h+='<div class="view-title">Sauvegarde</div><p class="view-sub">Exporter vos données en fichier Excel (CSV).</p>';
+  h+='<div class="view-title">Sauvegarde</div><p class="view-sub">Copies de secours de toutes vos données.</p>';
+  // --- sauvegardes automatiques ---
+  if(isAdmin()){
+    h+='<div class="card"><div class="card-h"><h3>Sauvegardes automatiques</h3></div>';
+    h+='<div class="hint" style="margin:0 0 10px">Une sauvegarde complète est créée automatiquement chaque semaine. Téléchargez-la pour la conserver sur votre ordinateur ou votre cloud.</div>';
+    if(!S.backups.length) h+='<div class="item-empty">Aucune sauvegarde pour le moment (la première apparaîtra après l\'activation).</div>';
+    else { h+='<div class="items">'; S.backups.forEach(function(b){
+      h+='<div class="item"><div class="body"><div class="top"><span class="lab">Sauvegarde du '+fmtDate(b.created_at)+'</span></div><div class="sub">'+esc(b.note||'')+'</div></div>'
+        +'<button class="del" data-dlbackup="'+b.id+'" style="color:var(--green);font-size:13px;font-weight:700">Télécharger</button></div>';
+    }); h+='</div>'; }
+    h+='</div>';
+  }
+  // --- export manuel CSV ---
+  h+='<div class="section-h"><h2>Export Excel (CSV)</h2></div>';
   h+='<div class="clist">'
     +'<button class="btn btn-ghost btn-block" data-export="clients">Clients + soldes</button>'
     +'<button class="btn btn-ghost btn-block" data-export="sales">Ventes (marchandises à crédit)</button>'
@@ -1051,7 +1077,7 @@ function orderSheet(id){
 
 /* ===== EVENTS ===== */
 document.addEventListener("click",function(e){
-  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin],[data-go],[data-addstock],[data-savestock],[data-addexp],[data-saveexp],[data-profper],[data-wa],[data-receiptpay],[data-wareceipt],[data-export],[data-addrule],[data-editrule],[data-saverule],[data-delrule],[data-pdfreceipt],[data-actfilter]");
+  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin],[data-go],[data-addstock],[data-savestock],[data-addexp],[data-saveexp],[data-profper],[data-wa],[data-receiptpay],[data-wareceipt],[data-export],[data-addrule],[data-editrule],[data-saverule],[data-delrule],[data-pdfreceipt],[data-actfilter],[data-dlbackup]");
   if(!el) return; var d=el.dataset;
   if(d.tab!==undefined){ currentId=null; view=d.tab; render(); }
   else if(d.go!==undefined){ currentId=null; view=d.go; window.scrollTo(0,0); render(); }
@@ -1065,6 +1091,7 @@ document.addEventListener("click",function(e){
   else if(d.wareceipt!==undefined){ var wr=d.wareceipt.split(":"); waReceipt(wr[0],wr[1]); }
   else if(d.pdfreceipt!==undefined){ var pr2=d.pdfreceipt.split(":"); genReceiptPDF(pr2[0],pr2[1]); }
   else if(d.actfilter!==undefined){ actFilter=d.actfilter; render(); }
+  else if(d.dlbackup!==undefined){ downloadBackup(d.dlbackup); }
   else if(d.export!==undefined){ runExport(d.export); }
   else if(d.addrule!==undefined){ ruleForm(null); }
   else if(d.editrule!==undefined){ ruleForm(S.rules.find(function(x){return x.id===d.editrule;})); }
