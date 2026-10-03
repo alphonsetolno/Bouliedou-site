@@ -361,7 +361,7 @@ async function enrollBio(){
       rp:{ name:'Bouliedou', id:location.hostname },
       user:{ id:new TextEncoder().encode(uid), name:((ME&&ME.full_name)||uid), displayName:((ME&&ME.full_name)||'Bouliedou') },
       pubKeyCredParams:[{type:'public-key',alg:-7},{type:'public-key',alg:-257}],
-      authenticatorSelection:{ authenticatorAttachment:'platform', userVerification:'required' },
+      authenticatorSelection:{ authenticatorAttachment:'platform', userVerification:'required', residentKey:'discouraged', requireResidentKey:false },
       timeout:60000, attestation:'none'
     }});
     if(!cred) return false;
@@ -588,13 +588,13 @@ async function loadAll(){
 
 /* ===== RENDER ===== */
 function render(){
-  var activeTab = (["menu","catalog","stock","expenses","profit","backup","rewards","activity","security"].indexOf(view)>=0)?"menu":view;
+  var activeTab = (["menu","catalog","stock","expenses","profit","backup","rewards","activity","security","prodreport"].indexOf(view)>=0)?"menu":view;
   document.querySelectorAll(".tab").forEach(function(b){ b.classList.toggle("on", b.dataset.tab===activeTab && !currentId); });
   var root=document.getElementById("root");
   updateBell();
   if(currentId){ root.innerHTML=renderClient(currentId); return; }
   root.innerHTML = view==="home"?renderHome() : view==="clients"?renderClients() : view==="orders"?renderOrders()
-    : view==="menu"?renderMenu() : view==="stock"?renderStock() : view==="expenses"?renderExpenses() : view==="profit"?renderProfit() : view==="backup"?renderBackup() : view==="rewards"?renderRewards() : view==="activity"?renderActivity() : view==="notifs"?renderNotifs() : view==="security"?renderSecurity() : renderCatalog();
+    : view==="menu"?renderMenu() : view==="stock"?renderStock() : view==="expenses"?renderExpenses() : view==="profit"?renderProfit() : view==="backup"?renderBackup() : view==="rewards"?renderRewards() : view==="activity"?renderActivity() : view==="notifs"?renderNotifs() : view==="security"?renderSecurity() : view==="prodreport"?renderProductReport() : renderCatalog();
 }
 function renderMenu(){
   var h='<div class="view-title">Gestion</div><p class="view-sub">Catalogue, stock, dépenses et bénéfice.</p><div class="clist">';
@@ -602,6 +602,7 @@ function renderMenu(){
   h+=menuCard("stock","Stock","Entrées, sorties et stock restant");
   h+=menuCard("expenses","Dépenses","Salaires, loyer, électricité…");
   h+=menuCard("profit","Bénéfice","Résultat : ventes − achats − dépenses");
+  h+=menuCard("prodreport","Bilan par produit","Stock, crédit et caisse par produit");
   h+=menuCard("rewards","Récompenses","Cadeaux de fidélité par produit");
   if(isAdmin()) h+=menuCard("activity","Activité","Qui a saisi quoi (gérant / assistant)");
   h+=menuCard("security","Sécurité & alertes","Biométrie, verrouillage et notifications");
@@ -954,6 +955,44 @@ function renderProfit(){
   return h;
 }
 
+/* ===== BILAN PAR PRODUIT ===== */
+function renderProductReport(){
+  var h='<button class="add-link" data-go="menu" style="margin:2px 0 12px">‹ Gestion</button>';
+  h+='<div class="view-title">Bilan par produit</div><p class="view-sub">Stock, ventes à crédit et argent encaissé, pour chaque produit.</p>';
+  var m={};
+  function ens(pid){ if(!m[pid]) m[pid]={qtyIn:0,qtyOut:0,amtIn:0,credit:0,cash:0}; return m[pid]; }
+  S.stock.forEach(function(x){ if(!x.product_id) return; var r=ens(x.product_id); if(x.kind==='sortie') r.qtyOut+=Number(x.qty)||0; else { r.qtyIn+=Number(x.qty)||0; r.amtIn+=Number(x.amount)||0; } });
+  S.credits.forEach(function(x){ ens(x.product_id||'__none').credit+=Number(x.amount)||0; });
+  S.payments.forEach(function(x){ ens(x.product_id||'__none').cash+=Number(x.amount)||0; });
+  var tStock=0,tCash=0;
+  Object.keys(m).forEach(function(pid){ var r=m[pid]; var net=r.qtyIn-r.qtyOut; var avg=r.qtyIn>0?r.amtIn/r.qtyIn:0; tStock+=Math.max(0,net)*avg; tCash+=r.cash; });
+  h+='<div class="kpis">'
+    +'<div class="kpi"><div class="lab"><i style="background:var(--gold)"></i>Valeur en stock</div><div class="val sm tnum">'+money(tStock)+'</div></div>'
+    +'<div class="kpi"><div class="lab"><i style="background:var(--good)"></i>Encaissé (caisse)</div><div class="val sm tnum">'+money(tCash)+'</div></div></div>';
+  var ids=S.products.map(function(p){return p.id;}).filter(function(id){return m[id];});
+  if(!ids.length && !m['__none']){ h+='<div class="item-empty" style="margin-top:14px">Aucune donnée par produit pour le moment. Les totaux apparaîtront au fur et à mesure des saisies (stock, crédits, paiements par produit).</div>'; return h; }
+  ids.forEach(function(pid){ h+=prodReportCard(pid, m[pid]); });
+  if(m['__none']) h+=prodReportCard('__none', m['__none']);
+  h+='<div class="hint" style="margin-top:12px;line-height:1.6">« Valeur stock » = quantité restante × prix d\'achat moyen. « À crédit » = marchandises vendues à crédit pour ce produit. « Encaissé » = paiements enregistrés pour ce produit. Les paiements « Général » apparaissent sous « Non attribué ».</div>';
+  return h;
+}
+function prodReportCard(pid, r){
+  var p = pid==='__none'?null:prodById(pid);
+  var cat = p?prodCat(p):null, unit=cat?cat.order_unit:'';
+  var net = r.qtyIn - r.qtyOut;
+  var avg = r.qtyIn>0 ? r.amtIn/r.qtyIn : 0;
+  var stockVal = Math.max(0,net)*avg;
+  var due = r.credit - r.cash;
+  var name = p?p.name:'Non attribué (général)';
+  var h='<div class="card"><div class="card-h"><h3>'+esc(name)+'</h3>'+(p?'<span class="solde ok tnum" style="color:'+(net>0?'var(--good)':'var(--muted)')+'">'+rnd(net)+' '+esc(unit)+' en stock</span>':'')+'</div>';
+  h+='<div class="money-grid">'
+    +(p?'<div class="m"><div class="lab">Valeur stock</div><div class="v tnum">'+money(stockVal)+'</div></div>':'')
+    +'<div class="m"><div class="lab">À crédit</div><div class="v tnum" style="color:var(--crit)">'+money(r.credit)+'</div></div>'
+    +'<div class="m"><div class="lab">Encaissé</div><div class="v tnum" style="color:var(--good)">'+money(r.cash)+'</div></div></div>';
+  if(r.credit>0 || r.cash>0) h+='<div class="info-row" style="margin-top:8px"><span class="k">Reste dû</span><b class="tnum" style="color:'+(due>0?'var(--crit)':'var(--good)')+'">'+money(Math.max(0,due))+'</b></div>';
+  return h+'</div>';
+}
+
 /* ===== WHATSAPP & REÇUS ===== */
 function waDigits(phone){ var d=String(phone||"").replace(/\D/g,""); if(d && d.indexOf("224")!==0 && d.length<=9) d="224"+d; return d; }
 function waOpen(phone,text){ var d=waDigits(phone); if(!d){ toast("Numéro manquant."); return; } window.open("https://wa.me/"+d+"?text="+encodeURIComponent(text),"_blank"); }
@@ -1237,10 +1276,15 @@ function prodSelect(clientId){
   });
   return opts;
 }
+function prodOptionsOnly(clientId){
+  var c=S.clients.find(function(x){return x.id===clientId;});
+  return productsForClient(c).map(function(p){ var cat=prodCat(p); var u=cat?(" — "+cat.order_unit):""; return '<option value="'+p.id+'">'+esc(p.name)+esc(u)+'</option>'; }).join('');
+}
 function entryForm(type,clientId){
   var t=today();
   if(type==="pay"){
     openSheet('<h3>Nouveau paiement</h3>'+fld("Montant (FG)","number","e_amount","","0")
+      +'<div class="field"><label for="e_payprod">Produit concerné (facultatif)</label><select id="e_payprod"><option value="">— Général / non précisé —</option>'+prodOptionsOnly(clientId)+'</select></div>'
       +'<div class="field-row">'+fld("Date","date","e_date",t,"")+fld("Note","text","e_note","","(facultatif)")+'</div>'
       +'<div class="sheet-actions"><button class="btn btn-ghost" data-cancel="1">Annuler</button><button class="btn btn-green" data-saveentry="pay:'+clientId+'">Enregistrer</button></div>');
     return;
@@ -1482,7 +1526,7 @@ async function saveEntry(type,clientId){
     finishEntry(await saveOp({type:'credit', table:'credits', payload:payload2}));
   } else {
     var m=Number(V("e_amount"))||0; if(m<=0){ toast("Indiquez un montant."); return; }
-    finishEntry(await saveOp({type:'payment', table:'payments', payload:{client_id:clientId,amount:m,note:V("e_note"),date:d}}));
+    finishEntry(await saveOp({type:'payment', table:'payments', payload:{client_id:clientId,amount:m,note:V("e_note"),date:d,product_id:V("e_payprod")||null}}));
   }
 }
 async function delEntry(table,id){

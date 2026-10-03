@@ -333,7 +333,7 @@ async function enrollBio(){
       rp:{ name:'Bouliedou', id:location.hostname },
       user:{ id:new TextEncoder().encode(uid), name:((ME&&ME.full_name)||uid), displayName:((ME&&ME.full_name)||'Bouliedou') },
       pubKeyCredParams:[{type:'public-key',alg:-7},{type:'public-key',alg:-257}],
-      authenticatorSelection:{ authenticatorAttachment:'platform', userVerification:'required' },
+      authenticatorSelection:{ authenticatorAttachment:'platform', userVerification:'required', residentKey:'discouraged', requireResidentKey:false },
       timeout:60000, attestation:'none'
     }});
     if(!cred) return false;
