@@ -95,6 +95,8 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .step-btn:active{transform:scale(.95)}
 .qty{min-width:28px;text-align:center;font-weight:800;font-family:"Montserrat"}
 .cathead{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--green);margin:18px 0 8px}
+.pbar{height:9px;background:var(--line);border-radius:999px;overflow:hidden;margin-top:7px}
+.pbar span{display:block;height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-soft))}
 
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid transparent;border-radius:12px;font-weight:700;font-size:14.5px;padding:13px 18px}
 .btn-green{background:var(--green);color:#fff}
@@ -192,7 +194,7 @@ var EMAIL_DOMAIN = "clients.bouliedou.com";
 var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 var ME=null;
-var S={products:[],orders:[],credits:[],payments:[],deliveries:[],categories:[]};
+var S={products:[],orders:[],credits:[],payments:[],deliveries:[],categories:[],rules:[]};
 var view="home";
 var CART={}; // product_id -> qty
 
@@ -204,6 +206,29 @@ function sum(arr){ return arr.reduce(function(a,x){return a+(Number(x.amount)||0
 function toast(m){ var t=document.getElementById("toast"); t.textContent=m; t.classList.add("show"); clearTimeout(t._t); t._t=setTimeout(function(){t.classList.remove("show");},1900); }
 function normPhone(v){ var d=String(v||"").replace(/\D/g,""); if(d.length>9&&d.indexOf("224")===0) d=d.slice(3); return d; }
 function catById(id){ return S.categories.find(function(x){return x.id===id;}); }
+function prodById(id){ return S.products.find(function(x){return x.id===id;}); }
+function myProductQty(productId){ var y=String(new Date().getFullYear()); return S.credits.filter(function(x){return x.product_id===productId && String(x.date||"").slice(0,4)===y;}).reduce(function(a,x){return a+(Number(x.qty)||0);},0); }
+function rewardsSection(){
+  var rules=S.rules.filter(function(r){return r.active!==false;});
+  if(!rules.length) return '';
+  var ids=(ME&&Array.isArray(ME.category_ids))?ME.category_ids:[];
+  var h='', any=false;
+  rules.forEach(function(r){
+    var p=prodById(r.product_id); if(!p) return; var c=catById(p.category_id), unit=c?c.order_unit:'';
+    var thr=Number(r.threshold_qty)||0; if(thr<=0) return;
+    var q=myProductQty(r.product_id);
+    // montrer si le client peut acheter ce produit (interface) ou a déjà acheté
+    var relevant = q>0 || !ids.length || (p.category_id && ids.indexOf(p.category_id)>=0);
+    if(!relevant) return;
+    var gifts=Math.floor(q/thr), inCycle=q-gifts*thr, pct=Math.min(100,Math.round(inCycle/thr*100)), remain=Math.round(Math.max(0,thr-inCycle)*100)/100;
+    any=true;
+    h+='<div style="padding:11px 0;border-bottom:1px solid var(--line)"><div style="display:flex;justify-content:space-between;gap:10px"><span style="font-weight:700">'+esc(p.name)+'</span><span class="tnum" style="font-weight:700">'+(Math.round(q*100)/100)+' / '+(Math.round(thr*100)/100)+' '+esc(unit)+'</span></div>'
+      +'<div class="pbar"><span style="width:'+pct+'%"></span></div>'
+      +'<div style="font-size:12.5px;color:var(--muted);margin-top:5px">'+(gifts>0?'🎁 '+gifts+' × '+esc(r.gift_label)+' déjà gagné(s) · ':'')+'Plus que '+remain+' '+esc(unit)+' pour '+(gifts>0?'le prochain':'')+' 🎁 '+esc(r.gift_label)+'</div></div>';
+  });
+  if(!any) return '';
+  return '<div class="section-h"><h2>Mes récompenses '+String(new Date().getFullYear())+'</h2></div><div class="card">'+h+'</div>';
+}
 function firstName(){ return ((ME&&ME.full_name)||"").trim().split(/\s+/)[0]||"client"; }
 
 /* prix par unité de commande (ex : prix/kg × kg/sac = prix/sac) */
@@ -226,7 +251,8 @@ async function loadAll(){
     sb.from('credits').select('*').order('date',{ascending:false}),
     sb.from('payments').select('*').order('date',{ascending:false}),
     sb.from('deliveries').select('*').order('date',{ascending:false}),
-    sb.from('categories').select('*').order('created_at')
+    sb.from('categories').select('*').order('created_at'),
+    sb.from('loyalty_rules').select('*').order('created_at')
   ]);
   var err=r.find(function(x){return x.error;});
   if(err){ toast("Erreur de chargement."); console.error(err.error); }
@@ -236,6 +262,7 @@ async function loadAll(){
   S.payments=(r[3].data||[]).filter(function(o){return o.client_id===ME.id;});
   S.deliveries=(r[4].data||[]).filter(function(o){return o.client_id===ME.id;});
   S.categories=r[5].data||[];
+  S.rules=r[6].data||[];
 }
 
 /* ===== RENDER ===== */
@@ -253,6 +280,7 @@ function renderHome(){
     +'<div class="kpi"><div class="lab">Total pris à crédit</div><div class="val tnum">'+money(t.credit)+'</div></div>'
     +'<div class="kpi"><div class="lab">Total payé</div><div class="val tnum">'+money(t.paye)+'</div></div></div>';
   h+='<button class="btn btn-gold btn-block" data-go="order" style="margin-top:16px">Passer une commande</button>';
+  h+=rewardsSection();
   // dernières commandes
   h+='<div class="section-h"><h2>Mes dernières commandes</h2></div>';
   if(S.orders.length===0) h+='<div class="item-empty">Aucune commande pour l\'instant.</div>';
