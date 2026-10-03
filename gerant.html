@@ -201,6 +201,7 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 <div class="toast" id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 /* ===== CONFIG ===== */
 var SUPABASE_URL = "https://relosibnlcisdpjrtfhz.supabase.co";
@@ -651,7 +652,62 @@ function receiptPay(id,pid){
     +'<div class="info-row"><span class="k">Date</span><span>'+fmtDate(p.date)+'</span></div>'
     +'<div class="info-row"><span class="k">Solde dû</span><b class="tnum" style="color:var(--crit)">'+money(t.du)+'</b></div>'
     +'</div>'
-    +'<div class="sheet-actions"><button class="btn btn-ghost" data-cancel="1">Fermer</button>'+(c.phone?'<button class="btn btn-green" data-wareceipt="'+id+':'+pid+'">Partager sur WhatsApp</button>':'')+'</div>');
+    +'<div class="sheet-actions"><button class="btn btn-ghost" data-cancel="1">Fermer</button><button class="btn btn-green" data-pdfreceipt="'+id+':'+pid+'">Reçu PDF</button></div>'
+    +(c.phone?'<button class="btn btn-gold btn-block" data-wareceipt="'+id+':'+pid+'" style="margin-top:9px">Envoyer un message WhatsApp</button>':''));
+}
+function drawHex(doc,cx,cy,r){
+  var pts=[],i; for(i=0;i<6;i++){ var a=Math.PI/180*(60*i-90); pts.push([cx+r*Math.cos(a), cy+r*Math.sin(a)]); }
+  doc.setDrawColor(194,153,63); doc.setLineWidth(1.4);
+  for(i=0;i<6;i++){ var A=pts[i],B=pts[(i+1)%6]; doc.line(A[0],A[1],B[0],B[1]); }
+  doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(12,74,57); doc.text("BGB",cx,cy+2.2,{align:'center'});
+}
+function shortId(id){ return String(id||"").replace(/-/g,'').slice(0,8).toUpperCase(); }
+function pdfMoney(n){ return money(n).replace(/[   ]/g," "); }
+async function genReceiptPDF(id,pid){
+  if(!(window.jspdf&&window.jspdf.jsPDF)){ toast("Génération indisponible, réessayez."); return; }
+  var c=S.clients.find(function(x){return x.id===id;}), p=S.payments.find(function(x){return x.id===pid;}); if(!c||!p) return;
+  var t=totals(id), J=window.jspdf.jsPDF, doc=new J({unit:'mm',format:'a4'});
+  var green=[12,74,57], gold=[194,153,63], goldSoft=[216,182,95], ink=[27,40,33], muted=[107,122,112], line=[231,225,207], crit=[192,57,43];
+  var W=210, M=22;
+  doc.setFillColor.apply(doc,green); doc.rect(0,0,6,297,'F');
+  doc.setFillColor.apply(doc,gold); doc.rect(0,257,6,40,'F');
+  drawHex(doc, M, 22, 9);
+  doc.setFont('helvetica','bold'); doc.setFontSize(17); doc.setTextColor.apply(doc,green); doc.text("BOULIEDOU", M+16, 20);
+  doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor.apply(doc,gold); doc.text("GLOBAL BUSINESS", M+16.5, 25);
+  doc.setFontSize(9); doc.setTextColor.apply(doc,ink);
+  doc.text("Tél. +224 623 01 08 18", W-M, 15, {align:'right'});
+  doc.text("contact@bouliedou.com", W-M, 20, {align:'right'});
+  doc.text("www.bouliedou.com", W-M, 25, {align:'right'});
+  doc.setDrawColor.apply(doc,goldSoft); doc.setLineWidth(0.6); doc.line(M,34,W-M,34);
+  doc.setFont('helvetica','bold'); doc.setFontSize(19); doc.setTextColor.apply(doc,green); doc.text("REÇU DE PAIEMENT", M, 52);
+  doc.setDrawColor.apply(doc,gold); doc.setLineWidth(0.8); doc.line(M,55,M+48,55);
+  doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor.apply(doc,muted);
+  doc.text("Date : "+fmtDate(p.date), W-M, 50, {align:'right'});
+  doc.text("Reçu N° "+shortId(pid), W-M, 55.5, {align:'right'});
+  var y=74;
+  function row(lab,val,big,col){
+    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor.apply(doc,muted); doc.text(lab, M, y);
+    doc.setFont('helvetica',big?'bold':'normal'); doc.setFontSize(big?14:11); doc.setTextColor.apply(doc,col||ink); doc.text(String(val), W-M, y, {align:'right'});
+    doc.setDrawColor.apply(doc,line); doc.setLineWidth(0.2); doc.line(M,y+3.5,W-M,y+3.5); y+=13;
+  }
+  row("Client", c.full_name||"—");
+  if(c.phone) row("Téléphone", c.phone);
+  if(p.note) row("Objet", p.note);
+  row("Montant payé", pdfMoney(p.amount), true, green);
+  row("Solde dû restant", pdfMoney(t.du), true, crit);
+  y+=8; doc.setFont('helvetica','italic'); doc.setFontSize(10.5); doc.setTextColor.apply(doc,ink);
+  doc.text("Nous accusons réception de ce paiement et vous remercions pour votre confiance.", M, y, {maxWidth:W-2*M});
+  var fy=270;
+  doc.setDrawColor.apply(doc,goldSoft); doc.setLineWidth(0.6); doc.line(M,fy,W-M,fy);
+  doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor.apply(doc,green); doc.text("BOULIEDOU GLOBAL BUSINESS", W/2, fy+6, {align:'center'});
+  doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor.apply(doc,gold); doc.text("COMMERCE  ·  AGRIBUSINESS  ·  ÉLEVAGE  ·  PRESTATIONS DE SERVICES", W/2, fy+11, {align:'center'});
+  doc.setTextColor.apply(doc,muted); doc.setFontSize(8); doc.text("Conakry, Guinée  ·  +224 623 01 08 18  ·  contact@bouliedou.com", W/2, fy+16.5, {align:'center'});
+  var fname="recu-"+((c.full_name||"client").replace(/[^a-z0-9]+/gi,'-').toLowerCase())+".pdf";
+  try{
+    var blob=doc.output('blob'), file=new File([blob],fname,{type:'application/pdf'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file], title:'Reçu de paiement'}); closeSheet(); return; }
+  }catch(e){}
+  doc.save(fname); closeSheet();
 }
 function waReceipt(id,pid){
   var c=S.clients.find(function(x){return x.id===id;}), p=S.payments.find(function(x){return x.id===pid;}); if(!c||!p) return;
@@ -948,7 +1004,7 @@ function orderSheet(id){
 
 /* ===== EVENTS ===== */
 document.addEventListener("click",function(e){
-  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin],[data-go],[data-addstock],[data-savestock],[data-addexp],[data-saveexp],[data-profper],[data-wa],[data-receiptpay],[data-wareceipt],[data-export],[data-addrule],[data-editrule],[data-saverule],[data-delrule]");
+  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin],[data-go],[data-addstock],[data-savestock],[data-addexp],[data-saveexp],[data-profper],[data-wa],[data-receiptpay],[data-wareceipt],[data-export],[data-addrule],[data-editrule],[data-saverule],[data-delrule],[data-pdfreceipt]");
   if(!el) return; var d=el.dataset;
   if(d.tab!==undefined){ currentId=null; view=d.tab; render(); }
   else if(d.go!==undefined){ currentId=null; view=d.go; window.scrollTo(0,0); render(); }
@@ -960,6 +1016,7 @@ document.addEventListener("click",function(e){
   else if(d.wa!==undefined){ waRelance(d.wa); }
   else if(d.receiptpay!==undefined){ var rp=d.receiptpay.split(":"); receiptPay(rp[0],rp[1]); }
   else if(d.wareceipt!==undefined){ var wr=d.wareceipt.split(":"); waReceipt(wr[0],wr[1]); }
+  else if(d.pdfreceipt!==undefined){ var pr2=d.pdfreceipt.split(":"); genReceiptPDF(pr2[0],pr2[1]); }
   else if(d.export!==undefined){ runExport(d.export); }
   else if(d.addrule!==undefined){ ruleForm(null); }
   else if(d.editrule!==undefined){ ruleForm(S.rules.find(function(x){return x.id===d.editrule;})); }
