@@ -1,0 +1,16 @@
+{
+  "name": "Bouliedou — Mon espace",
+  "short_name": "Bouliedou",
+  "description": "Mon espace client Bouliedou : commandes, solde, paiements, récompenses.",
+  "start_url": "/client",
+  "scope": "/client",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#06382C",
+  "theme_color": "#0C4A39",
+  "lang": "fr",
+  "icons": [
+    { "src": "/bgb-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/bgb-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
