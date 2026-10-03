@@ -1,0 +1,13 @@
+## En-têtes de sécurité (Netlify) — appliqués à toutes les pages de bouliedou.com
+/*
+  X-Frame-Options: SAMEORIGIN
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=()
+  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+  Content-Security-Policy: frame-ancestors 'self'
+
+## Le service worker ne doit pas être mis en cache longtemps : les mises à jour
+## de l'application doivent se propager rapidement aux téléphones.
+/service-worker.js
+  Cache-Control: no-cache

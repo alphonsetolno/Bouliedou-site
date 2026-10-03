@@ -138,6 +138,17 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:999px;font-size:13.5px;font-weight:600;z-index:60;box-shadow:var(--shadow);opacity:0;transition:opacity .2s;pointer-events:none}
 .toast.show{opacity:1}
 .banner{background:var(--crit-bg);color:var(--crit);border-radius:12px;padding:11px 14px;font-size:13px;font-weight:600;margin-bottom:14px}
+.netbar{display:none;padding:8px 14px;font-size:12.5px;font-weight:700;text-align:center;flex:none}
+.netbar.show{display:block}
+.netbar.off{background:var(--warn-bg);color:var(--warn)}
+.netbar.sync{background:var(--neutral-bg);color:var(--neutral)}
+.pill.pending{background:var(--warn-bg);color:var(--warn)}
+.lockscreen{position:fixed;inset:0;z-index:9999;background:var(--green-deep);display:flex;align-items:center;justify-content:center;padding:24px}
+.lock-card{background:var(--surface);border-radius:22px;box-shadow:var(--shadow);padding:30px 24px;width:100%;max-width:380px;text-align:center}
+.lock-ic{font-size:38px;line-height:1;margin-bottom:8px}
+.lock-card h2{margin:0 0 6px;font-size:20px}
+.lock-card p{color:var(--muted);font-size:13.5px;margin:0 0 18px;line-height:1.5}
+.lock-logout{background:none;border:0;color:var(--muted);font-weight:700;font-size:13px;margin-top:14px;text-decoration:underline}
 .loading{flex:1;display:flex;align-items:center;justify-content:center;color:var(--muted);font-weight:600}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -181,6 +192,7 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
     </div>
     <button class="head-btn" id="logoutBtn">Quitter</button>
   </header>
+  <div class="netbar" id="netbar"></div>
   <main><div class="wrap" id="root"></div></main>
   <nav class="tabbar" id="tabbar">
     <button class="tab on" data-tab="home"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg><span>Accueil</span></button>
@@ -188,6 +200,21 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
     <button class="tab" data-tab="orders"><svg viewBox="0 0 24 24"><path d="M6 2 3 6v14a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V6l-3-4z"/><path d="M3 6h18"/><path d="M8 10a4 4 0 0 0 8 0"/></svg><span>Commandes</span></button>
     <button class="tab" data-tab="account"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.4"/><path d="M5 20a7 7 0 0 1 14 0"/></svg><span>Compte</span></button>
   </nav>
+</div>
+
+<div class="lockscreen" id="lockscreen" hidden>
+  <div class="lock-card">
+    <div class="lock-ic">🔒</div>
+    <h2>Espace verrouillé</h2>
+    <p>Par sécurité, l'application s'est verrouillée après 5 minutes d'inactivité. Entrez votre code PIN pour continuer.</p>
+    <div class="banner" id="lockErr" hidden></div>
+    <form id="lockForm">
+      <div class="field"><input id="lockInput" type="password" inputmode="numeric" autocomplete="current-password" placeholder="Code PIN"></div>
+      <button class="btn btn-green btn-block" type="submit">Déverrouiller</button>
+    </form>
+    <button type="button" class="btn btn-ghost btn-block" id="bioBtn" hidden style="margin-top:10px">👆 Empreinte / Face ID</button>
+    <button type="button" class="lock-logout" id="lockLogout">Se déconnecter</button>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -204,6 +231,181 @@ var ME=null;
 var S={products:[],orders:[],credits:[],payments:[],deliveries:[],categories:[],rules:[]};
 var view="home";
 var CART={}; // product_id -> qty
+
+/* ===== HORS LIGNE / SYNCHRONISATION ===== */
+var NET={ uid:null, syncing:false, snapAt:null };
+var MEKEY='bgb_cli_me', SNAPKEY='bgb_cli_snap', QKEY='bgb_cli_queue';
+function lsGet(k,def){ try{ var v=localStorage.getItem(k); return v?JSON.parse(v):def; }catch(e){ return def; } }
+function lsSet(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); return true; }catch(e){ return false; } }
+function curUid(){ return (ME&&ME.auth_user_id)||NET.uid||null; }
+function cacheMe(){ lsSet(MEKEY,{uid:curUid(), me:ME}); }
+function cachedMe(uid){ var o=lsGet(MEKEY,null); return (o&&o.uid===uid)?o.me:null; }
+function cacheSnap(){ lsSet(SNAPKEY,{uid:curUid(), at:Date.now(), S:{products:S.products,orders:S.orders,credits:S.credits,payments:S.payments,deliveries:S.deliveries,categories:S.categories,rules:S.rules}}); }
+function restoreSnap(uid){ var o=lsGet(SNAPKEY,null); if(!o||o.uid!==uid||!o.S) return false; for(var k in o.S){ S[k]=o.S[k]||[]; } NET.snapAt=o.at; return true; }
+function queueGet(){ return lsGet(QKEY,[]); }
+function queueSet(q){ lsSet(QKEY,q); }
+function queueAdd(op){ var q=queueGet(); op.localId='loc_'+Date.now()+'_'+Math.random().toString(36).slice(2,7); op.queued_at=new Date().toISOString(); op.tries=0; q.push(op); queueSet(q); return op; }
+function queueCount(){ return queueGet().filter(function(o){return !o._failed;}).length; }
+function isNetErr(err){
+  if(!navigator.onLine) return true;
+  var m=((err&&(err.message||err.msg))||err||"").toString().toLowerCase();
+  return m.indexOf('fetch')>=0||m.indexOf('network')>=0||m.indexOf('failed')>=0||m.indexOf('timeout')>=0||m.indexOf('offline')>=0;
+}
+async function applyOp(op){ return await sb.from(op.table).insert(op.payload); }
+async function saveOp(op){
+  if(navigator.onLine){
+    try{
+      var res=await applyOp(op);
+      if(res&&res.error){ if(isNetErr(res.error)){ queueAdd(op); return {queued:true}; } return {error:res.error.message}; }
+      return {ok:true};
+    }catch(e){ if(isNetErr(e)){ queueAdd(op); return {queued:true}; } return {error:(e&&e.message)||'Erreur'}; }
+  }
+  queueAdd(op); return {queued:true};
+}
+async function syncQueue(){
+  if(NET.syncing||!navigator.onLine){ renderSyncBar(); return; }
+  var q=queueGet(); if(!q.length){ renderSyncBar(); return; }
+  NET.syncing=true; renderSyncBar();
+  var remain=[];
+  for(var i=0;i<q.length;i++){ var op=q[i];
+    try{ var res=await applyOp(op);
+      if(res&&res.error){ op.tries=(op.tries||0)+1; if(!isNetErr(res.error)&&op.tries>=5) op._failed=true; remain.push(op); }
+    }catch(e){ op.tries=(op.tries||0)+1; if(!isNetErr(e)&&op.tries>=5) op._failed=true; remain.push(op); }
+  }
+  queueSet(remain);
+  NET.syncing=false;
+  if(navigator.onLine){ try{ await loadAll(); }catch(e){} }
+  render(); renderSyncBar();
+  var done=q.length-remain.length;
+  if(done>0) toast(done+' commande(s) synchronisée(s) ✓');
+}
+function stripPending(arr){ return (arr||[]).filter(function(x){return !x._pending;}); }
+function applyPendingToState(){
+  S.orders=stripPending(S.orders);
+  queueGet().forEach(function(op){
+    if(op.type==='order'){ var p=op.payload; S.orders.unshift({id:op.localId, client_id:p.client_id, items:p.items, total:p.total, status:p.status||'nouvelle', note:p.note, created_at:op.queued_at, _pending:true, _failed:op._failed}); }
+  });
+}
+function renderSyncBar(){
+  var b=document.getElementById('netbar'); if(!b) return;
+  var n=queueCount(), failed=queueGet().filter(function(o){return o._failed;}).length;
+  if(!navigator.onLine){ b.className='netbar show off'; b.textContent='Hors ligne'+(n>0?(' — '+n+' commande(s) en attente'):'')+' · envoi au retour du réseau'; return; }
+  if(NET.syncing){ b.className='netbar show sync'; b.textContent='Synchronisation…'+(n>0?(' ('+n+')'):''); return; }
+  if(n>0){ b.className='netbar show sync'; b.textContent=n+' commande(s) en attente d\'envoi'; return; }
+  if(failed>0){ b.className='netbar show off'; b.textContent=failed+' envoi(s) en échec — touchez pour réessayer'; return; }
+  b.className='netbar'; b.textContent='';
+}
+window.addEventListener('online', function(){ renderSyncBar(); syncQueue(); });
+window.addEventListener('offline', function(){ renderSyncBar(); });
+document.addEventListener('visibilitychange', function(){ if(!document.hidden && navigator.onLine) syncQueue(); });
+document.addEventListener('click', function(e){
+  if(e.target && e.target.id==='netbar'){ var q=queueGet(); q.forEach(function(o){ o._failed=false; o.tries=0; }); queueSet(q); syncQueue(); }
+});
+
+/* ===== VERROUILLAGE AUTOMATIQUE (inactivité) ===== */
+var LOCK={ IDLE:5*60*1000, last:Date.now(), locked:false, armed:false, timer:null, pendingSecret:null };
+var LOCKKEY='bgb_cli_lock';
+function bufToB64(buf){ var b=new Uint8Array(buf),s='';for(var i=0;i<b.length;i++)s+=String.fromCharCode(b[i]);return btoa(s); }
+function b64ToBuf(s){ var bin=atob(s),a=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);return a; }
+async function hashSecret(secret, saltB64){
+  var enc=new TextEncoder();
+  var salt=saltB64?b64ToBuf(saltB64):crypto.getRandomValues(new Uint8Array(16));
+  var k=await crypto.subtle.importKey('raw', enc.encode(String(secret)), {name:'PBKDF2'}, false, ['deriveBits']);
+  var bits=await crypto.subtle.deriveBits({name:'PBKDF2', salt:salt, iterations:120000, hash:'SHA-256'}, k, 256);
+  return { salt:bufToB64(salt), hash:bufToB64(bits) };
+}
+async function storeLock(secret){ try{ var lk=await hashSecret(secret); lsSet(LOCKKEY,{uid:curUid(), salt:lk.salt, hash:lk.hash}); }catch(e){} }
+function hasLock(){ var r=lsGet(LOCKKEY,null); return !!(r&&r.uid===curUid()&&r.salt&&r.hash); }
+async function verifyLock(entered){
+  var r=lsGet(LOCKKEY,null); if(!(r&&r.uid===curUid()&&r.salt)) return false;
+  try{ var lk=await hashSecret(entered, r.salt); return lk.hash===r.hash; }catch(e){ return false; }
+}
+/* --- Biométrie (empreinte / Face ID) via WebAuthn --- */
+var BIOKEY='bgb_cli_bio';
+async function bioAvailable(){ try{ return !!window.PublicKeyCredential && await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable(); }catch(e){ return false; } }
+function bioEnrolled(){ var r=lsGet(BIOKEY,null); return !!(r&&r.uid===curUid()&&r.credId); }
+async function enrollBio(){
+  try{
+    if(!(await bioAvailable())) return false;
+    var uid=curUid()||'bgb-user';
+    var cred=await navigator.credentials.create({ publicKey:{
+      challenge: crypto.getRandomValues(new Uint8Array(32)),
+      rp:{ name:'Bouliedou', id:location.hostname },
+      user:{ id:new TextEncoder().encode(uid), name:((ME&&ME.full_name)||uid), displayName:((ME&&ME.full_name)||'Bouliedou') },
+      pubKeyCredParams:[{type:'public-key',alg:-7},{type:'public-key',alg:-257}],
+      authenticatorSelection:{ authenticatorAttachment:'platform', userVerification:'required' },
+      timeout:60000, attestation:'none'
+    }});
+    if(!cred) return false;
+    lsSet(BIOKEY,{uid:curUid(), credId:bufToB64(cred.rawId)});
+    return true;
+  }catch(e){ return false; }
+}
+function disableBio(){ try{ localStorage.removeItem(BIOKEY); }catch(e){} }
+async function bioUnlock(){
+  var r=lsGet(BIOKEY,null); if(!(r&&r.uid===curUid()&&r.credId)) return false;
+  try{
+    var a=await navigator.credentials.get({ publicKey:{
+      challenge: crypto.getRandomValues(new Uint8Array(32)),
+      allowCredentials:[{ type:'public-key', id:b64ToBuf(r.credId) }],
+      userVerification:'required', timeout:60000
+    }});
+    return !!a;
+  }catch(e){ return false; }
+}
+async function doBioUnlock(){
+  var ok=await bioUnlock();
+  if(ok){ LOCK.locked=false; document.getElementById('lockscreen').hidden=true; LOCK.last=Date.now(); }
+  else { var er=document.getElementById('lockErr'); if(er){ er.textContent='Biométrie non reconnue. Utilisez votre code PIN.'; er.hidden=false; } }
+}
+async function offerBio(){
+  try{
+    if(!(await bioAvailable()) || bioEnrolled() || lsGet(BIOKEY+'_no',false)) return;
+    openSheet('<h3>Déverrouillage biométrique</h3><p style="color:var(--muted);font-size:14px;margin:0 0 16px">Déverrouiller l\'application avec votre empreinte ou votre visage sur cet appareil ? Votre code PIN reste disponible en secours.</p><div class="sheet-actions"><button class="btn btn-ghost" id="bioLater">Plus tard</button><button class="btn btn-green" id="bioNow">Activer</button></div>');
+    document.getElementById('bioNow').addEventListener('click', async function(){ var ok=await enrollBio(); closeSheet(); toast(ok?'Biométrie activée ✓':'Activation impossible sur cet appareil'); });
+    document.getElementById('bioLater').addEventListener('click', function(){ lsSet(BIOKEY+'_no',true); closeSheet(); });
+  }catch(e){}
+}
+async function toggleBio(){
+  if(bioEnrolled()){ disableBio(); toast('Biométrie désactivée'); render(); return; }
+  if(!(await bioAvailable())){ toast('Biométrie non disponible sur cet appareil.'); return; }
+  var ok=await enrollBio(); lsSet(BIOKEY+'_no',false); toast(ok?'Biométrie activée ✓':'Activation impossible'); render();
+}
+function bumpActivity(){ LOCK.last=Date.now(); }
+function checkIdle(){ if(LOCK.armed && !LOCK.locked && (Date.now()-LOCK.last)>=LOCK.IDLE) lockNow(); }
+function armIdle(){ LOCK.armed=true; LOCK.last=Date.now(); if(!LOCK.timer) LOCK.timer=setInterval(checkIdle, 15000); }
+function disarmIdle(){ LOCK.armed=false; if(LOCK.timer){ clearInterval(LOCK.timer); LOCK.timer=null; } }
+function doLockLogout(){ disarmIdle(); sb.auth.signOut().then(function(){ location.reload(); }).catch(function(){ location.reload(); }); }
+function lockNow(){
+  if(LOCK.locked) return;
+  if(!hasLock()){ if(navigator.onLine) doLockLogout(); else { LOCK.last=Date.now(); } return; }
+  LOCK.locked=true; if(typeof closeSheet==='function') closeSheet();
+  var er=document.getElementById('lockErr'); if(er) er.hidden=true;
+  var inp=document.getElementById('lockInput'); if(inp) inp.value='';
+  document.getElementById('lockscreen').hidden=false;
+  var bb=document.getElementById('bioBtn'); if(bb) bb.hidden=!bioEnrolled();
+  setTimeout(function(){ var i=document.getElementById('lockInput'); if(i) i.focus(); },60);
+}
+['click','keydown','touchstart','mousemove','scroll','input'].forEach(function(ev){ document.addEventListener(ev, bumpActivity, {passive:true}); });
+/* Verrouillage synchronisé : quand l'app passe en arrière-plan (téléphone verrouillé,
+   changement d'appli…), on verrouille dès le retour si l'absence dépasse ~10 s. */
+var BG_GRACE=10000;
+document.addEventListener('visibilitychange', function(){
+  if(document.hidden){ LOCK.hiddenAt=Date.now(); }
+  else { if(LOCK.armed && !LOCK.locked && LOCK.hiddenAt && (Date.now()-LOCK.hiddenAt)>=BG_GRACE) lockNow(); checkIdle(); }
+});
+window.addEventListener('pagehide', function(){ LOCK.hiddenAt=Date.now(); });
+(function(){
+  var lf=document.getElementById('lockForm');
+  if(lf) lf.addEventListener('submit', async function(e){
+    e.preventDefault();
+    var v=document.getElementById('lockInput').value;
+    if(await verifyLock(v)){ LOCK.locked=false; document.getElementById('lockscreen').hidden=true; LOCK.last=Date.now(); }
+    else { var er=document.getElementById('lockErr'); er.textContent='Code PIN incorrect.'; er.hidden=false; }
+  });
+  var ll=document.getElementById('lockLogout'); if(ll) ll.addEventListener('click', doLockLogout);
+  var bb=document.getElementById('bioBtn'); if(bb) bb.addEventListener('click', doBioUnlock);
+})();
 
 function money(n){ n=Number(n)||0; return new Intl.NumberFormat("fr-FR").format(Math.round(n))+" FG"; }
 function esc(s){ return (s==null?"":String(s)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
@@ -270,6 +472,8 @@ async function loadAll(){
   S.deliveries=(r[4].data||[]).filter(function(o){return o.client_id===ME.id;});
   S.categories=r[5].data||[];
   S.rules=r[6].data||[];
+  if(!err){ cacheSnap(); }
+  applyPendingToState();
 }
 
 /* ===== RENDER ===== */
@@ -333,8 +537,9 @@ function orderRow(o,detail){
   var n=(o.items||[]).length;
   var lines='';
   if(detail){ lines=(o.items||[]).map(function(it){ var u=it.order_unit||""; return esc(it.label||"Article")+' ('+(it.qty||1)+(u?(" "+esc(u)):"")+')'; }).join(", "); }
+  var pill=o._pending?'<span class="pill pending">⏳ en attente</span>':'<span class="pill '+esc(o.status)+'">'+esc(o.status)+'</span>';
   return '<div class="item"><div class="body"><div class="top"><span class="lab">'+money(o.total)+'</span>'
-    +'<span class="pill '+esc(o.status)+'">'+esc(o.status)+'</span></div>'
+    +pill+'</div>'
     +'<div class="sub">'+fmtDate(o.created_at)+' · '+n+' article(s)'+(detail&&lines?' · '+lines:'')+'</div></div></div>';
 }
 
@@ -361,6 +566,10 @@ function renderAccount(){
       +'<div class="sub">'+fmtDate(x.date)+'</div></div></div>';
   }); h+='</div>'; }
   h+='</div>';
+  // sécurité
+  h+='<div class="card"><div class="card-h"><h3>Sécurité</h3></div>'
+    +'<div class="info-row"><span class="k">Verrouillage</span><span>Automatique après 5 min d\'inactivité</span></div>'
+    +'<button class="btn btn-ghost btn-block" data-bio="1" style="margin-top:10px">'+(bioEnrolled()?'Désactiver la biométrie':'Activer la biométrie (empreinte / Face ID)')+'</button></div>';
   return h;
 }
 function subQty(x){
@@ -405,16 +614,21 @@ async function submitOrder(){
     items.push({product_id:p.id, label:p.name, qty:qty, order_unit:ou, unit_price:up, sale_unit:su, content_qty:cont?cont*qty:null});
   });
   if(items.length===0){ closeSheet(); return; }
-  var res=await sb.from('orders').insert({client_id:ME.id, items:items, total:total, status:'nouvelle', note:(document.getElementById("o_note")||{}).value||null});
-  if(res.error){ toast("Erreur : "+res.error.message); if(btn){ btn.disabled=false; btn.textContent="Envoyer la commande"; } return; }
-  CART={}; closeSheet(); toast("Commande envoyée ✓"); await refresh(); view="orders"; render();
+  var payload={client_id:ME.id, items:items, total:total, status:'nouvelle', note:(document.getElementById("o_note")||{}).value||null};
+  var r=await saveOp({type:'order', table:'orders', payload:payload});
+  if(r.error){ toast("Erreur : "+r.error); if(btn){ btn.disabled=false; btn.textContent="Envoyer la commande"; } return; }
+  CART={}; closeSheet();
+  toast(r.queued?"Commande enregistrée — envoi au retour du réseau":"Commande envoyée ✓");
+  if(navigator.onLine && !r.queued){ await refresh(); } else { applyPendingToState(); }
+  view="orders"; render(); renderSyncBar();
 }
 
 /* ===== EVENTS ===== */
 document.addEventListener("click",function(e){
-  var el=e.target.closest("[data-tab],[data-go],[data-inc],[data-dec],[data-checkout],[data-cancel]");
+  var el=e.target.closest("[data-tab],[data-go],[data-inc],[data-dec],[data-checkout],[data-cancel],[data-bio]");
   if(!el) return; var d=el.dataset;
-  if(d.tab!==undefined){ view=d.tab; window.scrollTo(0,0); render(); }
+  if(d.bio!==undefined){ toggleBio(); }
+  else if(d.tab!==undefined){ view=d.tab; window.scrollTo(0,0); render(); }
   else if(d.go!==undefined){ view=d.go; window.scrollTo(0,0); render(); }
   else if(d.inc!==undefined){ CART[d.inc]=(CART[d.inc]||0)+1; updateQty(d.inc); }
   else if(d.dec!==undefined){ CART[d.dec]=Math.max(0,(CART[d.dec]||0)-1); if(CART[d.dec]===0) delete CART[d.dec]; updateQty(d.dec); }
@@ -439,16 +653,34 @@ function showLogin(msg){ document.getElementById("bootView").hidden=true; docume
 async function enterApp(){
   document.getElementById("loginView").hidden=true;
   document.getElementById("bootView").hidden=false;
-  var u=(await sb.auth.getUser()).data.user;
-  var pr=await sb.from('profiles').select('*').eq('auth_user_id', u.id).maybeSingle();
-  if(pr.error || !pr.data || pr.data.role!=='client'){
-    await sb.auth.signOut(); document.getElementById("bootView").hidden=true; showLogin("Ce compte n'est pas un compte client."); return;
+  var sess=(await sb.auth.getSession()).data.session;
+  NET.uid=sess?sess.user.id:null;
+  var okBoot=false;
+  if(navigator.onLine){
+    try{
+      var u=(await sb.auth.getUser()).data.user;
+      var pr=await sb.from('profiles').select('*').eq('auth_user_id', u.id).maybeSingle();
+      if(pr.error) throw pr.error;
+      if(!pr.data || pr.data.role!=='client'){
+        await sb.auth.signOut(); document.getElementById("bootView").hidden=true; showLogin("Ce compte n'est pas un compte client."); return;
+      }
+      ME=pr.data; cacheMe();
+      await loadAll();
+      okBoot=true;
+    }catch(e){
+      if(NET.uid){ var me=cachedMe(NET.uid); if(me){ ME=me; restoreSnap(NET.uid); applyPendingToState(); okBoot=true; } }
+      if(!okBoot){ document.getElementById("bootView").hidden=true; showLogin("Impossible de charger vos données. Vérifiez votre connexion."); return; }
+    }
+  } else {
+    var me2=NET.uid?cachedMe(NET.uid):null;
+    if(me2){ ME=me2; restoreSnap(NET.uid); applyPendingToState(); okBoot=true; }
+    if(!okBoot){ document.getElementById("bootView").hidden=true; showLogin("Vous êtes hors ligne. Connectez-vous une première fois avec Internet pour activer le mode hors ligne."); return; }
   }
-  ME=pr.data;
-  await loadAll();
   document.getElementById("bootView").hidden=true;
   document.getElementById("appView").hidden=false;
-  view="home"; render();
+  if(LOCK.pendingSecret){ await storeLock(LOCK.pendingSecret); LOCK.pendingSecret=null; }
+  armIdle(); setTimeout(offerBio, 1200);
+  view="home"; render(); renderSyncBar(); syncQueue();
 }
 document.getElementById("loginForm").addEventListener("submit",async function(e){
   e.preventDefault();
@@ -459,9 +691,10 @@ document.getElementById("loginForm").addEventListener("submit",async function(e)
   var res=await sb.auth.signInWithPassword({ email: phone+"@"+EMAIL_DOMAIN, password: pin });
   btn.disabled=false; btn.textContent="Se connecter";
   if(res.error){ document.getElementById("loginErr").textContent="Numéro ou code PIN incorrect."; document.getElementById("loginErr").hidden=false; return; }
+  LOCK.pendingSecret=pin;
   enterApp();
 });
-document.getElementById("logoutBtn").addEventListener("click",async function(){ await sb.auth.signOut(); location.reload(); });
+document.getElementById("logoutBtn").addEventListener("click",async function(){ disarmIdle(); await sb.auth.signOut(); location.reload(); });
 
 (async function(){
   var s=await sb.auth.getSession();
