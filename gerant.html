@@ -37,7 +37,7 @@ input,select,textarea{font:inherit}
 .login{flex:1;display:flex;align-items:center;justify-content:center;padding:24px}
 .login-card{background:var(--surface);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);padding:30px 24px;width:100%;max-width:400px}
 .login-logo{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:18px}
-.login-logo svg{width:60px;height:60px}
+.login-logo svg,.login-logo img{width:62px;height:auto}
 .login-logo b{font-family:"Montserrat";font-weight:800;color:var(--green);font-size:18px;letter-spacing:.3px}
 .login-logo span{font-size:11px;color:var(--gold);font-weight:700;letter-spacing:.14em;text-transform:uppercase}
 .login h1{font-size:19px;text-align:center;margin:0 0 4px}
@@ -46,7 +46,8 @@ input,select,textarea{font:inherit}
 /* header */
 .app-head{position:sticky;top:env(safe-area-inset-top,0px);z-index:30;background:var(--green-deep);color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px}
 .brand{display:flex;align-items:center;gap:9px;min-width:0}
-.brand svg{width:30px;height:30px;flex:none}
+.brand svg,.brand img{width:32px;height:auto;flex:none}
+.app-head .brand svg{--mk-stroke:#F5EFDE;--mk-gold:#D8B65F}
 .brand .t{display:flex;flex-direction:column;line-height:1.05;min-width:0}
 .brand .t b{font-family:"Montserrat";font-weight:800;font-size:15px}
 .brand .t span{font-size:10px;color:var(--gold-soft);font-weight:600;letter-spacing:.1em;text-transform:uppercase}
@@ -59,6 +60,12 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .view-title{font-weight:800;font-size:22px;margin:4px 0 2px}
 .view-sub{color:var(--muted);font-size:13.5px;margin:0 0 16px}
 
+.home-hi{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:2px 0 14px}
+.hi-card{text-align:left;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--green);border-radius:16px;padding:14px 15px;box-shadow:var(--shadow);cursor:pointer;font:inherit}
+.hi-card .hi-l{font-size:12px;font-weight:700;color:var(--muted)}
+.hi-card .hi-v{font-family:"Montserrat";font-weight:800;font-size:21px;margin-top:6px;letter-spacing:-.01em}
+.hi-card .hi-s{font-size:11px;color:var(--muted);margin-top:2px}
+@media (max-width:420px){.hi-card .hi-v{font-size:19px}}
 .kpis{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .kpi{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 15px;box-shadow:var(--shadow)}
 .kpi .lab{font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:7px}
@@ -170,9 +177,9 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
   <symbol id="hex" viewBox="0 0 300 300">
-    <path d="M150 14 L267 81 L267 219 L150 286 L33 219 L33 81 Z" fill="none" stroke="var(--gold-soft)" stroke-width="16" stroke-linejoin="round"/>
-    <path d="M150 14 L267 81" fill="none" stroke="var(--gold)" stroke-width="16" stroke-linecap="round"/>
-    <text x="150" y="155" text-anchor="middle" dominant-baseline="central" font-size="96" font-family="Montserrat,sans-serif" font-weight="800" fill="var(--green)">BGB</text>
+    <path d="M150 12 L269.5 81 L269.5 219 L150 288 L30.5 219 L30.5 81 Z" fill="none" stroke="var(--mk-stroke,#0C4A39)" stroke-width="15" stroke-linejoin="round"/>
+    <path d="M150 12 L269.5 81" fill="none" stroke="var(--mk-gold,#C2993F)" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="150" y="156" text-anchor="middle" dominant-baseline="central" font-size="100" font-family="Montserrat,sans-serif" font-weight="800" letter-spacing="-3"><tspan fill="var(--mk-stroke,#0C4A39)">B</tspan><tspan fill="var(--mk-gold,#C2993F)">G</tspan><tspan fill="var(--mk-stroke,#0C4A39)">B</tspan></text>
   </symbol>
 </defs></svg>
 
@@ -180,7 +187,7 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 <div class="login" id="loginView">
   <div class="login-card">
     <div class="login-logo">
-      <svg viewBox="0 0 300 300"><use href="#hex"/></svg>
+      <img src="/logo-emblem.svg" alt="Bouliedou Global Business">
       <b>BOULIEDOU</b><span>Espace gérant</span>
     </div>
     <h1>Connexion</h1>
@@ -200,7 +207,7 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 <div id="appView" hidden style="display:flex;flex-direction:column;flex:1;min-height:0">
   <header class="app-head">
     <div class="brand">
-      <svg viewBox="0 0 300 300"><use href="#hex"/></svg>
+      <img src="/logo-emblem-cream.svg" alt="Bouliedou Global Business">
       <div class="t"><b>Espace gérant</b><span>Bouliedou</span></div>
     </div>
     <div style="display:flex;align-items:center;gap:10px">
@@ -614,11 +621,32 @@ function menuCard(go,title,sub){
   return '<button class="c-card" data-go="'+go+'"><div class="c-main"><div class="c-name">'+esc(title)+'</div><div class="c-meta">'+esc(sub)+'</div></div><span class="solde ok" style="color:var(--green);font-size:18px">›</span></button>';
 }
 
+function stockValueTotal(){
+  var m={};
+  S.stock.forEach(function(x){ if(!x.product_id) return; if(!m[x.product_id]) m[x.product_id]={qtyIn:0,qtyOut:0,amtIn:0}; var r=m[x.product_id]; if(x.kind==='sortie') r.qtyOut+=Number(x.qty)||0; else { r.qtyIn+=Number(x.qty)||0; r.amtIn+=Number(x.amount)||0; } });
+  var tot=0; Object.keys(m).forEach(function(k){ var r=m[k]; var net=r.qtyIn-r.qtyOut; var avg=r.qtyIn>0?r.amtIn/r.qtyIn:0; tot+=Math.max(0,net)*avg; });
+  return tot;
+}
+function benefFor(period){
+  function inP(d){ if(period==="all") return true; return String(d||"").slice(0,7)===today().slice(0,7); }
+  function s(arr){ return arr.filter(function(x){return inP(x.date);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0); }
+  var ventes=s(S.credits), depenses=s(S.expenses);
+  var achats=S.stock.filter(function(x){return x.kind==='entree'&&inP(x.date);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
+  return ventes-achats-depenses;
+}
 function renderHome(){
   var nbClients=S.clients.length;
   var nouvelles=S.orders.filter(function(o){return o.status==='nouvelle';}).length;
   var credit=sum(S.credits,'amount'), paye=sum(S.payments,'amount'), du=Math.max(0,credit-paye);
-  var h='<div class="view-title">Bonjour 👋</div><p class="view-sub">Tableau de bord de votre activité.</p><div class="kpis">';
+  var h='<div class="view-title">Bonjour 👋</div><p class="view-sub">Tableau de bord de votre activité.</p>';
+  if(isAdmin()){
+    var benefMois=benefFor("month"), valStock=stockValueTotal();
+    h+='<div class="home-hi">'
+      +'<button class="hi-card" data-go="profit" style="border-left-color:var(--green)"><div class="hi-l">Bénéfice · ce mois-ci</div><div class="hi-v tnum" style="color:'+(benefMois>=0?'var(--good)':'var(--crit)')+'">'+money(benefMois)+'</div></button>'
+      +'<button class="hi-card" data-go="prodreport" style="border-left-color:var(--gold)"><div class="hi-l">Valeur marchandise en stock</div><div class="hi-v tnum" style="color:#A87C2E">'+money(valStock)+'</div><div class="hi-s">au prix d\'achat moyen</div></button>'
+      +'</div>';
+  }
+  h+='<div class="kpis">';
   h+=kpi("Clients",nbClients,"var(--green)",false);
   h+=kpi("Commandes à traiter",nouvelles,"var(--warn)",false);
   if(isAdmin()){
@@ -796,38 +824,56 @@ function allProdOptions(){
 }
 function stockByProduct(){
   var m={};
-  S.stock.forEach(function(x){ if(!x.product_id) return; if(!m[x.product_id]) m[x.product_id]={entree:0,sortie:0}; m[x.product_id][x.kind==='sortie'?'sortie':'entree']+=Number(x.qty)||0; });
+  S.stock.forEach(function(x){ if(!x.product_id) return;
+    if(!m[x.product_id]) m[x.product_id]={cky:0,route:0,sortie:0,qtyIn:0,amtIn:0};
+    var r=m[x.product_id];
+    if(x.kind==='sortie'){ r.sortie+=Number(x.qty)||0; }
+    else { var loc=(x.location==='route')?'route':'cky'; r[loc]+=Number(x.qty)||0; r.qtyIn+=Number(x.qty)||0; r.amtIn+=Number(x.amount)||0; }
+  });
   return m;
+}
+async function receiveStock(id){
+  if(needsOnline()) return;
+  var res=await sb.from('stock_entries').update({location:'conakry'}).eq('id',id);
+  if(res.error){ toast("Erreur : "+res.error.message); return; }
+  toast("Marchandise reçue à Conakry ✓"); await refresh();
 }
 function rnd(n){ return Math.round((Number(n)||0)*100)/100; }
 function renderStock(){
   var h='<button class="add-link" data-go="menu" style="margin:2px 0 12px">‹ Gestion</button>';
-  h+='<div class="view-title">Stock</div><p class="view-sub">Marchandises achetées et en magasin.</p>';
-  var totalAchat=S.stock.filter(function(x){return x.kind==='entree';}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
-  h+='<div class="kpis"><div class="kpi"><div class="lab"><i style="background:var(--gold)"></i>Valeur des achats</div><div class="val sm tnum">'+money(totalAchat)+'</div></div>'
-    +'<div class="kpi"><div class="lab"><i style="background:var(--green)"></i>Mouvements</div><div class="val tnum">'+S.stock.length+'</div></div></div>';
-  h+='<div class="d-actions" style="margin-top:14px"><button class="btn btn-green" data-addstock="entree">+ Entrée (achat)</button><button class="btn btn-ghost" data-addstock="sortie">− Sortie</button></div>';
+  h+='<div class="view-title">Stock</div><p class="view-sub">Deux stocks : disponible à Conakry et acheté non encore acheminé.</p>';
   var m=stockByProduct(), keys=Object.keys(m);
-  // alerte stock bas
-  var low=keys.filter(function(pid){ var p=prodById(pid); var net=m[pid].entree-m[pid].sortie; return p && p.reorder_threshold!=null && net<=Number(p.reorder_threshold); });
+  var valCky=0, valRoute=0;
+  keys.forEach(function(pid){ var r=m[pid]; var avg=r.qtyIn>0?r.amtIn/r.qtyIn:0; var netC=r.cky-r.sortie; valCky+=Math.max(0,netC)*avg; valRoute+=Math.max(0,r.route)*avg; });
+  var valTot=valCky+valRoute;
+  h+='<div class="kpis">'
+    +'<div class="kpi"><div class="lab"><i style="background:var(--green)"></i>Stock Conakry (dispo)</div><div class="val sm tnum">'+money(valCky)+'</div></div>'
+    +'<div class="kpi"><div class="lab"><i style="background:var(--gold)"></i>Stock en route</div><div class="val sm tnum">'+money(valRoute)+'</div></div></div>';
+  h+='<div class="card" style="margin-top:12px;border-left:4px solid var(--green)"><div class="info-row"><span class="k" style="font-weight:800">Valeur totale du stock</span><b class="tnum" style="font-size:17px">'+money(valTot)+'</b></div>'
+    +'<div class="hint" style="margin:6px 0 0">Valeurs au prix d\'achat moyen. « Conakry » = disponible à la vente ; « en route » = acheté, pas encore acheminé au magasin.</div></div>';
+  h+='<div class="d-actions" style="margin-top:14px"><button class="btn btn-green" data-addstock="entree">+ Entrée (achat)</button><button class="btn btn-ghost" data-addstock="sortie">− Sortie</button></div>';
+  // alerte stock bas (sur le stock Conakry disponible)
+  var low=keys.filter(function(pid){ var p=prodById(pid); var netC=m[pid].cky-m[pid].sortie; return p && p.reorder_threshold!=null && netC<=Number(p.reorder_threshold); });
   if(low.length){
-    h+='<div class="banner" style="background:var(--warn-bg);color:var(--warn);margin-top:14px">⚠ Stock bas — à racheter : '+low.map(function(pid){ var p=prodById(pid); return esc(p?p.name:""); }).join(", ")+'</div>';
+    h+='<div class="banner" style="background:var(--warn-bg);color:var(--warn);margin-top:14px">⚠ Stock Conakry bas — à racheter : '+low.map(function(pid){ var p=prodById(pid); return esc(p?p.name:""); }).join(", ")+'</div>';
   }
-  h+='<div class="section-h"><h2>En stock</h2></div>';
+  h+='<div class="section-h"><h2>En stock par produit</h2></div>';
   if(keys.length===0) h+='<div class="item-empty">Aucun stock enregistré pour le moment.</div>';
   else { h+='<div class="card"><div class="items">'; keys.forEach(function(pid){
-    var p=prodById(pid), c=p?prodCat(p):null, net=m[pid].entree-m[pid].sortie;
-    var isLow=p && p.reorder_threshold!=null && net<=Number(p.reorder_threshold);
-    h+='<div class="item"><div class="body"><div class="top"><span class="lab">'+esc(p?p.name:"Produit")+(isLow?' <span class="pill nouvelle">à racheter</span>':'')+'</span><span class="amt tnum" style="color:'+(net>0?'var(--good)':'var(--muted)')+'">'+rnd(net)+' '+esc(c?c.order_unit:'')+'</span></div>'
-      +'<div class="sub">Entrées '+rnd(m[pid].entree)+' · Sorties '+rnd(m[pid].sortie)+'</div></div></div>';
+    var p=prodById(pid), c=p?prodCat(p):null, u=c?c.order_unit:'', netC=m[pid].cky-m[pid].sortie, route=m[pid].route, tot=netC+route;
+    var isLow=p && p.reorder_threshold!=null && netC<=Number(p.reorder_threshold);
+    h+='<div class="item"><div class="body"><div class="top"><span class="lab">'+esc(p?p.name:"Produit")+(isLow?' <span class="pill nouvelle">à racheter</span>':'')+'</span><span class="amt tnum" style="color:'+(tot>0?'var(--good)':'var(--muted)')+'">'+rnd(tot)+' '+esc(u)+'</span></div>'
+      +'<div class="sub">Conakry '+rnd(netC)+' '+esc(u)+(route>0?(' · <span style="color:var(--gold-deep,#A87C2E);font-weight:700">en route '+rnd(route)+' '+esc(u)+'</span>'):'')+'</div></div></div>';
   }); h+='</div></div>'; }
   h+='<div class="section-h"><h2>Mouvements récents</h2></div>';
   if(S.stock.length===0) h+='<div class="item-empty">Aucun mouvement.</div>';
   else { h+='<div class="card"><div class="items">'; S.stock.forEach(function(x){
-    var tag=x.kind==='sortie'?'<span class="pill annulée">sortie</span>':'<span class="pill livrée">entrée</span>';
+    var isRoute=(x.kind==='entree'&&x.location==='route');
+    var tag=x.kind==='sortie'?'<span class="pill annulée">sortie</span>':(isRoute?'<span class="pill nouvelle">en route</span>':'<span class="pill livrée">entrée · Conakry</span>');
     if(x._pending) tag+=' <span class="pill pending">⏳ en attente</span>';
     h+='<div class="item"><div class="body"><div class="top"><span class="lab">'+esc(x.label||"—")+'</span>'+((x.kind==='entree'&&x.amount)?'<span class="amt tnum">'+money(x.amount)+'</span>':'')+'</div>'
-      +'<div class="sub">'+tag+' '+(x.qty!=null?(rnd(x.qty)+' '+esc(x.unit||'')):'')+' · '+fmtDate(x.date)+(x.supplier?(' · '+esc(x.supplier)):'')+'</div></div>'
+      +'<div class="sub">'+tag+' '+(x.qty!=null?(rnd(x.qty)+' '+esc(x.unit||'')):'')+' · '+fmtDate(x.date)+(x.supplier?(' · '+esc(x.supplier)):'')+'</div>'
+      +((isRoute&&!x._pending)?'<div style="margin-top:8px"><button class="btn btn-ghost" data-receivestock="'+x.id+'" style="padding:7px 12px;font-size:12.5px">✓ Reçu à Conakry</button></div>':'')+'</div>'
       +(x._pending?'':'<button class="del" data-del="stock_entries:'+x.id+'" aria-label="Supprimer">×</button>')+'</div>';
   }); h+='</div></div>'; }
   return h;
@@ -839,6 +885,7 @@ function stockForm(kind){
   h+=fld("Désignation","text","s_label","","Nom de la marchandise");
   h+='<div class="field"><label>Quantité (<span id="s_unit">unité</span>)</label><input id="s_qty" type="number" inputmode="decimal" min="0" placeholder="0"></div>';
   if(isEnt){
+    h+='<div class="field"><label for="s_location">Emplacement</label><select id="s_location"><option value="conakry">Magasin de Conakry (disponible)</option><option value="route">Acheté — non encore acheminé</option></select></div>';
     h+='<div class="field-row">'
       +'<div class="field"><label>Contenance (<span id="s_su">kg</span>/<span id="s_ou">sac</span>)</label><input id="s_content" type="number" inputmode="decimal" min="0" placeholder="ex : 80"></div>'
       +'<div class="field"><label>Prix du <span id="s_su2">kg</span> (FG)</label><input id="s_price" type="number" inputmode="numeric" min="0" placeholder="0"></div>'
@@ -881,13 +928,13 @@ async function saveStock(kind){
   var pid=V("s_prod")||null, p=pid?prodById(pid):null, c=p?prodCat(p):null;
   var qty=numOrNull("s_qty"); if(!qty||qty<=0){ toast("Indiquez la quantité."); return; }
   var data={kind:kind, product_id:pid, label:V("s_label")||(p?p.name:(kind==='entree'?"Entrée":"Sortie")), qty:qty, unit:c?c.order_unit:null, date:V("s_date")||today()};
-  if(kind==='entree'){ data.amount=Number(V("s_amount"))||0; data.supplier=V("s_supplier")||null; data.content_per_unit=numOrNull("s_content"); data.unit_price=numOrNull("s_price"); }
+  if(kind==='entree'){ data.amount=Number(V("s_amount"))||0; data.supplier=V("s_supplier")||null; data.content_per_unit=numOrNull("s_content"); data.unit_price=numOrNull("s_price"); data.location=V("s_location")||'conakry'; }
   var r=await saveOp({type:'stock', table:'stock_entries', payload:data});
   finishEntry(r);
 }
 
 /* ===== DÉPENSES ===== */
-function catLabel(c){ var m={salaire:"Salaire",transport:"Transport",electricite:"Électricité",loyer:"Loyer",communication:"Communication",autre:"Autre"}; return m[c]||c||"Autre"; }
+function catLabel(c){ var m={salaire:"Salaire",transport:"Transport",electricite:"Électricité",loyer:"Loyer",communication:"Communication",walike:"Walikè",gardiennage:"Gardiennage",autre:"Autre"}; return m[c]||c||"Autre"; }
 function renderExpenses(){
   var h='<button class="add-link" data-go="menu" style="margin:2px 0 12px">‹ Gestion</button>';
   h+='<div class="view-title">Dépenses</div><p class="view-sub">Dépenses de fonctionnement.</p>';
@@ -906,7 +953,7 @@ function renderExpenses(){
   return h;
 }
 function expenseForm(){
-  var cats=[["salaire","Salaire"],["transport","Transport"],["electricite","Électricité"],["loyer","Loyer"],["communication","Communication"],["autre","Autre"]];
+  var cats=[["salaire","Salaire"],["transport","Transport"],["electricite","Électricité"],["loyer","Loyer"],["communication","Communication"],["walike","Walikè"],["gardiennage","Gardiennage"],["autre","Autre"]];
   var opts=cats.map(function(c){return '<option value="'+c[0]+'">'+c[1]+'</option>';}).join('');
   openSheet('<h3>Nouvelle dépense</h3>'
     +'<div class="field"><label for="x_cat">Catégorie</label><select id="x_cat">'+opts+'</select></div>'
@@ -1092,7 +1139,7 @@ function runExport(what){
   else if(what==="sales"){ var r=[["Date","Client","Désignation","Quantité","Unité","Montant"]]; S.credits.forEach(function(x){ r.push([x.date,clientName(x.client_id),x.label,x.qty,x.order_unit,x.amount]); }); csvDownload("ventes.csv",r); }
   else if(what==="payments"){ var r=[["Date","Client","Note","Montant"]]; S.payments.forEach(function(x){ r.push([x.date,clientName(x.client_id),x.note,x.amount]); }); csvDownload("paiements.csv",r); }
   else if(what==="expenses"){ var r=[["Date","Catégorie","Libellé","Montant"]]; S.expenses.forEach(function(x){ r.push([x.date,catLabel(x.category),x.label,x.amount]); }); csvDownload("depenses.csv",r); }
-  else if(what==="stock"){ var r=[["Date","Type","Produit","Quantité","Unité","Contenance","Prix unitaire","Coût total","Fournisseur"]]; S.stock.forEach(function(x){ r.push([x.date,x.kind,x.label,x.qty,x.unit,x.content_per_unit,x.unit_price,x.amount,x.supplier]); }); csvDownload("stock.csv",r); }
+  else if(what==="stock"){ var r=[["Date","Type","Emplacement","Produit","Quantité","Unité","Contenance","Prix unitaire","Coût total","Fournisseur"]]; S.stock.forEach(function(x){ r.push([x.date,x.kind,(x.kind==='entree'?(x.location==='route'?'En route':'Conakry'):''),x.label,x.qty,x.unit,x.content_per_unit,x.unit_price,x.amount,x.supplier]); }); csvDownload("stock.csv",r); }
   toast("Fichier téléchargé");
 }
 async function downloadBackup(id){
@@ -1437,7 +1484,7 @@ function orderSheet(id){
 
 /* ===== EVENTS ===== */
 document.addEventListener("click",function(e){
-  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin],[data-go],[data-addstock],[data-savestock],[data-addexp],[data-saveexp],[data-profper],[data-wa],[data-receiptpay],[data-wareceipt],[data-export],[data-addrule],[data-editrule],[data-saverule],[data-delrule],[data-pdfreceipt],[data-actfilter],[data-dlbackup],[data-bio],[data-push]");
+  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin],[data-go],[data-addstock],[data-savestock],[data-receivestock],[data-addexp],[data-saveexp],[data-profper],[data-wa],[data-receiptpay],[data-wareceipt],[data-export],[data-addrule],[data-editrule],[data-saverule],[data-delrule],[data-pdfreceipt],[data-actfilter],[data-dlbackup],[data-bio],[data-push]");
   if(!el) return; var d=el.dataset;
   if(d.bio!==undefined){ toggleBio(); }
   else if(d.push!==undefined){ togglePush(); }
@@ -1445,6 +1492,7 @@ document.addEventListener("click",function(e){
   else if(d.go!==undefined){ currentId=null; view=d.go; window.scrollTo(0,0); render(); }
   else if(d.addstock!==undefined){ stockForm(d.addstock); }
   else if(d.savestock!==undefined){ saveStock(d.savestock); }
+  else if(d.receivestock!==undefined){ receiveStock(d.receivestock); }
   else if(d.addexp!==undefined){ expenseForm(); }
   else if(d.saveexp!==undefined){ saveExpense(); }
   else if(d.profper!==undefined){ profitPeriod=d.profper; render(); }

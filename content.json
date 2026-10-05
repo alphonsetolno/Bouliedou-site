@@ -1,37 +1,41 @@
 {
   "hero": {
-    "eyebrow_fr": "Une société, quatre métiers à votre service",
-    "eyebrow_en": "One company, four businesses areas at your service",
+    "eyebrow_fr": "Une société, cinq métiers à votre service",
+    "eyebrow_en": "One company, five areas of expertise at your service",
     "title_fr": "Votre partenaire de confiance pour <span class=\"hl\">le commerce et le développement</span> en Guinée.",
     "title_en": "Your trusted partner for <span class=\"hl\">trade and development</span> in Guinea.",
-    "text_fr": "Bouliedou Global Business réunit le commerce, l'agribusiness, l'élevage et les prestations de services sous une même maison — avec exigence, proximité et ambition.",
-    "text_en": "Bouliedou Global Business brings trade, agribusiness, livestock and professional services together under one roof — with rigor, closeness and ambition.",
+    "text_fr": "Bouliedou Global Business réunit le commerce, l'agrobusiness, la fourniture de biens, les prestations de services et la formation sous une même maison — avec exigence, proximité et ambition.",
+    "text_en": "Bouliedou Global Business brings trade, agribusiness, supply of goods, professional services and training together under one roof — with rigor, closeness and ambition.",
     "chips": [
       {
         "label_fr": "Commerce",
         "label_en": "Trade"
       },
       {
-        "label_fr": "Agribusiness",
+        "label_fr": "Agrobusiness",
         "label_en": "Agribusiness"
       },
       {
-        "label_fr": "Élevage",
-        "label_en": "Livestock"
+        "label_fr": "Fourniture des biens",
+        "label_en": "Supply of goods"
       },
       {
         "label_fr": "Prestations de services",
         "label_en": "Professional services"
+      },
+      {
+        "label_fr": "Formation & insertion",
+        "label_en": "Training & integration"
       }
     ]
   },
   "poles": {
     "kicker_fr": "Nos pôles d'activité",
     "kicker_en": "What we do",
-    "h2_fr": "Quatre métiers, une même exigence",
-    "h2_en": "Four businesses, one standard",
-    "intro_fr": "De l'import-export au conseil, Bouliedou Global Business accompagne ses clients sur l'ensemble de la chaîne de valeur.",
-    "intro_en": "From import-export to consulting, Bouliedou Global Business supports its clients across the whole value chain.",
+    "h2_fr": "Cinq métiers, une même exigence",
+    "h2_en": "Five areas of expertise, one standard",
+    "intro_fr": "Du commerce à la formation, Bouliedou Global Business accompagne ses clients sur l'ensemble de la chaîne de valeur.",
+    "intro_en": "From trade to training, Bouliedou Global Business supports its clients across the whole value chain.",
     "items": [
       {
         "icon": "commerce",
@@ -42,58 +46,61 @@
       },
       {
         "icon": "agribusiness",
-        "title_fr": "Agribusiness",
+        "title_fr": "Agrobusiness",
         "title_en": "Agribusiness",
-        "text_fr": "Production, transformation et valorisation des filières agricoles, pour une agriculture productive et durable.",
-        "text_en": "Production, processing and development of agricultural value chains, for a productive and sustainable farming sector."
+        "text_fr": "Production, transformation et valorisation des filières agricoles et d'élevage, pour une agriculture productive et durable.",
+        "text_en": "Production, processing and development of agricultural and livestock value chains, for a productive and sustainable farming sector."
       },
       {
-        "icon": "elevage",
-        "title_fr": "Élevage",
-        "title_en": "Livestock",
-        "text_fr": "Production animale et développement des filières d'élevage, de la ferme à la mise sur le marché.",
-        "text_en": "Animal production and development of livestock value chains, from farm to market."
+        "icon": "fourniture",
+        "title_fr": "Fourniture des biens",
+        "title_en": "Supply of goods",
+        "text_fr": "Fourniture d'équipements, de matériels et de biens divers aux entreprises, aux institutions et aux particuliers.",
+        "text_en": "Supply of equipment, materials and various goods to businesses, institutions and individuals."
       },
       {
         "icon": "services",
         "title_fr": "Prestations de services",
         "title_en": "Professional services",
-        "text_fr": "Conseil, accompagnement, formation et services divers aux entreprises et aux particuliers.",
-        "text_en": "Consulting, support, training and various services for businesses and individuals."
+        "text_fr": "Conseil, accompagnement et services divers aux entreprises et aux particuliers.",
+        "text_en": "Consulting, support and various services for businesses and individuals."
+      },
+      {
+        "icon": "formation",
+        "title_fr": "Formation et insertion socioprofessionnelle",
+        "title_en": "Training & professional integration",
+        "text_fr": "Formation, renforcement de capacités et accompagnement à l'insertion socioprofessionnelle des jeunes.",
+        "text_en": "Training, capacity building and support for the professional integration of young people."
       }
     ]
   },
   "gallery": {
     "kicker_fr": "Galerie",
     "kicker_en": "Gallery",
-    "h2_fr": "Nos produits & nos réalisations",
-    "h2_en": "Our products & our work",
-    "intro_fr": "Un aperçu de nos activités sur le terrain.",
-    "intro_en": "A glimpse of our work on the ground.",
+    "h2_fr": "Nos produits & nos activités",
+    "h2_en": "Our products & our activities",
+    "intro_fr": "Un aperçu de nos quatre pôles d'activité.",
+    "intro_en": "A glimpse of our four areas of activity.",
     "items": [
       {
         "caption_fr": "Commerce",
-        "caption_en": "Trade"
+        "caption_en": "Trade",
+        "image": "galerie-commerce.jpg"
       },
       {
-        "caption_fr": "Agribusiness",
-        "caption_en": "Agribusiness"
+        "caption_fr": "Fourniture des biens",
+        "caption_en": "Supply of goods",
+        "image": "galerie-agribusiness.jpg"
       },
       {
-        "caption_fr": "Élevage",
-        "caption_en": "Livestock"
+        "caption_fr": "Agrobusiness",
+        "caption_en": "Agribusiness",
+        "image": "galerie-elevage.jpg"
       },
       {
         "caption_fr": "Prestations de services",
-        "caption_en": "Services"
-      },
-      {
-        "caption_fr": "Nos réalisations",
-        "caption_en": "Our projects"
-      },
-      {
-        "caption_fr": "Notre équipe",
-        "caption_en": "Our team"
+        "caption_en": "Professional services",
+        "image": "galerie-services.jpg"
       }
     ]
   },
@@ -110,8 +117,8 @@
       {
         "title_fr": "Interlocuteur unique",
         "title_en": "One single partner",
-        "text_fr": "Quatre métiers, un seul contact de confiance.",
-        "text_en": "Four businesses, one trusted contact."
+        "text_fr": "Plusieurs métiers, un seul contact de confiance.",
+        "text_en": "Several businesses, one trusted contact."
       },
       {
         "title_fr": "Ancrage local",
@@ -130,14 +137,14 @@
   "why": {
     "kicker_fr": "Pourquoi nous choisir",
     "kicker_en": "Why choose us",
-    "h2_fr": "La fiabilité d'un partenaire, la force d'un groupe",
-    "h2_en": "The reliability of a partner, the strength of a group",
+    "h2_fr": "La fiabilité et la proximité d'un partenaire",
+    "h2_en": "The reliability and closeness of a partner",
     "items": [
       {
         "title_fr": "Diversification",
         "title_en": "Diversification",
-        "text_fr": "Plusieurs métiers maîtrisés, pour répondre à des besoins variés.",
-        "text_en": "Several businesses mastered, to meet varied needs."
+        "text_fr": "Commerce, agrobusiness, fourniture de biens, services et formation : des métiers complémentaires pour répondre à des besoins variés.",
+        "text_en": "Trade, agribusiness, supply of goods, services and training — complementary businesses to meet varied needs."
       },
       {
         "title_fr": "Proximité",
@@ -174,8 +181,8 @@
     "maps_query": "Conakry, Guinée"
   },
   "footer": {
-    "about_fr": "Commerce, agribusiness, élevage et prestations de services — une société guinéenne au service de vos projets.",
-    "about_en": "Trade, agribusiness, livestock and professional services — a Guinean company at the service of your projects.",
+    "about_fr": "Commerce, agrobusiness, fourniture de biens, prestations de services et formation — une société guinéenne au service de vos projets.",
+    "about_en": "Trade, agribusiness, supply of goods, professional services and training — a Guinean company at the service of your projects.",
     "website": "www.bouliedou.com"
   }
 }

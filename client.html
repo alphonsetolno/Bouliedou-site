@@ -36,7 +36,7 @@ input,select,textarea{font:inherit}
 .login{flex:1;display:flex;align-items:center;justify-content:center;padding:24px}
 .login-card{background:var(--surface);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);padding:30px 24px;width:100%;max-width:400px}
 .login-logo{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:18px}
-.login-logo svg{width:60px;height:60px}
+.login-logo svg,.login-logo img{width:62px;height:auto}
 .login-logo b{font-family:"Montserrat";font-weight:800;color:var(--green);font-size:18px;letter-spacing:.3px}
 .login-logo span{font-size:11px;color:var(--gold);font-weight:700;letter-spacing:.14em;text-transform:uppercase}
 .login h1{font-size:19px;text-align:center;margin:0 0 4px}
@@ -44,7 +44,8 @@ input,select,textarea{font:inherit}
 
 .app-head{position:sticky;top:env(safe-area-inset-top,0px);z-index:30;background:var(--green-deep);color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px}
 .brand{display:flex;align-items:center;gap:9px;min-width:0}
-.brand svg{width:30px;height:30px;flex:none}
+.brand svg,.brand img{width:32px;height:auto;flex:none}
+.app-head .brand svg{--mk-stroke:#F5EFDE;--mk-gold:#D8B65F}
 .brand .t{display:flex;flex-direction:column;line-height:1.05;min-width:0}
 .brand .t b{font-family:"Montserrat";font-weight:800;font-size:15px}
 .brand .t span{font-size:10px;color:var(--gold-soft);font-weight:600;letter-spacing:.1em;text-transform:uppercase}
@@ -157,9 +158,9 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
   <symbol id="hex" viewBox="0 0 300 300">
-    <path d="M150 14 L267 81 L267 219 L150 286 L33 219 L33 81 Z" fill="none" stroke="var(--gold-soft)" stroke-width="16" stroke-linejoin="round"/>
-    <path d="M150 14 L267 81" fill="none" stroke="var(--gold)" stroke-width="16" stroke-linecap="round"/>
-    <text x="150" y="155" text-anchor="middle" dominant-baseline="central" font-size="96" font-family="Montserrat,sans-serif" font-weight="800" fill="var(--green)">BGB</text>
+    <path d="M150 12 L269.5 81 L269.5 219 L150 288 L30.5 219 L30.5 81 Z" fill="none" stroke="var(--mk-stroke,#0C4A39)" stroke-width="15" stroke-linejoin="round"/>
+    <path d="M150 12 L269.5 81" fill="none" stroke="var(--mk-gold,#C2993F)" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="150" y="156" text-anchor="middle" dominant-baseline="central" font-size="100" font-family="Montserrat,sans-serif" font-weight="800" letter-spacing="-3"><tspan fill="var(--mk-stroke,#0C4A39)">B</tspan><tspan fill="var(--mk-gold,#C2993F)">G</tspan><tspan fill="var(--mk-stroke,#0C4A39)">B</tspan></text>
   </symbol>
 </defs></svg>
 
@@ -167,7 +168,7 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 <div class="login" id="loginView">
   <div class="login-card">
     <div class="login-logo">
-      <svg viewBox="0 0 300 300"><use href="#hex"/></svg>
+      <img src="/logo-emblem.svg" alt="Bouliedou Global Business">
       <b>BOULIEDOU</b><span>Espace client</span>
     </div>
     <h1>Connexion</h1>
@@ -187,7 +188,7 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 <div id="appView" hidden style="display:flex;flex-direction:column;flex:1;min-height:0">
   <header class="app-head">
     <div class="brand">
-      <svg viewBox="0 0 300 300"><use href="#hex"/></svg>
+      <img src="/logo-emblem-cream.svg" alt="Bouliedou Global Business">
       <div class="t"><b>Mon espace</b><span>Bouliedou</span></div>
     </div>
     <button class="head-btn" id="logoutBtn">Quitter</button>
@@ -538,9 +539,23 @@ function orderRow(o,detail){
   var lines='';
   if(detail){ lines=(o.items||[]).map(function(it){ var u=it.order_unit||""; return esc(it.label||"Article")+' ('+(it.qty||1)+(u?(" "+esc(u)):"")+')'; }).join(", "); }
   var pill=o._pending?'<span class="pill pending">⏳ en attente</span>':'<span class="pill '+esc(o.status)+'">'+esc(o.status)+'</span>';
+  var canCancel=detail && !o._pending && o.status==='nouvelle';
   return '<div class="item"><div class="body"><div class="top"><span class="lab">'+money(o.total)+'</span>'
     +pill+'</div>'
-    +'<div class="sub">'+fmtDate(o.created_at)+' · '+n+' article(s)'+(detail&&lines?' · '+lines:'')+'</div></div></div>';
+    +'<div class="sub">'+fmtDate(o.created_at)+' · '+n+' article(s)'+(detail&&lines?' · '+lines:'')+'</div>'
+    +(canCancel?'<div style="margin-top:8px"><button class="btn btn-ghost" data-cancelorder="'+o.id+'" style="padding:7px 12px;font-size:12.5px">Annuler la commande</button></div>':'')
+    +'</div></div>';
+}
+async function cancelOrder(id){
+  if(!navigator.onLine){ toast("Une connexion Internet est nécessaire pour annuler."); return; }
+  openSheet('<h3>Annuler la commande ?</h3><p style="color:var(--muted);font-size:14px;margin:0 0 16px">Elle sera marquée comme annulée. C\'est possible tant qu\'elle n\'a pas encore été validée par la gérance.</p><div class="sheet-actions"><button class="btn btn-ghost" data-cancel="1">Non</button><button class="btn" id="confCancelOrder" style="background:#C0392B;color:#fff">Oui, annuler</button></div>');
+  var btn=document.getElementById("confCancelOrder"); if(!btn) return;
+  btn.addEventListener("click",async function(){
+    closeSheet();
+    var res=await sb.from('orders').update({status:'annulée'}).eq('id',id);
+    if(res.error){ toast("Erreur : "+res.error.message); return; }
+    toast("Commande annulée"); await refresh();
+  });
 }
 
 function renderAccount(){
@@ -625,7 +640,7 @@ async function submitOrder(){
 
 /* ===== EVENTS ===== */
 document.addEventListener("click",function(e){
-  var el=e.target.closest("[data-tab],[data-go],[data-inc],[data-dec],[data-checkout],[data-cancel],[data-bio]");
+  var el=e.target.closest("[data-tab],[data-go],[data-inc],[data-dec],[data-checkout],[data-cancel],[data-cancelorder],[data-bio]");
   if(!el) return; var d=el.dataset;
   if(d.bio!==undefined){ toggleBio(); }
   else if(d.tab!==undefined){ view=d.tab; window.scrollTo(0,0); render(); }
@@ -633,6 +648,7 @@ document.addEventListener("click",function(e){
   else if(d.inc!==undefined){ CART[d.inc]=(CART[d.inc]||0)+1; updateQty(d.inc); }
   else if(d.dec!==undefined){ CART[d.dec]=Math.max(0,(CART[d.dec]||0)-1); if(CART[d.dec]===0) delete CART[d.dec]; updateQty(d.dec); }
   else if(d.checkout!==undefined){ checkoutSheet(); }
+  else if(d.cancelorder!==undefined){ cancelOrder(d.cancelorder); }
   else if(d.cancel!==undefined){ closeSheet(); }
 });
 function updateQty(id){

@@ -4,7 +4,7 @@
    l'application s'ouvre même SANS connexion. Les appels à Supabase (données
    et connexion) ne sont jamais mis en cache : ils passent toujours par le
    réseau, et l'application gère elle-même le mode hors ligne (file d'attente). */
-var CACHE = 'bgb-v2';
+var CACHE = 'bgb-v3';
 
 self.addEventListener('install', function(e){ self.skipWaiting(); });
 
