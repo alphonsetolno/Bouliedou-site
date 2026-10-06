@@ -5,7 +5,7 @@
     "title_fr": "Votre partenaire de confiance pour <span class=\"hl\">le commerce et le développement</span> en Guinée.",
     "title_en": "Your trusted partner for <span class=\"hl\">trade and development</span> in Guinea.",
     "text_fr": "Bouliedou Global Business réunit le commerce, l'agrobusiness, la fourniture de biens, les prestations de services et la formation sous une même maison — avec exigence, proximité et ambition.",
-    "text_en": "Bouliedou Global Business brings trade, agribusiness, supply of goods, professional services and training together under one roof — with rigor, closeness and ambition.",
+    "text_en": "Bouliedou Global Business brings trade, agribusiness, supply of goods, professional services and training together under one roof — with rigor, local presence and ambition.",
     "chips": [
       {
         "label_fr": "Commerce",
@@ -69,8 +69,8 @@
         "icon": "formation",
         "title_fr": "Formation et insertion socioprofessionnelle",
         "title_en": "Training & professional integration",
-        "text_fr": "Formation, renforcement des capacités et accompagnement des jeunes, des filles vers l'emploi et l'entrepreneuriat, pour une insertion socioprofessionnelle durable.",
-        "text_en": "Training, capacity building and support for young people and women towards employment and entrepreneurship, for lasting professional integration."
+        "text_fr": "Formation, renforcement des capacités et accompagnement des jeunes, notamment des jeunes filles, vers l'emploi et l'entrepreneuriat, pour une insertion socioprofessionnelle durable.",
+        "text_en": "Training, capacity building and support for young people, especially young women, towards employment and entrepreneurship, for lasting professional integration."
       }
     ]
   },
@@ -113,7 +113,7 @@
     "kicker_fr": "À propos",
     "kicker_en": "About us",
     "h2_fr": "Une maison guinéenne, diversifiée et ambitieuse",
-    "h2_en": "A Guinean house — diversified and ambitious",
+    "h2_en": "A diversified and ambitious Guinean company",
     "p1_fr": "Bouliedou Global Business est une société guinéenne qui rassemble plusieurs métiers complémentaires sous une même enseigne. Notre conviction est simple : offrir à nos clients un interlocuteur unique, fiable et réactif, du commerce de marchandises à l'accompagnement de leurs projets.",
     "p1_en": "Bouliedou Global Business is a Guinean company that brings together several complementary businesses under one brand. Our belief is simple: give our clients a single, reliable and responsive partner — from trading goods to supporting their projects.",
     "p2_fr": "Ancrés à Conakry et tournés vers l'international, nous mettons la même exigence dans chacun de nos pôles — pour créer de la valeur, localement et durablement.",
@@ -153,7 +153,7 @@
       },
       {
         "title_fr": "Proximité",
-        "title_en": "Closeness",
+        "title_en": "Local presence",
         "text_fr": "Une équipe disponible, qui connaît le terrain et ses réalités.",
         "text_en": "An available team that knows the ground and its realities."
       },
