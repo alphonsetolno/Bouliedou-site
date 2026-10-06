@@ -16,7 +16,7 @@
         "label_en": "Agribusiness"
       },
       {
-        "label_fr": "Fourniture des biens",
+        "label_fr": "Fourniture de biens",
         "label_en": "Supply of goods"
       },
       {
@@ -41,22 +41,22 @@
         "icon": "commerce",
         "title_fr": "Commerce",
         "title_en": "Trade",
-        "text_fr": "Import-export, approvisionnement et distribution de marchandises, avec des partenaires fiables au niveau local et international.",
-        "text_en": "Import-export, sourcing and distribution of goods, with reliable local and international partners."
+        "text_fr": "Achat, vente et distribution de produits — kola, riz, huile rouge et autres marchandises — au niveau local et international.",
+        "text_en": "Purchase, sale and distribution of products — kola nuts, rice, red palm oil and other goods — locally and internationally."
       },
       {
         "icon": "agribusiness",
         "title_fr": "Agrobusiness",
         "title_en": "Agribusiness",
-        "text_fr": "Production, transformation et valorisation des filières agricoles et d'élevage, pour une agriculture productive et durable.",
-        "text_en": "Production, processing and development of agricultural and livestock value chains, for a productive and sustainable farming sector."
+        "text_fr": "Production, transformation et valorisation des filières agricoles et d'élevage (volaille, cultures vivrières), pour une agriculture productive et durable.",
+        "text_en": "Production, processing and development of agricultural and livestock value chains (poultry, food crops), for a productive and sustainable sector."
       },
       {
         "icon": "fourniture",
-        "title_fr": "Fourniture des biens",
+        "title_fr": "Fourniture de biens",
         "title_en": "Supply of goods",
-        "text_fr": "Fourniture d'équipements, de matériels et de biens divers aux entreprises, aux institutions et aux particuliers.",
-        "text_en": "Supply of equipment, materials and various goods to businesses, institutions and individuals."
+        "text_fr": "Approvisionnement sur commande en équipements et matériels, pour les entreprises et les institutions.",
+        "text_en": "Sourcing of equipment and materials to order, for businesses and institutions."
       },
       {
         "icon": "services",
@@ -69,8 +69,8 @@
         "icon": "formation",
         "title_fr": "Formation et insertion socioprofessionnelle",
         "title_en": "Training & professional integration",
-        "text_fr": "Formation, renforcement de capacités et accompagnement à l'insertion socioprofessionnelle des jeunes.",
-        "text_en": "Training, capacity building and support for the professional integration of young people."
+        "text_fr": "Formation professionnelle et accompagnement vers l'emploi des jeunes (métiers, entrepreneuriat, informatique).",
+        "text_en": "Vocational training and support towards youth employment (trades, entrepreneurship, computer skills)."
       }
     ]
   },
@@ -79,17 +79,12 @@
     "kicker_en": "Gallery",
     "h2_fr": "Nos produits & nos activités",
     "h2_en": "Our products & our activities",
-    "intro_fr": "Un aperçu de nos quatre pôles d'activité.",
-    "intro_en": "A glimpse of our four areas of activity.",
+    "intro_fr": "Un aperçu de nos domaines d'activité.",
+    "intro_en": "A glimpse of our areas of activity.",
     "items": [
       {
         "caption_fr": "Commerce",
         "caption_en": "Trade",
-        "image": "galerie-commerce.jpg"
-      },
-      {
-        "caption_fr": "Fourniture des biens",
-        "caption_en": "Supply of goods",
         "image": "galerie-agribusiness.jpg"
       },
       {
@@ -98,9 +93,19 @@
         "image": "galerie-elevage.jpg"
       },
       {
+        "caption_fr": "Fourniture de biens",
+        "caption_en": "Supply of goods",
+        "image": "galerie-commerce.jpg"
+      },
+      {
         "caption_fr": "Prestations de services",
         "caption_en": "Professional services",
         "image": "galerie-services.jpg"
+      },
+      {
+        "caption_fr": "Formation & insertion",
+        "caption_en": "Training & integration",
+        "image": "galerie-formation.jpg"
       }
     ]
   },
@@ -176,9 +181,11 @@
     "phone": "+224 623 01 08 18",
     "whatsapp": "224623010818",
     "email": "contact@bouliedou.com",
-    "address_fr": "Conakry, Guinée",
-    "address_en": "Conakry, Guinea",
-    "maps_query": "Conakry, Guinée"
+    "address_fr": "Enta marché, Conakry — Guinée",
+    "address_en": "Enta marché, Conakry — Guinea",
+    "maps_query": "Enta marché, Conakry, Guinée",
+    "hours_fr": "Lundi – Samedi : 8h – 18h",
+    "hours_en": "Monday – Saturday: 8am – 6pm"
   },
   "footer": {
     "about_fr": "Commerce, agrobusiness, fourniture de biens, prestations de services et formation — une société guinéenne au service de vos projets.",

@@ -69,11 +69,11 @@
     color:#fff}
   .hero::after{content:"";position:absolute;right:-120px;bottom:-140px;width:460px;height:460px;border-radius:50%;
     border:1.5px solid rgba(216,182,95,.22);box-shadow:0 0 0 40px rgba(216,182,95,.05)}
-  .hero-in{position:relative;z-index:2;padding:clamp(56px,9vw,104px) 0 clamp(50px,8vw,92px);max-width:760px}
+  .hero-in{position:relative;z-index:2;padding:clamp(40px,6vw,76px) 0 clamp(44px,7vw,84px);max-width:760px}
   .eyebrow{display:inline-flex;align-items:center;gap:9px;font-family:"Montserrat";font-weight:700;font-size:12px;
     letter-spacing:.2em;text-transform:uppercase;color:var(--gold-soft);margin:0 0 20px}
   .eyebrow::before{content:"";width:26px;height:2px;background:var(--gold);border-radius:2px}
-  .hero-logo-img{display:block;width:min(360px,76%);height:auto;margin:0 0 26px}
+  .hero-logo-img{display:block;width:min(290px,62%);height:auto;margin:0 0 20px}
   .hero h1{font-weight:800;font-size:clamp(28px,5vw,46px);line-height:1.06;letter-spacing:-.015em;margin:0 0 20px;text-wrap:balance}
   .hero h1 .hl{color:var(--gold-soft)}
   .hero p{font-size:clamp(16px,2.1vw,19px);color:rgba(255,255,255,.82);max-width:60ch;margin:0 0 30px}
@@ -92,9 +92,10 @@
   .sec .intro{font-size:17px;color:var(--muted);margin:0}
 
   /* ---------- POLES ---------- */
-  .poles{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
-  @media (max-width:900px){.poles{grid-template-columns:repeat(2,1fr)}}
-  @media (max-width:560px){.poles{grid-template-columns:1fr}}
+  .poles{display:flex;flex-wrap:wrap;gap:18px;justify-content:center}
+  .pole{flex:1 1 100%}
+  @media (min-width:560px){.pole{flex:0 1 calc(50% - 9px)}}
+  @media (min-width:900px){.pole{flex:0 1 calc(33.333% - 12px)}}
   .pole{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:26px;
     box-shadow:0 1px 2px rgba(12,44,44,.04),0 18px 36px -26px rgba(12,44,44,.3);transition:transform .18s ease,box-shadow .18s ease}
   .pole:hover{transform:translateY(-3px);box-shadow:0 1px 2px rgba(12,44,44,.05),0 26px 44px -26px rgba(12,44,44,.4)}
@@ -167,9 +168,10 @@
   .foot-bottom{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center;padding-top:22px;font-size:12.5px;color:rgba(255,255,255,.5)}
   .pill-line{font-family:"Montserrat";font-weight:600;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-soft)}
   /* ---------- GALLERY ---------- */
-  .gal-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
-  @media (max-width:900px){.gal-grid{grid-template-columns:repeat(2,1fr)}}
-  @media (max-width:460px){.gal-grid{grid-template-columns:1fr}}
+  .gal-grid{display:flex;flex-wrap:wrap;gap:16px;justify-content:center}
+  .gtile{flex:1 1 100%}
+  @media (min-width:560px){.gtile{flex:0 1 calc(50% - 8px)}}
+  @media (min-width:900px){.gtile{flex:0 1 calc(33.333% - 11px)}}
   .gtile{position:relative;aspect-ratio:4/3;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:16px;overflow:hidden}
   .gtile.green{background:linear-gradient(155deg,var(--green) 0%,var(--green-deep) 100%)}
   .gtile.cream{background:var(--cream);border:1px solid var(--line)}
@@ -199,8 +201,6 @@
   .maps .btn-gold{position:relative;z-index:2}
   /* ---------- OPTIMISATION ORDINATEUR (grands écrans) ---------- */
   @media (min-width:900px){
-    .poles{grid-template-columns:repeat(3,1fr)}
-    .gal-grid{grid-template-columns:repeat(4,1fr)}
     .hero-in{max-width:820px}
     .sec-head{max-width:720px}
   }
@@ -242,6 +242,11 @@
 </div>
 
 <main id="app"><!-- rendu dynamiquement --></main>
+
+<!-- Formulaire statique pour la détection Netlify Forms (caché). Les envois réels passent par le formulaire du contact. -->
+<form name="contact" method="POST" data-netlify="true" netlify-honeypot="bot-field" hidden aria-hidden="true">
+  <input type="text" name="name"><input type="email" name="email"><textarea name="message"></textarea><input name="bot-field">
+</form>
 
 <!-- ============ FOOTER ============ -->
 <footer>
@@ -307,12 +312,15 @@ var UI = {
   nav_why:{fr:"Pourquoi nous",en:"Why us"}, nav_contact:{fr:"Contact",en:"Contact"},
   nav_nav:{fr:"Navigation",en:"Navigation"}, rights:{fr:"Tous droits réservés.",en:"All rights reserved."},
   hero_wa:{fr:"Discuter sur WhatsApp",en:"Chat on WhatsApp"}, hero_write:{fr:"Nous écrire",en:"Contact us"},
-  c_phone:{fr:"Téléphone",en:"Phone"}, c_addr:{fr:"Adresse",en:"Address"},
+  c_phone:{fr:"Téléphone",en:"Phone"}, c_addr:{fr:"Adresse",en:"Address"}, c_hours:{fr:"Horaires",en:"Hours"},
   f_name:{fr:"Votre nom",en:"Your name"}, f_name_ph:{fr:"Nom et prénom",en:"Full name"},
   f_email:{fr:"Votre e-mail",en:"Your email"}, f_email_ph:{fr:"vous@exemple.com",en:"you@example.com"},
   f_msg:{fr:"Votre message",en:"Your message"}, f_msg_ph:{fr:"Décrivez votre besoin…",en:"Tell us what you need…"},
   f_send:{fr:"Envoyer le message",en:"Send message"},
-  f_note:{fr:"Le message ouvrira votre application e-mail, pré-rempli.",en:"This opens your email app with the message pre-filled."},
+  f_note:{fr:"Votre message nous est envoyé directement. Nous vous répondrons rapidement.",en:"Your message is sent to us directly. We'll reply shortly."},
+  f_ok:{fr:"Merci ! Votre message a bien été envoyé. Nous vous répondrons rapidement.",en:"Thank you! Your message has been sent. We'll get back to you shortly."},
+  f_err:{fr:"L'envoi a échoué. Réessayez ou contactez-nous sur WhatsApp.",en:"Sending failed. Please try again or reach us on WhatsApp."},
+  f_sending:{fr:"Envoi…",en:"Sending…"},
   find:{fr:"Nous trouver",en:"Find us"}, maps_btn:{fr:"Voir sur Google Maps",en:"View on Google Maps"},
   gal_note:{fr:"Images d'illustration.",en:"Illustrative images."},
   photo_soon:{fr:"Photo à venir",en:"Your photo"},
@@ -411,11 +419,13 @@ function render(){
       + '<div><div class="lb">Email</div><div class="vl">'+esc(ct.email)+'</div></div></div>'
     + '<div class="line"><div class="ci"><svg viewBox="0 0 24 24"><path d="M21 10c0 6-9 12-9 12s-9-6-9-12a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg></div>'
       + '<div><div class="lb">'+t('c_addr')+'</div><div class="vl">'+esc(L(ct,'address'))+'</div></div></div>'
+    + (L(ct,'hours')?('<div class="line"><div class="ci"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 1.8"/></svg></div><div><div class="lb">'+t('c_hours')+'</div><div class="vl">'+esc(L(ct,'hours'))+'</div></div></div>'):'')
     + '<a class="btn btn-wa wa" id="wa2" href="#" target="_blank" rel="noopener">'+WA_SVG+'<span>'+t('hero_wa')+'</span></a>'
-    + '</div><form id="cform">'
-    + '<div class="field"><label>'+t('f_name')+'</label><input type="text" id="f_name" placeholder="'+t('f_name_ph')+'" required></div>'
-    + '<div class="field"><label>'+t('f_email')+'</label><input type="email" id="f_email" placeholder="'+t('f_email_ph')+'" required></div>'
-    + '<div class="field"><label>'+t('f_msg')+'</label><textarea id="f_msg" placeholder="'+t('f_msg_ph')+'" required></textarea></div>'
+    + '</div><form id="cform" name="contact" method="POST" data-netlify="true" netlify-honeypot="bot-field">'
+    + '<input type="hidden" name="form-name" value="contact"><p style="display:none"><label>Ne pas remplir : <input name="bot-field"></label></p>'
+    + '<div class="field"><label>'+t('f_name')+'</label><input type="text" id="f_name" name="name" placeholder="'+t('f_name_ph')+'" required></div>'
+    + '<div class="field"><label>'+t('f_email')+'</label><input type="email" id="f_email" name="email" placeholder="'+t('f_email_ph')+'" required></div>'
+    + '<div class="field"><label>'+t('f_msg')+'</label><textarea id="f_msg" name="message" placeholder="'+t('f_msg_ph')+'" required></textarea></div>'
     + '<button type="submit" class="btn btn-green">'+t('f_send')+'</button>'
     + '<p class="formnote">'+t('f_note')+'</p></form></div>';
   var mq = encodeURIComponent(ct.maps_query||'Conakry, Guinée');
@@ -467,10 +477,19 @@ function wireUp(){
   var form=document.getElementById('cform');
   if(form){ form.addEventListener('submit',function(e){
     e.preventDefault();
-    var n=document.getElementById('f_name').value, em=document.getElementById('f_email').value, m=document.getElementById('f_msg').value;
-    var subj=(LANG==='en'?'Website message from ':'Message du site web de ')+n;
-    var body=(LANG==='en'?'Name: ':'Nom : ')+n+'\n'+(LANG==='en'?'Email: ':'E-mail : ')+em+'\n\n'+m;
-    window.location.href='mailto:'+(ct.email||'')+'?subject='+encodeURIComponent(subj)+'&body='+encodeURIComponent(body);
+    var btn=form.querySelector('button[type="submit"]'); var note=form.querySelector('.formnote');
+    var data=new FormData(form);
+    var enc=new URLSearchParams(); data.forEach(function(v,k){ enc.append(k,v); });
+    if(btn){ btn.disabled=true; btn.textContent=t('f_sending'); }
+    fetch('/', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:enc.toString()})
+      .then(function(r){
+        if(!r.ok) throw new Error('bad status');
+        form.innerHTML='<div style="text-align:center;padding:20px 6px"><div style="font-size:30px;margin-bottom:10px">✅</div><p style="font-size:15px;color:var(--green);font-weight:700;margin:0">'+t('f_ok')+'</p></div>';
+      })
+      .catch(function(){
+        if(btn){ btn.disabled=false; btn.textContent=t('f_send'); }
+        if(note){ note.textContent=t('f_err'); note.style.color='var(--gold-deep)'; }
+      });
   }); }
 }
 
