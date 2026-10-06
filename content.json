@@ -41,36 +41,36 @@
         "icon": "commerce",
         "title_fr": "Commerce",
         "title_en": "Trade",
-        "text_fr": "Achat, vente et distribution de produits — kola, riz, huile rouge et autres marchandises — au niveau local et international.",
-        "text_en": "Purchase, sale and distribution of products — kola nuts, rice, red palm oil and other goods — locally and internationally."
+        "text_fr": "Import-export, approvisionnement et distribution de marchandises, de produits biologiques et de produits locaux, avec des partenaires fiables en Guinée et à l'international.",
+        "text_en": "Import-export, sourcing and distribution of goods, organic products and local products, with reliable partners in Guinea and internationally."
       },
       {
         "icon": "agribusiness",
         "title_fr": "Agrobusiness",
         "title_en": "Agribusiness",
-        "text_fr": "Production, transformation et valorisation des filières agricoles et d'élevage (volaille, cultures vivrières), pour une agriculture productive et durable.",
-        "text_en": "Production, processing and development of agricultural and livestock value chains (poultry, food crops), for a productive and sustainable sector."
+        "text_fr": "Production, transformation et valorisation des filières agricoles et d'élevage, pour une agriculture productive et durable.",
+        "text_en": "Production, processing and development of agricultural and livestock value chains, for a productive and sustainable farming sector."
       },
       {
         "icon": "fourniture",
         "title_fr": "Fourniture de biens",
         "title_en": "Supply of goods",
-        "text_fr": "Approvisionnement sur commande en équipements et matériels, pour les entreprises et les institutions.",
-        "text_en": "Sourcing of equipment and materials to order, for businesses and institutions."
+        "text_fr": "Fourniture d'équipements, de matériels et de biens divers adaptés aux besoins des entreprises, des institutions et des particuliers.",
+        "text_en": "Supply of equipment, materials and various goods tailored to the needs of businesses, institutions and individuals."
       },
       {
         "icon": "services",
         "title_fr": "Prestations de services",
         "title_en": "Professional services",
-        "text_fr": "Conseil, accompagnement et services divers aux entreprises et aux particuliers.",
-        "text_en": "Consulting, support and various services for businesses and individuals."
+        "text_fr": "Conseil, accompagnement technique et opérationnel et services aux entreprises, aux institutions et aux particuliers, pour la mise en œuvre de leurs activités et de leurs projets.",
+        "text_en": "Advice, technical and operational support and services for businesses, institutions and individuals, to carry out their activities and projects."
       },
       {
         "icon": "formation",
         "title_fr": "Formation et insertion socioprofessionnelle",
         "title_en": "Training & professional integration",
-        "text_fr": "Formation professionnelle et accompagnement vers l'emploi des jeunes (métiers, entrepreneuriat, informatique).",
-        "text_en": "Vocational training and support towards youth employment (trades, entrepreneurship, computer skills)."
+        "text_fr": "Formation, renforcement des capacités et accompagnement des jeunes, des filles vers l'emploi et l'entrepreneuriat, pour une insertion socioprofessionnelle durable.",
+        "text_en": "Training, capacity building and support for young people and women towards employment and entrepreneurship, for lasting professional integration."
       }
     ]
   },
