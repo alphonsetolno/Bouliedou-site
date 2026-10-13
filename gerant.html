@@ -645,9 +645,8 @@ function menuCard(go,title,sub){
 }
 
 function stockValueTotal(){
-  var m={};
-  S.stock.forEach(function(x){ if(!x.product_id) return; if(!m[x.product_id]) m[x.product_id]={qtyIn:0,qtyOut:0,amtIn:0}; var r=m[x.product_id]; if(x.kind==='sortie') r.qtyOut+=Number(x.qty)||0; else { r.qtyIn+=Number(x.qty)||0; r.amtIn+=Number(x.amount)||0; } });
-  var tot=0; Object.keys(m).forEach(function(k){ var r=m[k]; var net=r.qtyIn-r.qtyOut; var avg=r.qtyIn>0?r.amtIn/r.qtyIn:0; tot+=Math.max(0,net)*avg; });
+  var m=stockByProduct(), tot=0;
+  Object.keys(m).forEach(function(k){ var r=m[k]; tot+=(r.ckyNet+r.routeNet)*r.avg; });
   return tot;
 }
 function benefFor(period){
@@ -679,18 +678,18 @@ function periodBar(cur,attr){
 }
 /* ---- stock aggregated to the 3 levels (value FG, weighted avg purchase price) ---- */
 function stockLevels(){
-  var m=stockByProduct(), route=0,cky=0,qRoute=0,qCky=0;
-  Object.keys(m).forEach(function(pid){ var r=m[pid]; var avg=r.qtyIn>0?r.amtIn/r.qtyIn:0; var netC=Math.max(0,r.cky-r.sortie); var rt=Math.max(0,r.route);
-    cky+=netC*avg; route+=rt*avg; qCky+=netC; qRoute+=rt; });
-  return {route:route, cky:cky, total:route+cky, qRoute:qRoute, qCky:qCky};
+  var m=stockByProduct(), route=0,cky=0,qRoute=0,qCky=0,triageKg=0,triageVal=0;
+  Object.keys(m).forEach(function(pid){ var r=m[pid];
+    cky+=r.ckyNet*r.avg; route+=r.routeNet*r.avg; qCky+=r.ckyNet; qRoute+=r.routeNet;
+    triageKg+=r.triage; triageVal+=r.triage*r.avg; });
+  return {route:route, cky:cky, total:route+cky, qRoute:qRoute, qCky:qCky, triageKg:triageKg, triageVal:triageVal};
 }
-/* ---- stock aggregated per category (qty + value) ---- */
+/* ---- stock aggregated per category (kg + value) ---- */
 function stockByCategory(){
   var m=stockByProduct(), out={};
-  Object.keys(m).forEach(function(pid){ var p=prodById(pid); var c=p?prodCat(p):null; var key=c?c.id:'__nc';
-    var avg=m[pid].qtyIn>0?m[pid].amtIn/m[pid].qtyIn:0; var netC=Math.max(0,m[pid].cky-m[pid].sortie); var rt=Math.max(0,m[pid].route);
-    if(!out[key]) out[key]={name:(c?c.name:"Sans catégorie"), unit:(c?c.order_unit:''), qCky:0,qRoute:0,vCky:0,vRoute:0};
-    var o=out[key]; o.qCky+=netC; o.qRoute+=rt; o.vCky+=netC*avg; o.vRoute+=rt*avg; });
+  Object.keys(m).forEach(function(pid){ var p=prodById(pid); var c=p?prodCat(p):null; var key=c?c.id:'__nc'; var u=prodUnits(pid); var r=m[pid];
+    if(!out[key]) out[key]={name:(c?c.name:"Sans catégorie"), su:u.su, qCky:0,qRoute:0,vCky:0,vRoute:0};
+    var o=out[key]; o.qCky+=r.ckyNet; o.qRoute+=r.routeNet; o.vCky+=r.ckyNet*r.avg; o.vRoute+=r.routeNet*r.avg; });
   return out;
 }
 function renderHome(){
@@ -716,6 +715,7 @@ function renderHome(){
       +'<div class="ss-h"><span>Stock</span><b class="tnum">'+money(lv.total)+'</b></div>'
       +'<div class="ss-row"><span><i style="background:var(--green)"></i>Disponible à Conakry</span><b class="tnum">'+money(lv.cky)+'</b></div>'
       +'<div class="ss-row"><span><i style="background:var(--gold)"></i>Acheté — non acheminé</span><b class="tnum">'+money(lv.route)+'</b></div>'
+      +(lv.triageKg>0?'<div class="ss-row"><span><i style="background:var(--crit)"></i>Manques / triages</span><b class="tnum" style="color:var(--crit)">'+rnd(lv.triageKg)+' kg · '+money(lv.triageVal)+'</b></div>':'')
       +'<div class="ss-row tot"><span>Total (Conakry + non acheminé)</span><b class="tnum">'+money(lv.total)+'</b></div>'
       +'<div class="ss-s">Valeurs au prix d\'achat moyen · détail par catégorie dans « Stock »</div></button>';
   }
@@ -897,13 +897,30 @@ function allProdOptions(){
   S.products.forEach(function(p){ var c=prodCat(p); o+='<option value="'+p.id+'">'+esc(p.name)+(c?(" — "+esc(c.order_unit)):"")+'</option>'; });
   return o;
 }
+/* ===== STOCK EN KG (poids réel) ===== */
+function prodContentOf(x){
+  var c=(x&&x.content_per_unit!=null&&x.content_per_unit!=="")?Number(x.content_per_unit):null;
+  if(!c){ var p=prodById(x&&x.product_id); c=(p&&p.content_per_unit!=null)?Number(p.content_per_unit):null; }
+  return (c&&c>0)?c:1;
+}
+function entryKg(x){ if(x&&x.qty_kg!=null&&x.qty_kg!=="") return Number(x.qty_kg)||0; return (Number(x&&x.qty)||0)*prodContentOf(x); }
+function prodUnits(pid){ var p=prodById(pid), c=p?prodCat(p):null; var content=(p&&p.content_per_unit!=null)?Number(p.content_per_unit):((c&&c.content_per_unit!=null)?Number(c.content_per_unit):1); return {su:(c?c.sale_unit:'unité'), ou:(c?c.order_unit:''), content:(content>0?content:1)}; }
+function stkQty(kg,pid){ var u=prodUnits(pid); var txt=rnd(kg)+' '+esc(u.su); if(u.ou&&u.ou!==u.su&&u.content>1){ txt+=' <span style="color:var(--muted)">(≈ '+rnd(kg/u.content)+' '+esc(u.ou)+')</span>'; } return txt; }
+/* m[pid] : tout en kg — cky/route (entrées), transfer (acheminé route→Conakry), sortie (ventes), triage (manques) */
 function stockByProduct(){
   var m={};
   S.stock.forEach(function(x){ if(!x.product_id) return;
-    if(!m[x.product_id]) m[x.product_id]={cky:0,route:0,sortie:0,qtyIn:0,amtIn:0};
-    var r=m[x.product_id];
-    if(x.kind==='sortie'){ r.sortie+=Number(x.qty)||0; }
-    else { var loc=(x.location==='route')?'route':'cky'; r[loc]+=Number(x.qty)||0; r.qtyIn+=Number(x.qty)||0; r.amtIn+=Number(x.amount)||0; }
+    if(!m[x.product_id]) m[x.product_id]={cky:0,route:0,transfer:0,sortie:0,triage:0,qtyIn:0,amtIn:0};
+    var r=m[x.product_id], kg=entryKg(x);
+    if(x.kind==='transfert'){ r.transfer+=kg; }
+    else if(x.kind==='sortie'){ if(x.reason==='triage') r.triage+=kg; else r.sortie+=kg; }
+    else { var loc=(x.location==='route')?'route':'cky'; r[loc]+=kg; r.qtyIn+=kg; r.amtIn+=Number(x.amount)||0; }
+  });
+  // niveaux nets (kg)
+  Object.keys(m).forEach(function(k){ var r=m[k];
+    r.routeNet=Math.max(0, r.route - r.transfer);
+    r.ckyNet=Math.max(0, r.cky + r.transfer - r.sortie - r.triage);
+    r.avg=r.qtyIn>0?r.amtIn/r.qtyIn:0; // coût moyen pondéré par kg
   });
   return m;
 }
@@ -914,23 +931,26 @@ async function receiveStock(id){
   toast("Marchandise reçue à Conakry ✓"); await refresh();
 }
 function rnd(n){ return Math.round((Number(n)||0)*100)/100; }
+function mvKg(x){ var k=entryKg(x); return k?(rnd(k)+' '+esc(prodUnits(x.product_id).su)):''; }
 function renderStock(){
   var h='<button class="add-link" data-go="menu" style="margin:2px 0 12px">‹ Gestion</button>';
-  h+='<div class="view-title">Stock</div><p class="view-sub">Deux stocks : disponible à Conakry et acheté non encore acheminé.</p>';
-  var m=stockByProduct(), keys=Object.keys(m);
-  var valCky=0, valRoute=0;
-  keys.forEach(function(pid){ var r=m[pid]; var avg=r.qtyIn>0?r.amtIn/r.qtyIn:0; var netC=r.cky-r.sortie; valCky+=Math.max(0,netC)*avg; valRoute+=Math.max(0,r.route)*avg; });
-  var valTot=valCky+valRoute;
+  h+='<div class="view-title">Stock</div><p class="view-sub">Suivi en poids réel (kg). Conakry = disponible à la vente ; « en route » = acheté, pas encore acheminé.</p>';
+  var lv=stockLevels(), m=stockByProduct(), keys=Object.keys(m);
   h+='<div class="kpis">'
-    +'<div class="kpi"><div class="lab"><i style="background:var(--green)"></i>Stock Conakry (dispo)</div><div class="val sm tnum">'+money(valCky)+'</div></div>'
-    +'<div class="kpi"><div class="lab"><i style="background:var(--gold)"></i>Stock en route</div><div class="val sm tnum">'+money(valRoute)+'</div></div></div>';
-  h+='<div class="card" style="margin-top:12px;border-left:4px solid var(--green)"><div class="info-row"><span class="k" style="font-weight:800">Valeur totale du stock</span><b class="tnum" style="font-size:17px">'+money(valTot)+'</b></div>'
-    +'<div class="hint" style="margin:6px 0 0">Valeurs au prix d\'achat moyen. « Conakry » = disponible à la vente ; « en route » = acheté, pas encore acheminé au magasin.</div></div>';
+    +'<div class="kpi"><div class="lab"><i style="background:var(--green)"></i>Disponible à Conakry</div><div class="val sm tnum">'+money(lv.cky)+'</div></div>'
+    +'<div class="kpi"><div class="lab"><i style="background:var(--gold)"></i>Acheté — non acheminé</div><div class="val sm tnum">'+money(lv.route)+'</div></div></div>';
+  h+='<div class="card" style="margin-top:12px;border-left:4px solid var(--green)"><div class="info-row"><span class="k" style="font-weight:800">Valeur totale du stock</span><b class="tnum" style="font-size:17px">'+money(lv.total)+'</b></div>'
+    +'<div class="hint" style="margin:6px 0 0">Au coût moyen d\'achat par '+esc((keys[0]?prodUnits(keys[0]).su:'kg'))+'. Total = disponible à Conakry + acheté non acheminé.</div></div>';
+  // --- déperdition (triages / manques) ---
+  if(lv.triageKg>0){
+    h+='<div class="card" style="margin-top:12px;border-left:4px solid var(--crit)"><div class="info-row"><span class="k" style="font-weight:800">Triages / Manques cumulés</span><b class="tnum" style="color:var(--crit)">'+rnd(lv.triageKg)+' kg · '+money(lv.triageVal)+'</b></div>'
+      +'<div class="hint" style="margin:6px 0 0">Pertes de poids (pesée, casse) retirées du stock disponible.</div></div>';
+  }
   // --- synthèse par catégorie ---
   var cats=stockByCategory(), ck=Object.keys(cats);
   if(ck.length){
     h+='<div class="section-h"><h2>Par catégorie</h2></div><div class="card catroll">';
-    ck.forEach(function(k){ var o=cats[k]; var u=o.unit||'';
+    ck.forEach(function(k){ var o=cats[k]; var u=o.su||'kg';
       h+='<div class="cr"><div><div class="nm">'+esc(o.name)+'</div>'
         +'<div class="q">Conakry '+rnd(o.qCky)+' '+esc(u)+(o.qRoute>0?(' · en route '+rnd(o.qRoute)+' '+esc(u)):'')+'</div></div>'
         +'<div style="text-align:right"><b class="tnum">'+money(o.vCky+o.vRoute)+'</b>'
@@ -938,29 +958,33 @@ function renderStock(){
     });
     h+='</div>';
   }
-  h+='<div class="d-actions" style="margin-top:14px"><button class="btn btn-green" data-addstock="entree">+ Entrée (achat)</button><button class="btn btn-ghost" data-addstock="sortie">− Sortie</button></div>';
-  // alerte stock bas (sur le stock Conakry disponible)
-  var low=keys.filter(function(pid){ var p=prodById(pid); var netC=m[pid].cky-m[pid].sortie; return p && p.reorder_threshold!=null && netC<=Number(p.reorder_threshold); });
+  h+='<div class="d-actions" style="margin-top:14px;flex-wrap:wrap;gap:8px"><button class="btn btn-green" data-addstock="entree">+ Entrée (achat)</button><button class="btn btn-gold" data-achemine="">→ Acheminer</button><button class="btn btn-ghost" data-triage="">Manque / Triage</button><button class="btn btn-ghost" data-addstock="sortie">− Sortie manuelle</button></div>';
+  // alerte stock bas (seuil en unité de commande → converti en kg)
+  var low=keys.filter(function(pid){ var p=prodById(pid); if(!(p&&p.reorder_threshold!=null)) return false; var thrKg=Number(p.reorder_threshold)*prodUnits(pid).content; return m[pid].ckyNet<=thrKg; });
   if(low.length){
     h+='<div class="banner" style="background:var(--warn-bg);color:var(--warn);margin-top:14px">⚠ Stock Conakry bas — à racheter : '+low.map(function(pid){ var p=prodById(pid); return esc(p?p.name:""); }).join(", ")+'</div>';
   }
   h+='<div class="section-h"><h2>En stock par produit</h2></div>';
   if(keys.length===0) h+='<div class="item-empty">Aucun stock enregistré pour le moment.</div>';
   else { h+='<div class="card"><div class="items">'; keys.forEach(function(pid){
-    var p=prodById(pid), c=p?prodCat(p):null, u=c?c.order_unit:'', netC=m[pid].cky-m[pid].sortie, route=m[pid].route, tot=netC+route;
-    var isLow=p && p.reorder_threshold!=null && netC<=Number(p.reorder_threshold);
-    h+='<div class="item"><div class="body"><div class="top"><span class="lab">'+esc(p?p.name:"Produit")+(isLow?' <span class="pill nouvelle">à racheter</span>':'')+'</span><span class="amt tnum" style="color:'+(tot>0?'var(--good)':'var(--muted)')+'">'+rnd(tot)+' '+esc(u)+'</span></div>'
-      +'<div class="sub">Conakry '+rnd(netC)+' '+esc(u)+(route>0?(' · <span style="color:var(--gold-deep,#A87C2E);font-weight:700">en route '+rnd(route)+' '+esc(u)+'</span>'):'')+'</div></div></div>';
+    var p=prodById(pid), r=m[pid], tot=r.ckyNet+r.routeNet;
+    var thrKg=(p&&p.reorder_threshold!=null)?Number(p.reorder_threshold)*prodUnits(pid).content:null;
+    var isLow=thrKg!=null && r.ckyNet<=thrKg;
+    h+='<div class="item"><div class="body"><div class="top"><span class="lab">'+esc(p?p.name:"Produit")+(isLow?' <span class="pill nouvelle">à racheter</span>':'')+'</span><span class="amt tnum" style="color:'+(tot>0?'var(--good)':'var(--muted)')+'">'+stkQty(tot,pid)+'</span></div>'
+      +'<div class="sub">Conakry '+stkQty(r.ckyNet,pid)+(r.routeNet>0?(' · <span style="color:var(--gold-deep,#A87C2E);font-weight:700">en route '+rnd(r.routeNet)+' '+esc(prodUnits(pid).su)+'</span>'):'')+(r.triage>0?(' · <span style="color:var(--crit)">manques '+rnd(r.triage)+' '+esc(prodUnits(pid).su)+'</span>'):'')+'</div></div></div>';
   }); h+='</div></div>'; }
   h+='<div class="section-h"><h2>Mouvements récents</h2></div>';
   if(S.stock.length===0) h+='<div class="item-empty">Aucun mouvement.</div>';
   else { h+='<div class="card"><div class="items">'; S.stock.forEach(function(x){
     var isRoute=(x.kind==='entree'&&x.location==='route');
-    var tag=x.kind==='sortie'?'<span class="pill annulée">sortie</span>':(isRoute?'<span class="pill nouvelle">en route</span>':'<span class="pill livrée">entrée · Conakry</span>');
+    var tag;
+    if(x.kind==='transfert') tag='<span class="pill livrée">acheminé → Conakry</span>';
+    else if(x.kind==='sortie') tag=(x.reason==='triage')?'<span class="pill annulée" style="background:#fde8e8;color:var(--crit)">manque / triage</span>':(x.origin==='sale'?'<span class="pill annulée">vente</span>':'<span class="pill annulée">sortie</span>');
+    else tag=isRoute?'<span class="pill nouvelle">en route</span>':'<span class="pill livrée">entrée · Conakry</span>';
     if(x._pending) tag+=' <span class="pill pending">⏳ en attente</span>';
     h+='<div class="item"><div class="body"><div class="top"><span class="lab">'+esc(x.label||"—")+'</span>'+((x.kind==='entree'&&x.amount)?'<span class="amt tnum">'+money(x.amount)+'</span>':'')+'</div>'
-      +'<div class="sub">'+tag+' '+(x.qty!=null?(rnd(x.qty)+' '+esc(x.unit||'')):'')+' · '+fmtDate(x.date)+(x.supplier?(' · '+esc(x.supplier)):'')+'</div>'
-      +((isRoute&&!x._pending)?'<div style="margin-top:8px"><button class="btn btn-ghost" data-receivestock="'+x.id+'" style="padding:7px 12px;font-size:12.5px">✓ Reçu à Conakry</button></div>':'')+'</div>'
+      +'<div class="sub">'+tag+' '+mvKg(x)+' · '+fmtDate(x.date)+(x.supplier?(' · '+esc(x.supplier)):'')+'</div>'
+      +((isRoute&&!x._pending)?'<div style="margin-top:8px"><button class="btn btn-ghost" data-achemine="'+esc(x.product_id||'')+'" style="padding:7px 12px;font-size:12.5px">→ Acheminer vers Conakry</button></div>':'')+'</div>'
       +(x._pending?'':'<button class="del" data-del="stock_entries:'+x.id+'" aria-label="Supprimer">×</button>')+'</div>';
   }); h+='</div></div>'; }
   return h;
@@ -1015,7 +1039,55 @@ async function saveStock(kind){
   var pid=V("s_prod")||null, p=pid?prodById(pid):null, c=p?prodCat(p):null;
   var qty=numOrNull("s_qty"); if(!qty||qty<=0){ toast("Indiquez la quantité."); return; }
   var data={kind:kind, product_id:pid, label:V("s_label")||(p?p.name:(kind==='entree'?"Entrée":"Sortie")), qty:qty, unit:c?c.order_unit:null, date:V("s_date")||today()};
-  if(kind==='entree'){ data.amount=Number(V("s_amount"))||0; data.supplier=V("s_supplier")||null; data.content_per_unit=numOrNull("s_content"); data.unit_price=numOrNull("s_price"); data.location=V("s_location")||'conakry'; }
+  var contFor;
+  if(kind==='entree'){ data.amount=Number(V("s_amount"))||0; data.supplier=V("s_supplier")||null; data.content_per_unit=numOrNull("s_content"); data.unit_price=numOrNull("s_price"); data.location=V("s_location")||'conakry'; contFor=data.content_per_unit||(p&&p.content_per_unit)||1; }
+  else { contFor=(p&&p.content_per_unit)||(c&&c.content_per_unit)||1; }
+  data.qty_kg=Math.round(qty*contFor*1000)/1000;
+  var r=await saveOp({type:'stock', table:'stock_entries', payload:data});
+  finishEntry(r);
+}
+/* ===== ACHEMINEMENT (route → Conakry), partiel, en kg ===== */
+function achemineForm(pid){
+  var m=stockByProduct();
+  var opts=Object.keys(m).filter(function(k){return m[k].routeNet>0.0001;}).map(function(k){var p=prodById(k);return '<option value="'+k+'"'+(k===pid?' selected':'')+'>'+esc(p?p.name:'Produit')+' — en route '+rnd(m[k].routeNet)+' '+esc(prodUnits(k).su)+'</option>';}).join('');
+  if(!opts){ toast("Aucun stock « en route » à acheminer."); return; }
+  openSheet('<h3>Acheminer vers Conakry</h3><p class="view-sub" style="margin:-6px 0 10px">Déplacer une partie du stock acheté vers le magasin de Conakry.</p>'
+    +'<div class="field"><label for="a_prod">Produit</label><select id="a_prod">'+opts+'</select></div>'
+    +'<div class="field"><label>Quantité à acheminer (<span id="a_unit">kg</span>)</label><input id="a_qty" type="number" inputmode="decimal" min="0" placeholder="0"></div>'
+    +'<div class="hint" id="a_hint"></div>'
+    +fld("Date","date","a_date",today(),"")
+    +'<div class="sheet-actions"><button class="btn btn-ghost" data-cancel="1">Annuler</button><button class="btn btn-green" data-saveachemine="1">Acheminer</button></div>');
+  var sp=document.getElementById("a_prod");
+  function sync(){ var k=V("a_prod"); var u=prodUnits(k); var el=document.getElementById("a_unit"); if(el) el.textContent=u.su; var av=stockByProduct()[k]; var hint=document.getElementById("a_hint"); if(hint&&av) hint.textContent="Disponible « en route » : "+rnd(av.routeNet)+" "+u.su+(u.content>1?(" (≈ "+rnd(av.routeNet/u.content)+" "+u.ou+")"):""); }
+  if(sp) sp.addEventListener("change",sync); sync();
+}
+async function saveAcheminement(){
+  var pid=V("a_prod")||null; if(!pid){ toast("Choisissez un produit."); return; }
+  var kg=numOrNull("a_qty"); if(!kg||kg<=0){ toast("Indiquez la quantité."); return; }
+  var av=stockByProduct()[pid];
+  if(av && kg>av.routeNet+0.001){ toast("Pas plus que le stock en route ("+rnd(av.routeNet)+" "+prodUnits(pid).su+")."); return; }
+  var p=prodById(pid);
+  var data={kind:'transfert', product_id:pid, label:(p?p.name:'Acheminement'), qty_kg:kg, unit:prodUnits(pid).su, date:V("a_date")||today()};
+  var r=await saveOp({type:'stock', table:'stock_entries', payload:data});
+  finishEntry(r);
+}
+/* ===== MANQUE / TRIAGE (perte de poids) ===== */
+function triageForm(){
+  openSheet('<h3>Manque / Triage</h3><p class="view-sub" style="margin:-6px 0 10px">Poids retiré du stock disponible (écart de pesée, casse, colas écrasés).</p>'
+    +'<div class="field"><label for="t_prod">Produit</label><select id="t_prod">'+allProdOptions()+'</select></div>'
+    +'<div class="field"><label>Quantité perdue (<span id="t_unit">kg</span>)</label><input id="t_qty" type="number" inputmode="decimal" min="0" placeholder="0"></div>'
+    +'<div class="field"><label for="t_reason">Motif</label><select id="t_reason"><option value="pesée">Écart de pesée</option><option value="casse">Casse / écrasé</option><option value="autre">Autre</option></select></div>'
+    +fld("Date","date","t_date",today(),"")
+    +'<div class="sheet-actions"><button class="btn btn-ghost" data-cancel="1">Annuler</button><button class="btn btn-green" data-savetriage="1">Enregistrer</button></div>');
+  var sp=document.getElementById("t_prod");
+  function sync(){ var el=document.getElementById("t_unit"); if(el) el.textContent=prodUnits(V("t_prod")).su; }
+  if(sp) sp.addEventListener("change",sync); sync();
+}
+async function saveTriage(){
+  var pid=V("t_prod")||null; if(!pid){ toast("Choisissez un produit."); return; }
+  var kg=numOrNull("t_qty"); if(!kg||kg<=0){ toast("Indiquez la quantité perdue."); return; }
+  var reason=V("t_reason")||"autre";
+  var data={kind:'sortie', reason:'triage', product_id:pid, label:"Manque / Triage · "+reason, qty_kg:kg, unit:prodUnits(pid).su, date:V("t_date")||today(), note:reason};
   var r=await saveOp({type:'stock', table:'stock_entries', payload:data});
   finishEntry(r);
 }
@@ -1093,13 +1165,13 @@ function renderProfit(){
 function renderProductReport(){
   var h='<button class="add-link" data-go="menu" style="margin:2px 0 12px">‹ Gestion</button>';
   h+='<div class="view-title">Bilan par produit</div><p class="view-sub">Stock, ventes à crédit et argent encaissé, pour chaque produit.</p>';
-  var m={};
-  function ens(pid){ if(!m[pid]) m[pid]={qtyIn:0,qtyOut:0,amtIn:0,credit:0,cash:0}; return m[pid]; }
-  S.stock.forEach(function(x){ if(!x.product_id) return; var r=ens(x.product_id); if(x.kind==='sortie') r.qtyOut+=Number(x.qty)||0; else { r.qtyIn+=Number(x.qty)||0; r.amtIn+=Number(x.amount)||0; } });
+  var sp=stockByProduct(), m={};
+  function ens(pid){ if(!m[pid]) m[pid]={net:0,stockVal:0,credit:0,cash:0}; return m[pid]; }
+  Object.keys(sp).forEach(function(pid){ var r=sp[pid]; var e=ens(pid); e.net=r.ckyNet+r.routeNet; e.stockVal=(r.ckyNet+r.routeNet)*r.avg; });
   S.credits.forEach(function(x){ ens(x.product_id||'__none').credit+=Number(x.amount)||0; });
   S.payments.forEach(function(x){ ens(x.product_id||'__none').cash+=Number(x.amount)||0; });
   var tStock=0,tCash=0;
-  Object.keys(m).forEach(function(pid){ var r=m[pid]; var net=r.qtyIn-r.qtyOut; var avg=r.qtyIn>0?r.amtIn/r.qtyIn:0; tStock+=Math.max(0,net)*avg; tCash+=r.cash; });
+  Object.keys(m).forEach(function(pid){ tStock+=m[pid].stockVal; tCash+=m[pid].cash; });
   h+='<div class="kpis">'
     +'<div class="kpi"><div class="lab"><i style="background:var(--gold)"></i>Valeur en stock</div><div class="val sm tnum">'+money(tStock)+'</div></div>'
     +'<div class="kpi"><div class="lab"><i style="background:var(--good)"></i>Encaissé (caisse)</div><div class="val sm tnum">'+money(tCash)+'</div></div></div>';
@@ -1112,13 +1184,11 @@ function renderProductReport(){
 }
 function prodReportCard(pid, r){
   var p = pid==='__none'?null:prodById(pid);
-  var cat = p?prodCat(p):null, unit=cat?cat.order_unit:'';
-  var net = r.qtyIn - r.qtyOut;
-  var avg = r.qtyIn>0 ? r.amtIn/r.qtyIn : 0;
-  var stockVal = Math.max(0,net)*avg;
+  var net = r.net||0;
+  var stockVal = r.stockVal||0;
   var due = r.credit - r.cash;
   var name = p?p.name:'Non attribué (général)';
-  var h='<div class="card"><div class="card-h"><h3>'+esc(name)+'</h3>'+(p?'<span class="solde ok tnum" style="color:'+(net>0?'var(--good)':'var(--muted)')+'">'+rnd(net)+' '+esc(unit)+' en stock</span>':'')+'</div>';
+  var h='<div class="card"><div class="card-h"><h3>'+esc(name)+'</h3>'+(p?'<span class="solde ok tnum" style="color:'+(net>0?'var(--good)':'var(--muted)')+'">'+stkQty(net,pid)+' en stock</span>':'')+'</div>';
   h+='<div class="money-grid">'
     +(p?'<div class="m"><div class="lab">Valeur stock</div><div class="v tnum">'+money(stockVal)+'</div></div>':'')
     +'<div class="m"><div class="lab">À crédit</div><div class="v tnum" style="color:var(--crit)">'+money(r.credit)+'</div></div>'
@@ -1571,7 +1641,7 @@ function orderSheet(id){
 
 /* ===== EVENTS ===== */
 document.addEventListener("click",function(e){
-  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin],[data-go],[data-addstock],[data-savestock],[data-receivestock],[data-addexp],[data-saveexp],[data-profper],[data-homeper],[data-wa],[data-receiptpay],[data-wareceipt],[data-export],[data-addrule],[data-editrule],[data-saverule],[data-delrule],[data-pdfreceipt],[data-actfilter],[data-dlbackup],[data-bio],[data-push]");
+  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin],[data-go],[data-addstock],[data-savestock],[data-receivestock],[data-achemine],[data-saveachemine],[data-triage],[data-savetriage],[data-addexp],[data-saveexp],[data-profper],[data-homeper],[data-wa],[data-receiptpay],[data-wareceipt],[data-export],[data-addrule],[data-editrule],[data-saverule],[data-delrule],[data-pdfreceipt],[data-actfilter],[data-dlbackup],[data-bio],[data-push]");
   if(!el) return; var d=el.dataset;
   if((d.del!==undefined||d.delclient!==undefined||d.delprod!==undefined||d.delcat!==undefined||d.delrule!==undefined)&&!isAdmin()){ toast("Suppression réservée au gérant principal."); return; }
   if(d.bio!==undefined){ toggleBio(); }
@@ -1581,6 +1651,10 @@ document.addEventListener("click",function(e){
   else if(d.addstock!==undefined){ stockForm(d.addstock); }
   else if(d.savestock!==undefined){ saveStock(d.savestock); }
   else if(d.receivestock!==undefined){ receiveStock(d.receivestock); }
+  else if(d.achemine!==undefined){ achemineForm(d.achemine||null); }
+  else if(d.saveachemine!==undefined){ saveAcheminement(); }
+  else if(d.triage!==undefined){ triageForm(); }
+  else if(d.savetriage!==undefined){ saveTriage(); }
   else if(d.addexp!==undefined){ expenseForm(); }
   else if(d.saveexp!==undefined){ saveExpense(); }
   else if(d.profper!==undefined){ profitPeriod=d.profper; render(); }
