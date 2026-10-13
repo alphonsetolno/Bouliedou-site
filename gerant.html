@@ -171,6 +171,28 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .lock-logout{background:none;border:0;color:var(--muted);font-weight:700;font-size:13px;margin-top:14px;text-decoration:underline}
 .loading{flex:1;display:flex;align-items:center;justify-content:center;color:var(--muted);font-weight:600}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+/* period filter chips */
+.perbar{display:flex;gap:7px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:2px 0 10px;scrollbar-width:none}
+.perbar::-webkit-scrollbar{display:none}
+.perchip{flex:0 0 auto;border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:999px;padding:7px 14px;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+.perchip.on{background:var(--green);color:#fff;border-color:var(--green)}
+/* stock synthesis card */
+.stock-syn{display:block;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:16px;padding:14px 15px;box-shadow:var(--shadow);cursor:pointer;font:inherit;margin-top:12px}
+.stock-syn .ss-h{display:flex;justify-content:space-between;align-items:baseline;font-family:"Montserrat";font-weight:800;font-size:15px;color:var(--ink);margin-bottom:8px}
+.stock-syn .ss-h b{font-size:18px}
+.stock-syn .ss-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13.5px;color:var(--muted)}
+.stock-syn .ss-row span{display:flex;align-items:center;gap:8px}
+.stock-syn .ss-row i{width:9px;height:9px;border-radius:50%;display:inline-block}
+.stock-syn .ss-row b{color:var(--ink);font-weight:700}
+.stock-syn .ss-row.tot{border-top:1px dashed var(--line);margin-top:4px;padding-top:9px;color:var(--ink);font-weight:800}
+.stock-syn .ss-s{font-size:11px;color:var(--muted);margin-top:8px}
+/* category rollup */
+.catroll .cr{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.catroll .cr:last-child{border-bottom:0}
+.catroll .cr .nm{font-weight:700}
+.catroll .cr .q{font-size:12px;color:var(--muted);margin-top:2px}
+/* assistant : pas de suppression */
+.role-assistant .del,.role-assistant .btn-danger{display:none!important}
 </style>
 </head>
 <body>
@@ -253,7 +275,7 @@ var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 var ME=null, ROLE=null;
 var S={clients:[],products:[],orders:[],deliveries:[],credits:[],payments:[],categories:[],stock:[],expenses:[],rules:[],people:[],backups:[]};
-var view="home", currentId=null, search="", profitPeriod="month", actFilter="all";
+var view="home", currentId=null, search="", profitPeriod="month", actFilter="all", homePeriod="month";
 
 /* ===== HORS LIGNE / SYNCHRONISATION ===== */
 var NET={ uid:null, syncing:false, snapAt:null };
@@ -598,6 +620,7 @@ function render(){
   var activeTab = (["menu","catalog","stock","expenses","profit","backup","rewards","activity","security","prodreport"].indexOf(view)>=0)?"menu":view;
   document.querySelectorAll(".tab").forEach(function(b){ b.classList.toggle("on", b.dataset.tab===activeTab && !currentId); });
   var root=document.getElementById("root");
+  document.body.classList.toggle("role-assistant", !isAdmin());
   updateBell();
   if(currentId){ root.innerHTML=renderClient(currentId); return; }
   root.innerHTML = view==="home"?renderHome() : view==="clients"?renderClients() : view==="orders"?renderOrders()
@@ -634,22 +657,74 @@ function benefFor(period){
   var achats=S.stock.filter(function(x){return x.kind==='entree'&&inP(x.date);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
   return ventes-achats-depenses;
 }
+/* ---- period filtering (semaine / mois / trimestre / semestre / année / tout) ---- */
+function _qtr(d){ return Math.floor((Number(d.slice(5,7))-1)/3); }
+function _weekStart(d){ var dt=new Date(d+"T00:00:00"); if(isNaN(dt)) return d; var day=(dt.getDay()+6)%7; dt.setDate(dt.getDate()-day); return dt.toISOString().slice(0,10); }
+function inPer(dateStr,per){
+  var d=String(dateStr||"").slice(0,10); if(!d) return false; if(per==="all") return true;
+  var t=today();
+  if(per==="week")     return _weekStart(d)===_weekStart(t);
+  if(per==="month")    return d.slice(0,7)===t.slice(0,7);
+  if(per==="quarter")  return d.slice(0,4)===t.slice(0,4) && _qtr(d)===_qtr(t);
+  if(per==="semester") return d.slice(0,4)===t.slice(0,4) && (Number(d.slice(5,7))<=6)===(Number(t.slice(5,7))<=6);
+  if(per==="year")     return d.slice(0,4)===t.slice(0,4);
+  return true;
+}
+var PERIODS=[["week","Semaine"],["month","Mois"],["quarter","Trimestre"],["semester","Semestre"],["year","Année"],["all","Tout"]];
+function perLabel(per){ var f=PERIODS.filter(function(p){return p[0]===per;})[0]; return f?f[1]:"Mois"; }
+function periodBar(cur,attr){
+  return '<div class="perbar">'+PERIODS.map(function(p){
+    return '<button class="perchip'+(p[0]===cur?' on':'')+'" data-'+attr+'="'+p[0]+'">'+p[1]+'</button>';
+  }).join('')+'</div>';
+}
+/* ---- stock aggregated to the 3 levels (value FG, weighted avg purchase price) ---- */
+function stockLevels(){
+  var m=stockByProduct(), route=0,cky=0,qRoute=0,qCky=0;
+  Object.keys(m).forEach(function(pid){ var r=m[pid]; var avg=r.qtyIn>0?r.amtIn/r.qtyIn:0; var netC=Math.max(0,r.cky-r.sortie); var rt=Math.max(0,r.route);
+    cky+=netC*avg; route+=rt*avg; qCky+=netC; qRoute+=rt; });
+  return {route:route, cky:cky, total:route+cky, qRoute:qRoute, qCky:qCky};
+}
+/* ---- stock aggregated per category (qty + value) ---- */
+function stockByCategory(){
+  var m=stockByProduct(), out={};
+  Object.keys(m).forEach(function(pid){ var p=prodById(pid); var c=p?prodCat(p):null; var key=c?c.id:'__nc';
+    var avg=m[pid].qtyIn>0?m[pid].amtIn/m[pid].qtyIn:0; var netC=Math.max(0,m[pid].cky-m[pid].sortie); var rt=Math.max(0,m[pid].route);
+    if(!out[key]) out[key]={name:(c?c.name:"Sans catégorie"), unit:(c?c.order_unit:''), qCky:0,qRoute:0,vCky:0,vRoute:0};
+    var o=out[key]; o.qCky+=netC; o.qRoute+=rt; o.vCky+=netC*avg; o.vRoute+=rt*avg; });
+  return out;
+}
 function renderHome(){
   var nbClients=S.clients.length;
   var nouvelles=S.orders.filter(function(o){return o.status==='nouvelle';}).length;
   var credit=sum(S.credits,'amount'), paye=sum(S.payments,'amount'), du=Math.max(0,credit-paye);
   var h='<div class="view-title">Bonjour 👋</div><p class="view-sub">Tableau de bord de votre activité.</p>';
   if(isAdmin()){
-    var benefMois=benefFor("month"), valStock=stockValueTotal();
+    var per=homePeriod, pl=perLabel(per).toLowerCase();
+    var caPer  = S.credits.filter(function(x){return inPer(x.date,per);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
+    var encPer = S.payments.filter(function(x){return inPer(x.date,per);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
+    var depPer = S.expenses.filter(function(x){return inPer(x.date,per);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
+    var achPer = S.stock.filter(function(x){return x.kind==='entree'&&inPer(x.date,per);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
+    var benefPer = caPer - achPer - depPer;
+    var lv = stockLevels();
+    h+='<div class="hint" style="margin:-4px 0 8px;font-weight:700;color:var(--muted)">Afficher&nbsp;:</div>'+periodBar(per,"homeper");
     h+='<div class="home-hi">'
-      +'<button class="hi-card" data-go="profit" style="border-left-color:var(--green)"><div class="hi-l">Bénéfice · ce mois-ci</div><div class="hi-v tnum" style="color:'+(benefMois>=0?'var(--good)':'var(--crit)')+'">'+money(benefMois)+'</div></button>'
-      +'<button class="hi-card" data-go="prodreport" style="border-left-color:var(--gold)"><div class="hi-l">Valeur marchandise en stock</div><div class="hi-v tnum" style="color:#A87C2E">'+money(valStock)+'</div><div class="hi-s">au prix d\'achat moyen</div></button>'
+      +'<button class="hi-card" data-go="profit" style="border-left-color:var(--green)"><div class="hi-l">Chiffre d\'affaires · '+pl+'</div><div class="hi-v tnum" style="color:var(--green)">'+money(caPer)+'</div><div class="hi-s">ventes enregistrées</div></button>'
+      +'<button class="hi-card" data-go="profit" style="border-left-color:var(--gold)"><div class="hi-l">Bénéfice estimé · '+pl+'</div><div class="hi-v tnum" style="color:'+(benefPer>=0?'var(--good)':'var(--crit)')+'">'+money(benefPer)+'</div><div class="hi-s">ventes − achats − dépenses</div></button>'
       +'</div>';
+    // --- Synthèse stock : 3 niveaux ---
+    h+='<button class="stock-syn" data-go="stock">'
+      +'<div class="ss-h"><span>Stock</span><b class="tnum">'+money(lv.total)+'</b></div>'
+      +'<div class="ss-row"><span><i style="background:var(--green)"></i>Disponible à Conakry</span><b class="tnum">'+money(lv.cky)+'</b></div>'
+      +'<div class="ss-row"><span><i style="background:var(--gold)"></i>Acheté — non acheminé</span><b class="tnum">'+money(lv.route)+'</b></div>'
+      +'<div class="ss-row tot"><span>Total (Conakry + non acheminé)</span><b class="tnum">'+money(lv.total)+'</b></div>'
+      +'<div class="ss-s">Valeurs au prix d\'achat moyen · détail par catégorie dans « Stock »</div></button>';
   }
   h+='<div class="kpis">';
   h+=kpi("Clients",nbClients,"var(--green)",false);
   h+=kpi("Commandes à traiter",nouvelles,"var(--warn)",false);
   if(isAdmin()){
+    h+=kpi("Encaissé · "+perLabel(homePeriod).toLowerCase(),money(S.payments.filter(function(x){return inPer(x.date,homePeriod);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0)),"var(--good)",true);
+    h+=kpi("Dépenses · "+perLabel(homePeriod).toLowerCase(),money(S.expenses.filter(function(x){return inPer(x.date,homePeriod);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0)),"var(--crit)",true);
     h+=kpi("Crédit total",money(credit),"var(--gold)",true);
     h+=kpi("Solde dû (global)",money(du),"var(--crit)",true);
   }
@@ -851,6 +926,18 @@ function renderStock(){
     +'<div class="kpi"><div class="lab"><i style="background:var(--gold)"></i>Stock en route</div><div class="val sm tnum">'+money(valRoute)+'</div></div></div>';
   h+='<div class="card" style="margin-top:12px;border-left:4px solid var(--green)"><div class="info-row"><span class="k" style="font-weight:800">Valeur totale du stock</span><b class="tnum" style="font-size:17px">'+money(valTot)+'</b></div>'
     +'<div class="hint" style="margin:6px 0 0">Valeurs au prix d\'achat moyen. « Conakry » = disponible à la vente ; « en route » = acheté, pas encore acheminé au magasin.</div></div>';
+  // --- synthèse par catégorie ---
+  var cats=stockByCategory(), ck=Object.keys(cats);
+  if(ck.length){
+    h+='<div class="section-h"><h2>Par catégorie</h2></div><div class="card catroll">';
+    ck.forEach(function(k){ var o=cats[k]; var u=o.unit||'';
+      h+='<div class="cr"><div><div class="nm">'+esc(o.name)+'</div>'
+        +'<div class="q">Conakry '+rnd(o.qCky)+' '+esc(u)+(o.qRoute>0?(' · en route '+rnd(o.qRoute)+' '+esc(u)):'')+'</div></div>'
+        +'<div style="text-align:right"><b class="tnum">'+money(o.vCky+o.vRoute)+'</b>'
+        +'<div class="q">dispo '+money(o.vCky)+(o.vRoute>0?(' · route '+money(o.vRoute)):'')+'</div></div></div>';
+    });
+    h+='</div>';
+  }
   h+='<div class="d-actions" style="margin-top:14px"><button class="btn btn-green" data-addstock="entree">+ Entrée (achat)</button><button class="btn btn-ghost" data-addstock="sortie">− Sortie</button></div>';
   // alerte stock bas (sur le stock Conakry disponible)
   var low=keys.filter(function(pid){ var p=prodById(pid); var netC=m[pid].cky-m[pid].sortie; return p && p.reorder_threshold!=null && netC<=Number(p.reorder_threshold); });
@@ -934,7 +1021,7 @@ async function saveStock(kind){
 }
 
 /* ===== DÉPENSES ===== */
-function catLabel(c){ var m={salaire:"Salaire",transport:"Transport",electricite:"Électricité",loyer:"Loyer",communication:"Communication",walike:"Walikè",gardiennage:"Gardiennage",autre:"Autre"}; return m[c]||c||"Autre"; }
+function catLabel(c){ var m={salaire:"Salaire",transport:"Transport",electricite:"Électricité",loyer:"Loyer",communication:"Communication",walike:"Walikè",gardiennage:"Gardiennage",recompense_client:"Récompenses aux clients",assurance:"Assurance",cadeau_equipe:"Cadeaux à l'équipe",autre:"Autre"}; return m[c]||c||"Autre"; }
 function renderExpenses(){
   var h='<button class="add-link" data-go="menu" style="margin:2px 0 12px">‹ Gestion</button>';
   h+='<div class="view-title">Dépenses</div><p class="view-sub">Dépenses de fonctionnement.</p>';
@@ -953,7 +1040,7 @@ function renderExpenses(){
   return h;
 }
 function expenseForm(){
-  var cats=[["salaire","Salaire"],["transport","Transport"],["electricite","Électricité"],["loyer","Loyer"],["communication","Communication"],["walike","Walikè"],["gardiennage","Gardiennage"],["autre","Autre"]];
+  var cats=[["salaire","Salaire"],["transport","Transport"],["electricite","Électricité"],["loyer","Loyer"],["communication","Communication"],["walike","Walikè"],["gardiennage","Gardiennage"],["recompense_client","Récompenses aux clients"],["assurance","Assurance"],["cadeau_equipe","Cadeaux à l'équipe"],["autre","Autre"]];
   var opts=cats.map(function(c){return '<option value="'+c[0]+'">'+c[1]+'</option>';}).join('');
   openSheet('<h3>Nouvelle dépense</h3>'
     +'<div class="field"><label for="x_cat">Catégorie</label><select id="x_cat">'+opts+'</select></div>'
@@ -1484,8 +1571,9 @@ function orderSheet(id){
 
 /* ===== EVENTS ===== */
 document.addEventListener("click",function(e){
-  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin],[data-go],[data-addstock],[data-savestock],[data-receivestock],[data-addexp],[data-saveexp],[data-profper],[data-wa],[data-receiptpay],[data-wareceipt],[data-export],[data-addrule],[data-editrule],[data-saverule],[data-delrule],[data-pdfreceipt],[data-actfilter],[data-dlbackup],[data-bio],[data-push]");
+  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin],[data-go],[data-addstock],[data-savestock],[data-receivestock],[data-addexp],[data-saveexp],[data-profper],[data-homeper],[data-wa],[data-receiptpay],[data-wareceipt],[data-export],[data-addrule],[data-editrule],[data-saverule],[data-delrule],[data-pdfreceipt],[data-actfilter],[data-dlbackup],[data-bio],[data-push]");
   if(!el) return; var d=el.dataset;
+  if((d.del!==undefined||d.delclient!==undefined||d.delprod!==undefined||d.delcat!==undefined||d.delrule!==undefined)&&!isAdmin()){ toast("Suppression réservée au gérant principal."); return; }
   if(d.bio!==undefined){ toggleBio(); }
   else if(d.push!==undefined){ togglePush(); }
   else if(d.tab!==undefined){ currentId=null; view=d.tab; render(); }
@@ -1496,6 +1584,7 @@ document.addEventListener("click",function(e){
   else if(d.addexp!==undefined){ expenseForm(); }
   else if(d.saveexp!==undefined){ saveExpense(); }
   else if(d.profper!==undefined){ profitPeriod=d.profper; render(); }
+  else if(d.homeper!==undefined){ homePeriod=d.homeper; render(); }
   else if(d.wa!==undefined){ waRelance(d.wa); }
   else if(d.receiptpay!==undefined){ var rp=d.receiptpay.split(":"); receiptPay(rp[0],rp[1]); }
   else if(d.wareceipt!==undefined){ var wr=d.wareceipt.split(":"); waReceipt(wr[0],wr[1]); }
