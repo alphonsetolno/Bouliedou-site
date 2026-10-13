@@ -909,17 +909,19 @@ function stkQty(kg,pid){ var u=prodUnits(pid); var txt=rnd(kg)+' '+esc(u.su); if
 /* m[pid] : tout en kg — cky/route (entrées), transfer (acheminé route→Conakry), sortie (ventes), triage (manques) */
 function stockByProduct(){
   var m={};
+  function ens(pid){ if(!m[pid]) m[pid]={cky:0,route:0,transfer:0,sortie:0,triage:0,sold:0,qtyIn:0,amtIn:0}; return m[pid]; }
   S.stock.forEach(function(x){ if(!x.product_id) return;
-    if(!m[x.product_id]) m[x.product_id]={cky:0,route:0,transfer:0,sortie:0,triage:0,qtyIn:0,amtIn:0};
-    var r=m[x.product_id], kg=entryKg(x);
+    var r=ens(x.product_id), kg=entryKg(x);
     if(x.kind==='transfert'){ r.transfer+=kg; }
     else if(x.kind==='sortie'){ if(x.reason==='triage') r.triage+=kg; else r.sortie+=kg; }
     else { var loc=(x.location==='route')?'route':'cky'; r[loc]+=kg; r.qtyIn+=kg; r.amtIn+=Number(x.amount)||0; }
   });
+  // ventes (crédits) : le poids vendu sort automatiquement du stock Conakry
+  S.credits.forEach(function(x){ if(!x.product_id) return; var kg=Number(x.content_qty)||0; if(kg>0) ens(x.product_id).sold+=kg; });
   // niveaux nets (kg)
   Object.keys(m).forEach(function(k){ var r=m[k];
     r.routeNet=Math.max(0, r.route - r.transfer);
-    r.ckyNet=Math.max(0, r.cky + r.transfer - r.sortie - r.triage);
+    r.ckyNet=Math.max(0, r.cky + r.transfer - r.sortie - r.triage - r.sold);
     r.avg=r.qtyIn>0?r.amtIn/r.qtyIn:0; // coût moyen pondéré par kg
   });
   return m;
@@ -971,7 +973,7 @@ function renderStock(){
     var thrKg=(p&&p.reorder_threshold!=null)?Number(p.reorder_threshold)*prodUnits(pid).content:null;
     var isLow=thrKg!=null && r.ckyNet<=thrKg;
     h+='<div class="item"><div class="body"><div class="top"><span class="lab">'+esc(p?p.name:"Produit")+(isLow?' <span class="pill nouvelle">à racheter</span>':'')+'</span><span class="amt tnum" style="color:'+(tot>0?'var(--good)':'var(--muted)')+'">'+stkQty(tot,pid)+'</span></div>'
-      +'<div class="sub">Conakry '+stkQty(r.ckyNet,pid)+(r.routeNet>0?(' · <span style="color:var(--gold-deep,#A87C2E);font-weight:700">non acheminé '+rnd(r.routeNet/prodUnits(pid).content)+' '+esc(prodUnits(pid).ou||'sac')+'</span>'):'')+(r.triage>0?(' · <span style="color:var(--crit)">manques '+rnd(r.triage)+' '+esc(prodUnits(pid).su)+'</span>'):'')+'</div></div></div>';
+      +'<div class="sub">Conakry '+stkQty(r.ckyNet,pid)+(r.routeNet>0?(' · <span style="color:var(--gold-deep,#A87C2E);font-weight:700">non acheminé '+rnd(r.routeNet/prodUnits(pid).content)+' '+esc(prodUnits(pid).ou||'sac')+'</span>'):'')+(r.sold>0?(' · <span style="color:var(--muted)">vendu '+rnd(r.sold)+' '+esc(prodUnits(pid).su)+'</span>'):'')+(r.triage>0?(' · <span style="color:var(--crit)">manques '+rnd(r.triage)+' '+esc(prodUnits(pid).su)+'</span>'):'')+'</div></div></div>';
   }); h+='</div></div>'; }
   h+='<div class="section-h"><h2>Mouvements récents</h2></div>';
   if(S.stock.length===0) h+='<div class="item-empty">Aucun mouvement.</div>';
