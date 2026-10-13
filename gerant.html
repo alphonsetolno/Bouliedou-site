@@ -833,7 +833,11 @@ function renderClient(id){
   });
   // crédits
   h+=listCard("Marchandises à crédit", cred, id, "credit", function(x){
-    return item(esc(x.label||"Crédit"), money(x.amount), subLine(qtyLine(x), fmtDate(x.date)), "credits", x.id);
+    var pend=String(x.id).indexOf('loc_')===0;
+    var r='<div class="item"><div class="body"><div class="top"><span class="lab">'+esc(x.label||"Crédit")+(pend?' <span class="pill pending">⏳ en attente</span>':'')+'</span><span class="amt tnum">'+money(x.amount)+'</span></div><div class="sub">'+subLine(qtyLine(x), fmtDate(x.date))+'</div></div>';
+    if(!pend && isAdmin()) r+='<button class="del" data-editcredit="'+x.id+'" title="Modifier la vente" style="color:var(--green);font-size:16px">✎</button>';
+    if(!pend) r+='<button class="del" data-del="credits:'+x.id+'" aria-label="Supprimer">×</button>';
+    return r+'</div>';
   });
   // paiements
   h+=listCard("Paiements (tranches)", pay, id, "pay", function(x){
@@ -2013,7 +2017,7 @@ function orderSheet(id){
 
 /* ===== EVENTS ===== */
 document.addEventListener("click",function(e){
-  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin],[data-go],[data-addstock],[data-savestock],[data-receivestock],[data-achemine],[data-saveachemine],[data-triage],[data-savetriage],[data-addexp],[data-saveexp],[data-profper],[data-homeper],[data-wa],[data-receiptpay],[data-wareceipt],[data-export],[data-addrule],[data-editrule],[data-saverule],[data-delrule],[data-pdfreceipt],[data-actfilter],[data-dlbackup],[data-bio],[data-push],[data-cashper],[data-cashxfer],[data-savecashxfer],[data-exyear],[data-exprint],[data-cloture],[data-giftgiven],[data-savegift],[data-resetclient]");
+  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin],[data-go],[data-addstock],[data-savestock],[data-receivestock],[data-achemine],[data-saveachemine],[data-triage],[data-savetriage],[data-addexp],[data-saveexp],[data-profper],[data-homeper],[data-wa],[data-receiptpay],[data-wareceipt],[data-export],[data-addrule],[data-editrule],[data-saverule],[data-delrule],[data-pdfreceipt],[data-actfilter],[data-dlbackup],[data-bio],[data-push],[data-cashper],[data-cashxfer],[data-savecashxfer],[data-exyear],[data-exprint],[data-cloture],[data-giftgiven],[data-savegift],[data-resetclient],[data-editcredit],[data-saveeditcredit]");
   if(!el) return; var d=el.dataset;
   if((d.del!==undefined||d.delclient!==undefined||d.delprod!==undefined||d.delcat!==undefined||d.delrule!==undefined)&&!isAdmin()){ toast("Suppression réservée au gérant principal."); return; }
   if(d.bio!==undefined){ toggleBio(); }
@@ -2047,6 +2051,8 @@ document.addEventListener("click",function(e){
   else if(d.giftgiven!==undefined){ var gg=d.giftgiven.split(":"); giftGivenForm(gg[0],gg[1]); }
   else if(d.savegift!==undefined){ var sg=d.savegift.split(":"); saveGiftExpense(sg[0],sg[1]); }
   else if(d.resetclient!==undefined){ resetClientOps(d.resetclient); }
+  else if(d.editcredit!==undefined){ editCreditForm(d.editcredit); }
+  else if(d.saveeditcredit!==undefined){ saveEditCredit(d.saveeditcredit); }
   else if(d.addrule!==undefined){ ruleForm(null); }
   else if(d.editrule!==undefined){ ruleForm(S.rules.find(function(x){return x.id===d.editrule;})); }
   else if(d.saverule!==undefined){ saveRule(d.saverule); }
@@ -2124,6 +2130,53 @@ async function resetClientOps(id){
     if(bad){ toast("Erreur : "+bad.error.message); return; }
     toast("Client réinitialisé ✓"); await refresh();
   });
+}
+function editCreditForm(id){
+  if(!isAdmin()){ toast("Réservé au gérant principal."); return; }
+  var x=S.credits.find(function(c){return c.id===id;}); if(!x){ toast("Vente introuvable."); return; }
+  var clientId=x.client_id, p=x.product_id?prodById(x.product_id):null, cat=p?prodCat(p):null;
+  var su=cat?cat.sale_unit:(x.sale_unit||'unité'), ou=cat?cat.order_unit:(x.order_unit||'unité');
+  var content=(x.content_qty!=null?x.content_qty:'');
+  var price=(Number(x.content_qty)>0?Math.round((Number(x.amount)||0)/Number(x.content_qty)):((p&&p.price!=null)?p.price:''));
+  var h='<h3>Modifier la vente</h3>';
+  h+='<p class="view-sub" style="margin:-6px 0 10px">Ajustez le poids vendu et le montant. Le poids usé va en « Manque / Triage ».</p>';
+  h+='<div class="field"><label for="e_prod">Produit</label><select id="e_prod" data-type="credit">'+prodSelect(clientId)+'</select></div>';
+  h+=fld("Désignation","text","e_label",(x.label||''),"Nom de la marchandise");
+  h+='<div class="field-row">'
+    +'<div class="field"><label>Quantité (<span id="u_order">'+esc(ou)+'</span>)</label><input id="e_qty" type="number" inputmode="decimal" min="0" value="'+(x.qty!=null?x.qty:'')+'"></div>'
+    +'<div class="field"><label>Contenu vendu (<span id="u_sale">'+esc(su)+'</span>)</label><input id="e_content" type="number" inputmode="decimal" min="0" value="'+content+'"></div>'
+    +'</div>';
+  h+='<div class="field"><label>Manque / Triage (<span id="u_sale2">'+esc(su)+'</span>) <span style="color:var(--muted);font-weight:500">— facultatif</span></label><input id="e_triage" type="number" inputmode="decimal" min="0" placeholder="0"></div>';
+  h+='<div class="hint" style="margin:-6px 0 10px">Poids usé/non utilisable signalé après la livraison. Il est retiré du stock (triage) et repris au tableau de bord.</div>';
+  h+='<div class="field-row">'
+    +'<div class="field"><label>Prix du <span id="u_sale3">'+esc(su)+'</span> (FG)</label><input id="e_price" type="number" inputmode="numeric" min="0" value="'+price+'"></div>'
+    +fld("Montant (FG)","number","e_amount",(x.amount!=null?x.amount:''),"0")
+    +'</div>';
+  h+='<div class="hint" id="e_priceHint">Si vous baissez le contenu, le montant se recalcule (prix × contenu).</div>';
+  h+=fld("Date","date","e_date",(x.date||today()),"");
+  h+='<div class="sheet-actions"><button class="btn btn-ghost" data-cancel="1">Annuler</button><button class="btn btn-green" data-saveeditcredit="'+id+'">Enregistrer</button></div>';
+  openSheet(h);
+  var sel=document.getElementById("e_prod"); if(sel){ sel.value=x.product_id||""; sel.addEventListener("change",onEntryProd); }
+  var ce=document.getElementById("e_content"); if(ce) ce.addEventListener("input",updateAmount);
+  var pe=document.getElementById("e_price"); if(pe) pe.addEventListener("input",updateAmount);
+}
+async function saveEditCredit(id){
+  if(!isAdmin()){ toast("Réservé au gérant principal."); return; }
+  if(needsOnline()) return;
+  var x=S.credits.find(function(c){return c.id===id;}); if(!x){ toast("Vente introuvable."); return; }
+  var pid=V("e_prod")||null, p=pid?prodById(pid):null, cat=p?prodCat(p):null;
+  var a=Number(V("e_amount"))||0; if(a<=0){ toast("Indiquez un montant."); return; }
+  var d=V("e_date")||x.date||today();
+  var data={product_id:pid, label:V("e_label")||(p?p.name:(x.label||"Crédit")), amount:a, qty:numOrNull("e_qty"),
+    order_unit:cat?cat.order_unit:x.order_unit, content_qty:numOrNull("e_content"), sale_unit:cat?cat.sale_unit:x.sale_unit, date:d};
+  var res=await sb.from('credits').update(data).eq('id',id);
+  if(res.error){ toast("Erreur : "+res.error.message); return; }
+  var tr=numOrNull("e_triage");
+  if(tr&&tr>0&&pid){
+    var rt=await sb.from('stock_entries').insert({kind:'sortie', reason:'triage', product_id:pid, label:'Manque après vente', qty_kg:tr, unit:(cat?cat.sale_unit:'kg'), date:d, note:'correction vente'});
+    if(rt.error){ toast("Vente modifiée, mais triage non enregistré : "+rt.error.message); await refresh(); return; }
+  }
+  closeSheet(); toast("Vente modifiée ✓"); await refresh();
 }
 async function saveTriageFromSale(pid, cat, d){
   var tr=numOrNull("e_triage");
