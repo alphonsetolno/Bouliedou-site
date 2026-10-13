@@ -274,7 +274,7 @@ var SUPABASE_KEY = "sb_publishable_HVqsBjVpMiOFKgYL88mu4g_5Vfw-jFu";
 var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 var ME=null, ROLE=null;
-var S={clients:[],products:[],orders:[],deliveries:[],credits:[],payments:[],categories:[],stock:[],expenses:[],rules:[],people:[],backups:[]};
+var S={clients:[],products:[],orders:[],deliveries:[],credits:[],payments:[],categories:[],stock:[],expenses:[],rules:[],people:[],backups:[],redemptions:[]};
 var view="home", currentId=null, search="", profitPeriod="month", actFilter="all", homePeriod="month", cashPeriod="month", exYear=String(new Date().getFullYear());
 
 /* ===== HORS LIGNE / SYNCHRONISATION ===== */
@@ -285,7 +285,7 @@ function lsSet(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); return true
 function curUid(){ return (ME&&ME.auth_user_id)||NET.uid||null; }
 function cacheMe(){ lsSet(MEKEY,{uid:curUid(), me:ME, role:ROLE}); }
 function cachedMe(uid){ var o=lsGet(MEKEY,null); return (o&&o.uid===uid)?o.me:null; }
-function cacheSnap(){ lsSet(SNAPKEY,{uid:curUid(), at:Date.now(), S:{clients:S.clients,products:S.products,orders:S.orders,deliveries:S.deliveries,credits:S.credits,payments:S.payments,categories:S.categories,stock:S.stock,expenses:S.expenses,rules:S.rules,people:S.people,backups:S.backups}}); }
+function cacheSnap(){ lsSet(SNAPKEY,{uid:curUid(), at:Date.now(), S:{clients:S.clients,products:S.products,orders:S.orders,deliveries:S.deliveries,credits:S.credits,payments:S.payments,categories:S.categories,stock:S.stock,expenses:S.expenses,rules:S.rules,people:S.people,backups:S.backups,redemptions:S.redemptions}}); }
 function restoreSnap(uid){ var o=lsGet(SNAPKEY,null); if(!o||o.uid!==uid||!o.S) return false; for(var k in o.S){ S[k]=o.S[k]||[]; } NET.snapAt=o.at; return true; }
 function queueGet(){ return lsGet(QKEY,[]); }
 function queueSet(q){ lsSet(QKEY,q); }
@@ -617,9 +617,10 @@ async function loadAll(){
     sb.from('stock_entries').select('*').order('date',{ascending:false}),
     sb.from('expenses').select('*').order('date',{ascending:false}),
     sb.from('loyalty_rules').select('*').order('created_at'),
-    sb.from('backups').select('id,created_at,note').order('created_at',{ascending:false})
+    sb.from('backups').select('id,created_at,note').order('created_at',{ascending:false}),
+    sb.from('gift_redemptions').select('*').order('date',{ascending:false})
   ]);
-  var err = r.find(function(x){return x.error;});
+  var err = r.slice(0,11).find(function(x){return x.error;});
   if(err){ toast("Erreur de chargement."); console.error(err.error); }
   var profs = r[0].data||[];
   S.people = profs;
@@ -634,6 +635,7 @@ async function loadAll(){
   S.expenses = r[8].data||[];
   S.rules = r[9].data||[];
   S.backups = (r[10]&&r[10].data)||[];
+  S.redemptions = (r[11]&&r[11].data)||[];
   if(!err){ cacheSnap(); }
   applyPendingToState();
 }
@@ -1427,7 +1429,7 @@ function weeklyTreasury(per){
 function cashLine(lab,val,color){ return '<div class="info-row"><span class="k">'+esc(lab)+'</span><b class="tnum"'+(color?' style="color:'+color+'"':'')+'>'+money(val)+'</b></div>'; }
 function renderCash(){
   var h='<button class="add-link" data-go="menu" style="margin:2px 0 12px">‹ Gestion</button>';
-  h+='<div class="view-title">Caisse &amp; Banque</div><p class="view-sub">Suivi de l\'argent en espèces et à la banque, semaine par semaine.</p>';
+  h+='<div class="view-title">Caisse &amp; Banque</div><p class="view-sub">Situation des recouvrements en espèces et journal de banque.</p>';
   var bal=treasury('all');
   h+='<div class="home-hi">'
     +'<div class="hi-card" style="border-left-color:var(--green)"><div class="hi-l">Caisse (espèces)</div><div class="hi-v tnum" style="color:'+(bal.caisse<0?'var(--crit)':'var(--green)')+'">'+money(bal.caisse)+'</div><div class="hi-s">solde actuel</div></div>'
@@ -1435,14 +1437,25 @@ function renderCash(){
     +'</div>';
   h+='<div class="card" style="margin-top:4px"><div class="info-row"><span class="k" style="font-weight:800">Trésorerie totale</span><b class="tnum" style="font-size:18px">'+money(bal.total)+'</b></div></div>';
   if(isAdmin()) h+='<button class="btn btn-gold btn-block" data-cashxfer="1" style="margin:12px 0">⇄ Transfert caisse ↔ banque</button>';
-  h+='<div class="hint" style="margin:-2px 0 8px;font-weight:700;color:var(--muted)">Mouvements&nbsp;:</div>'+periodBar(cashPeriod,"cashper");
+  h+='<div class="hint" style="margin:-2px 0 8px;font-weight:700;color:var(--muted)">Période&nbsp;:</div>'+periodBar(cashPeriod,"cashper");
   var t=treasury(cashPeriod), pl=perLabel(cashPeriod).toLowerCase();
-  h+='<div class="card"><div class="card-h"><h3>Flux · '+pl+'</h3></div>'
-    +cashLine("Encaissements (argent reçu)", t.inflow, "var(--good)")
-    +cashLine("Dépenses de fonctionnement", -(t.ckOutDep+t.bkOutDep), "var(--crit)")
-    +cashLine("Achats de marchandises", -(t.ckOutAch+t.bkOutAch), "var(--crit)")
-    +((t.ck2bk+t.bk2ck)>0?cashLine("Transferts caisse ↔ banque", (t.ck2bk+t.bk2ck), "var(--muted)"):'')
-    +'<div class="info-row" style="border-top:1px solid var(--line);margin-top:6px;padding-top:8px"><span class="k" style="font-weight:800">Résultat de trésorerie</span><b class="tnum" style="color:'+(t.net>=0?'var(--good)':'var(--crit)')+'">'+money(t.net)+'</b></div>'
+  // --- CAISSE (recouvrement) ---
+  h+='<div class="card"><div class="card-h"><h3>Caisse · '+pl+'</h3></div>'
+    +cashLine("Encaissements des clients (espèces)", t.ckIn, "var(--good)")
+    +cashLine("Dépenses réglées en espèces", -t.ckOutDep, "var(--crit)")
+    +cashLine("Achats de marchandises (espèces)", -t.ckOutAch, "var(--crit)")
+    +cashLine("Versements à la banque", -t.ck2bk, "var(--crit)")
+    +(t.bk2ck>0?cashLine("Retraits de la banque", t.bk2ck, "var(--good)"):'')
+    +'<div class="info-row" style="border-top:1px solid var(--line);margin-top:6px;padding-top:8px"><span class="k" style="font-weight:800">Situation de caisse ('+pl+')</span><b class="tnum" style="color:'+(t.caisse>=0?'var(--good)':'var(--crit)')+'">'+money(t.caisse)+'</b></div>'
+    +'</div>';
+  // --- JOURNAL DE BANQUE ---
+  h+='<div class="card"><div class="card-h"><h3>Journal de banque · '+pl+'</h3></div>'
+    +cashLine("Encaissements reçus en banque", t.bkIn, "var(--good)")
+    +(t.ck2bk>0?cashLine("Versements depuis la caisse", t.ck2bk, "var(--good)"):'')
+    +cashLine("Dépenses réglées par banque", -t.bkOutDep, "var(--crit)")
+    +cashLine("Achats de marchandises (banque)", -t.bkOutAch, "var(--crit)")
+    +(t.bk2ck>0?cashLine("Retraits vers la caisse", -t.bk2ck, "var(--crit)"):'')
+    +'<div class="info-row" style="border-top:1px solid var(--line);margin-top:6px;padding-top:8px"><span class="k" style="font-weight:800">Mouvement de banque ('+pl+')</span><b class="tnum" style="color:'+(t.banque>=0?'var(--good)':'var(--crit)')+'">'+money(t.banque)+'</b></div>'
     +'</div>';
   // --- détail semaine par semaine ---
   var weeks=weeklyTreasury(cashPeriod);
@@ -1489,6 +1502,19 @@ function clientProductQty(clientId, productId){
   return S.credits.filter(function(x){return x.client_id===clientId && x.product_id===productId && String(x.date||"").slice(0,4)===curYear();})
     .reduce(function(a,x){return a+(Number(x.qty)||0);},0);
 }
+/* nombre de cadeaux déjà remis à un client pour une règle, cette année */
+function giftsRemis(clientId, ruleId){
+  return S.redemptions.filter(function(x){return x.client_id===clientId && x.rule_id===ruleId && String(x.date||"").slice(0,4)===curYear();})
+    .reduce(function(a,x){return a+(Number(x.qty)||1);},0);
+}
+/* règles applicables à un client = selon les catégories (interfaces) du client */
+function rulesForClient(c){
+  var rules=S.rules.filter(function(r){return r.active!==false;});
+  var ids=(c&&Array.isArray(c.category_ids))?c.category_ids:[];
+  if(!ids.length) return rules;
+  return rules.filter(function(r){ var p=prodById(r.product_id); return p && p.category_id && ids.indexOf(p.category_id)>=0; });
+}
+/* liste des règles visibles dans l'écran « Récompenses » (filtrée pour l'assistant) */
 function visibleRules(){
   var rules=S.rules.filter(function(r){return r.active!==false;});
   if(isAdmin()) return rules;
@@ -1497,20 +1523,28 @@ function visibleRules(){
   return rules.filter(function(r){ var p=prodById(r.product_id); return p && p.category_id && mine.indexOf(p.category_id)>=0; });
 }
 function rewardsCard(clientId){
-  var rules=visibleRules();
+  var c=S.clients.find(function(x){return x.id===clientId;});
+  var rules=rulesForClient(c);
   if(!rules.length) return '';
   var h='<div class="card"><div class="card-h"><h3>Récompenses '+curYear()+'</h3></div>', any=false;
   rules.forEach(function(r){
-    var p=prodById(r.product_id); if(!p) return; var c=prodCat(p), unit=c?c.order_unit:'';
+    var p=prodById(r.product_id); if(!p) return; var cat=prodCat(p), unit=cat?cat.order_unit:'';
     var thr=Number(r.threshold_qty)||0; if(thr<=0) return;
-    var q=clientProductQty(clientId, r.product_id); var gifts=Math.floor(q/thr); var inCycle=q-gifts*thr;
-    var pct=Math.min(100, Math.round(inCycle/thr*100)), remain=rnd(Math.max(0,thr-inCycle));
+    var q=clientProductQty(clientId, r.product_id); var gagnes=Math.floor(q/thr);
+    var remis=giftsRemis(clientId, r.id); var attente=Math.max(0, gagnes-remis);
+    var inCycle=q-gagnes*thr; var pct=Math.min(100, Math.round(inCycle/thr*100)), remain=rnd(Math.max(0,thr-inCycle));
     any=true;
     h+='<div style="padding:10px 0;border-bottom:1px solid var(--line)"><div style="display:flex;justify-content:space-between;gap:10px"><span style="font-weight:600">'+esc(p.name)+'</span><span class="tnum" style="font-weight:700">'+rnd(q)+' / '+rnd(thr)+' '+esc(unit)+'</span></div>'
       +'<div class="pbar"><span style="width:'+pct+'%"></span></div>'
-      +'<div style="font-size:12px;color:var(--muted);margin-top:5px">'+(gifts>0?'🎁 '+gifts+' × '+esc(r.gift_label)+' gagné(s) · ':'')+'Encore '+remain+' '+esc(unit)+' pour '+(gifts>0?'le prochain cadeau':'le cadeau')+'</div>'
-      +(isAdmin()&&gifts>0?'<button class="btn btn-gold" data-giftgiven="'+clientId+':'+r.id+'" style="margin-top:8px;padding:7px 12px;font-size:13px">🎁 Cadeau remis (enregistrer en dépense)</button>':'')
-      +'</div>';
+      +'<div style="font-size:12px;color:var(--muted);margin-top:5px">🎁 '+esc(r.gift_label)+' — Encore '+remain+' '+esc(unit)+' pour le prochain</div>';
+    if(gagnes>0){
+      h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:7px">'
+        +'<span class="pill" style="background:rgba(16,122,70,.12);color:var(--good);padding:3px 9px;border-radius:999px;font-size:12px;font-weight:700">'+attente+' à remettre</span>'
+        +'<span class="pill" style="background:rgba(0,0,0,.06);color:var(--muted);padding:3px 9px;border-radius:999px;font-size:12px;font-weight:700">'+remis+' déjà remis</span>'
+        +'<span class="pill" style="background:rgba(194,153,63,.15);color:var(--gold-deep,#A87C2E);padding:3px 9px;border-radius:999px;font-size:12px;font-weight:700">'+gagnes+' gagné(s) au total</span></div>';
+    }
+    if(isAdmin()&&attente>0) h+='<button class="btn btn-gold" data-giftgiven="'+clientId+':'+r.id+'" style="margin-top:8px;padding:7px 12px;font-size:13px">🎁 Remettre un cadeau</button>';
+    h+='</div>';
   });
   if(!any) return '';
   return h+'</div>';
@@ -1518,21 +1552,34 @@ function rewardsCard(clientId){
 function giftGivenForm(clientId, ruleId){
   var r=S.rules.find(function(x){return x.id===ruleId;}); if(!r) return;
   var p=prodById(r.product_id), c=S.clients.find(function(x){return x.id===clientId;});
-  openSheet('<h3>Cadeau de fidélité remis</h3>'
-    +'<p class="view-sub" style="margin:-6px 0 10px">'+esc(r.gift_label||'Cadeau')+' · '+esc(c?c.full_name:'')+'</p>'
-    +fld("Valeur du cadeau (FG)","number","g_amount",(r.gift_value!=null?r.gift_value:""),"0")
+  var gagnes=Math.floor(clientProductQty(clientId,r.product_id)/(Number(r.threshold_qty)||1));
+  var attente=Math.max(0, gagnes-giftsRemis(clientId,ruleId));
+  openSheet('<h3>Remettre un cadeau de fidélité</h3>'
+    +'<p class="view-sub" style="margin:-6px 0 10px">'+esc(r.gift_label||'Cadeau')+' · '+esc(c?c.full_name:'')+' — '+attente+' à remettre</p>'
+    +fld("Nombre de cadeaux à remettre","number","g_qty",(attente>0?1:""),"1")
+    +fld("Valeur d'un cadeau (FG)","number","g_amount",(r.gift_value!=null?r.gift_value:""),"0")
     +fld("Date","date","g_date",today(),"")
-    +'<div class="hint" style="margin:-4px 0 10px">Le cadeau sera enregistré comme une dépense « Récompenses aux clients ».</div>'
-    +'<div class="sheet-actions"><button class="btn btn-ghost" data-cancel="1">Annuler</button><button class="btn btn-green" data-savegift="'+clientId+':'+ruleId+'">Enregistrer la dépense</button></div>');
+    +'<div class="hint" style="margin:-4px 0 10px">Le cadeau est noté comme « remis » (visible côté client) et enregistré en dépense « Récompenses aux clients ».</div>'
+    +'<div class="sheet-actions"><button class="btn btn-ghost" data-cancel="1">Annuler</button><button class="btn btn-green" data-savegift="'+clientId+':'+ruleId+'">Confirmer la remise</button></div>');
 }
 async function saveGiftExpense(clientId, ruleId){
-  var amt=Number(V("g_amount"))||0; if(amt<=0){ toast("Indiquez la valeur du cadeau."); return; }
-  var r=S.rules.find(function(x){return x.id===ruleId;});
-  var p=r?prodById(r.product_id):null, c=S.clients.find(function(x){return x.id===clientId;});
-  var data={category:'recompense_client', label:'Cadeau fidélité'+(r&&r.gift_label?(' : '+r.gift_label):''), amount:amt, date:V("g_date")||today(), method:'caisse',
-    note:'Client : '+(c?c.full_name:'')+(p?(' · Produit : '+p.name):'')};
-  var res=await saveOp({type:'expense', table:'expenses', payload:data});
-  finishEntry(res);
+  if(needsOnline()) return;
+  var r=S.rules.find(function(x){return x.id===ruleId;}); if(!r){ toast("Règle introuvable."); return; }
+  var qty=Math.max(1, Math.round(Number(V("g_qty"))||1));
+  var gagnes=Math.floor(clientProductQty(clientId,r.product_id)/(Number(r.threshold_qty)||1));
+  var attente=Math.max(0, gagnes-giftsRemis(clientId,ruleId));
+  if(qty>attente){ toast("Ce client n'a que "+attente+" cadeau(x) à remettre."); return; }
+  var unitVal=Number(V("g_amount"))||0;
+  var p=prodById(r.product_id), c=S.clients.find(function(x){return x.id===clientId;}), d=V("g_date")||today();
+  // 1) enregistrer la remise (suivi remis / en attente, visible côté client)
+  var rr=await sb.from('gift_redemptions').insert({client_id:clientId, rule_id:ruleId, product_id:r.product_id, qty:qty, unit_value:unitVal, date:d, created_by:curUid()});
+  if(rr.error){ toast("Erreur : "+rr.error.message); return; }
+  // 2) enregistrer la dépense correspondante (si une valeur est indiquée)
+  if(unitVal>0){
+    await sb.from('expenses').insert({category:'recompense_client', label:'Cadeau fidélité'+(r.gift_label?(' : '+r.gift_label):''), amount:unitVal*qty, date:d, method:'caisse',
+      note:'Client : '+(c?c.full_name:'')+(p?(' · Produit : '+p.name):'')+' · '+qty+' cadeau(x)'});
+  }
+  closeSheet(); toast(qty+" cadeau(x) remis ✓"); await refresh();
 }
 function renderRewards(){
   var h='<button class="add-link" data-go="menu" style="margin:2px 0 12px">‹ Gestion</button>';
@@ -1624,6 +1671,11 @@ function renderExercice(){
     +'<button class="btn btn-ghost btn-block" data-export="clients_db">Base clients complète (Excel/CSV)</button>'
     +'</div>';
   h+='<div class="hint" style="margin-top:12px;line-height:1.6">« Rapport à imprimer » ouvre une page propre : sur votre téléphone, choisissez « Imprimer » puis « Enregistrer en PDF » pour le garder ou l\'envoyer. Le fichier CSV s\'ouvre dans Excel (ou Word).</div>';
+  if(isAdmin()){
+    h+='<div class="section-h"><h2>Clôture de l\'exercice</h2></div>';
+    h+='<button class="btn btn-danger btn-block" data-cloture="'+esc(exYear)+'">🔒 Clôturer '+esc(exYear)+' et reporter les soldes</button>';
+    h+='<div class="hint" style="margin-top:10px;line-height:1.6">Reporte le solde dû de chaque client en « dette antérieure » de la nouvelle année, puis efface les ventes, paiements et livraisons pour repartir sur un carnet propre. Une sauvegarde complète est enregistrée avant. <b>Générez et conservez d\'abord le rapport ci-dessus.</b></div>';
+  }
   return h;
 }
 function printExercice(){
@@ -1635,23 +1687,72 @@ function printExercice(){
   rows+=rr("Dépenses de fonctionnement", -e.depenses);
   var catKeys=Object.keys(e.byCat).sort(function(a,b){return e.byCat[b]-e.byCat[a];});
   catKeys.forEach(function(k){ rows+='<tr><td style="padding-left:22px;color:#666">• '+esc(catLabel(k))+'</td><td style="text-align:right;color:#666">'+pdfMoney(-e.byCat[k])+'</td></tr>'; });
-  var doc='<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Exercice '+esc(y)+' — Bouliedou Global Business</title>'
-    +'<style>body{font-family:Arial,Helvetica,sans-serif;color:#122;margin:28px;max-width:720px}h1{color:#0C4A39;font-size:20px;margin:0}h2{color:#0C4A39;font-size:15px;border-bottom:2px solid #C2993F;padding-bottom:4px;margin-top:26px}.sub{color:#666;font-size:13px;margin:2px 0 0}table{width:100%;border-collapse:collapse;margin-top:6px;font-size:14px}td{padding:6px 2px;border-bottom:1px solid #eee}.tot td{font-weight:bold;border-top:2px solid #333;border-bottom:none;font-size:15px}.big{font-size:22px;font-weight:bold;color:'+(e.benef>=0?'#1a7f46':'#b3261e')+'}@media print{button{display:none}}</style></head><body>'
-    +'<div style="display:flex;justify-content:space-between;align-items:flex-start"><div><h1>BOULIEDOU GLOBAL BUSINESS</h1><div class="sub">Rapport d\'exercice '+esc(y)+' · édité le '+fmtDate(today())+'</div></div></div>'
+  var base=(location&&location.origin)?location.origin+'/':'';
+  var doc='<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base href="'+base+'"><title>Exercice '+esc(y)+' — Bouliedou Global Business</title>'
+    +'<style>body{font-family:Arial,Helvetica,sans-serif;color:#122;margin:0;padding:28px;max-width:720px}'
+    +'.bar{position:sticky;top:0;display:flex;gap:10px;justify-content:space-between;background:#fff;padding:0 0 14px;margin-bottom:6px}'
+    +'.btn{padding:11px 18px;border:none;border-radius:8px;font-size:15px;cursor:pointer}.btn-back{background:#eee;color:#122}.btn-print{background:#0C4A39;color:#fff}'
+    +'header.doc{display:flex;align-items:center;gap:14px;border-bottom:3px solid #0C4A39;padding-bottom:14px}'
+    +'header.doc img{height:62px;width:auto}h1{color:#0C4A39;font-size:19px;margin:0;letter-spacing:.3px}'
+    +'.co{font-size:12px;color:#444;margin-top:3px;line-height:1.5}.sub{color:#666;font-size:13px;margin:14px 0 0;font-style:italic}'
+    +'h2{color:#0C4A39;font-size:15px;border-bottom:2px solid #C2993F;padding-bottom:4px;margin-top:24px}'
+    +'table{width:100%;border-collapse:collapse;margin-top:6px;font-size:14px}td{padding:6px 2px;border-bottom:1px solid #eee}'
+    +'.tot td{font-weight:bold;border-top:2px solid #333;border-bottom:none;font-size:15px}.big{font-size:22px;font-weight:bold;color:'+(e.benef>=0?'#1a7f46':'#b3261e')+'}'
+    +'.sign{margin-top:46px;display:flex;justify-content:flex-end}.sign .box{width:46%}.sign .line{border-bottom:1px solid #333;height:46px}.sign .cap{font-size:13px;color:#333;margin-top:6px;font-weight:bold}'
+    +'@media print{.bar{display:none}body{padding:0}}</style></head><body>'
+    +'<div class="bar"><button class="btn btn-back" onclick="window.close()">‹ Retour</button><button class="btn btn-print" onclick="window.print()">Imprimer / PDF</button></div>'
+    +'<header class="doc"><img src="logo-emblem.svg" alt="" onerror="this.style.display=\'none\'"><div><h1>BOULIEDOU GLOBAL BUSINESS</h1>'
+    +'<div class="co">Commerce · Agrobusiness · Fourniture de biens · Services et travaux · Formation<br>Enta marché, Conakry — Guinée · +224 623 01 08 18 · contact@bouliedou.com · www.bouliedou.com</div></div></header>'
+    +'<div class="sub">Rapport d\'exercice '+esc(y)+' — édité le '+fmtDate(today())+'</div>'
     +'<h2>Résultat de l\'exercice</h2><table>'+rows
     +'<tr class="tot"><td>Bénéfice de l\'exercice '+esc(y)+'</td><td style="text-align:right" class="big">'+pdfMoney(e.benef)+'</td></tr></table>'
-    +'<h2>Trésorerie & encaissements</h2><table>'
+    +'<h2>Trésorerie &amp; encaissements</h2><table>'
     +'<tr><td>Argent reçu des clients</td><td style="text-align:right">'+pdfMoney(e.encaisse)+'</td></tr>'
     +'<tr><td>Ventes non encore encaissées</td><td style="text-align:right">'+pdfMoney(Math.max(0,e.ventes-e.encaisse))+'</td></tr></table>'
     +'<h2>Stock (à ce jour)</h2><table>'
     +'<tr><td>Valeur du stock (Conakry + non acheminé)</td><td style="text-align:right">'+pdfMoney(lv.total)+'</td></tr>'
     +(lv.triageKg>0?'<tr><td>Manques / triages cumulés</td><td style="text-align:right">'+rnd(lv.triageKg)+' kg · '+pdfMoney(lv.triageVal)+'</td></tr>':'')+'</table>'
-    +'<p style="margin-top:28px;color:#888;font-size:12px">Document généré automatiquement par l\'application de gestion Bouliedou Global Business. Montants en francs guinéens (FG).</p>'
-    +'<button onclick="window.print()" style="margin-top:20px;padding:12px 20px;background:#0C4A39;color:#fff;border:none;border-radius:8px;font-size:15px">Imprimer / Enregistrer en PDF</button>'
+    +'<div class="sign"><div class="box"><div class="line"></div><div class="cap">Le Gérant — signature &amp; cachet</div></div></div>'
+    +'<p style="margin-top:34px;color:#888;font-size:11px">Document généré par l\'application de gestion Bouliedou Global Business. Montants en francs guinéens (FG).</p>'
     +'</body></html>';
   var w=window.open('','_blank');
   if(!w){ toast("Autorisez les fenêtres pop-up pour ouvrir le rapport."); return; }
   w.document.open(); w.document.write(doc); w.document.close();
+}
+
+async function cloturerExercice(y){
+  if(!isAdmin()){ toast("Réservé au gérant principal."); return; }
+  if(needsOnline()) return;
+  var nextY=String(Number(y)+1);
+  var e=exerciceData(y);
+  openSheet('<h3>Clôturer l\'exercice '+esc(y)+' ?</h3>'
+    +'<p style="color:var(--muted);font-size:14px;margin:0 0 10px">Cette opération :</p>'
+    +'<ul style="color:var(--muted);font-size:14px;margin:0 0 12px;padding-left:18px;line-height:1.7">'
+    +'<li>enregistre une <b>sauvegarde complète</b> ;</li>'
+    +'<li>reporte le <b>solde dû</b> de chaque client en <b>dette antérieure '+esc(nextY)+'</b> ;</li>'
+    +'<li>efface les <b>ventes, paiements et livraisons</b> (le stock et les dépenses sont conservés) ;</li>'
+    +'<li>remet les compteurs de récompenses à zéro.</li></ul>'
+    +'<div class="hint" style="margin:0 0 12px;line-height:1.6;color:var(--crit)">Action irréversible. Assurez-vous d\'avoir téléchargé le rapport et l\'export de l\'exercice '+esc(y)+'.</div>'
+    +'<label class="chk" style="margin-bottom:12px"><input type="checkbox" id="cl_ok"><span>J\'ai conservé le rapport et je confirme la clôture.</span></label>'
+    +'<div class="sheet-actions"><button class="btn btn-ghost" data-cancel="1">Annuler</button><button class="btn btn-danger" id="confCloture">Clôturer</button></div>');
+  document.getElementById("confCloture").addEventListener("click",async function(){
+    if(!document.getElementById("cl_ok").checked){ toast("Cochez la confirmation."); return; }
+    closeSheet(); toast("Sauvegarde et clôture en cours…");
+    // 1) sauvegarde complète
+    var snap={clients:S.clients,products:S.products,orders:S.orders,deliveries:S.deliveries,credits:S.credits,payments:S.payments,categories:S.categories,stock:S.stock,expenses:S.expenses,rules:S.rules,redemptions:S.redemptions,at:new Date().toISOString(),exercice:y};
+    var bk=await sb.from('backups').insert({data:snap, note:'Clôture exercice '+y});
+    if(bk.error){ toast("Clôture annulée : la sauvegarde a échoué ("+bk.error.message+")."); return; }
+    // 2) report du solde dû -> dette antérieure (calculé AVANT suppression)
+    var ups=S.clients.map(function(c){ var du=Math.max(0, totals(c.id).du); return sb.from('profiles').update({opening_debt:du}).eq('id',c.id); });
+    var ru=await Promise.all(ups); var badU=ru.find(function(x){return x.error;});
+    if(badU){ toast("Erreur (report soldes) : "+badU.error.message); return; }
+    // 3) effacer ventes / paiements / livraisons + récompenses remises
+    var dels=[ sb.from('credits').delete().not('id','is',null), sb.from('payments').delete().not('id','is',null), sb.from('deliveries').delete().not('id','is',null) ];
+    try{ dels.push(sb.from('gift_redemptions').delete().not('id','is',null)); }catch(e3){}
+    var rd=await Promise.all(dels); var badD=rd.find(function(x){return x.error;});
+    if(badD){ toast("Erreur (effacement) : "+badD.error.message); return; }
+    exYear=nextY; toast("Exercice "+y+" clôturé ✓ — soldes reportés en "+nextY); await refresh();
+  });
 }
 
 /* ===== ACTIVITÉ / TRAÇABILITÉ ===== */
@@ -1912,7 +2013,7 @@ function orderSheet(id){
 
 /* ===== EVENTS ===== */
 document.addEventListener("click",function(e){
-  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin],[data-go],[data-addstock],[data-savestock],[data-receivestock],[data-achemine],[data-saveachemine],[data-triage],[data-savetriage],[data-addexp],[data-saveexp],[data-profper],[data-homeper],[data-wa],[data-receiptpay],[data-wareceipt],[data-export],[data-addrule],[data-editrule],[data-saverule],[data-delrule],[data-pdfreceipt],[data-actfilter],[data-dlbackup],[data-bio],[data-push],[data-cashper],[data-cashxfer],[data-savecashxfer],[data-exyear],[data-exprint],[data-giftgiven],[data-savegift],[data-resetclient]");
+  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin],[data-go],[data-addstock],[data-savestock],[data-receivestock],[data-achemine],[data-saveachemine],[data-triage],[data-savetriage],[data-addexp],[data-saveexp],[data-profper],[data-homeper],[data-wa],[data-receiptpay],[data-wareceipt],[data-export],[data-addrule],[data-editrule],[data-saverule],[data-delrule],[data-pdfreceipt],[data-actfilter],[data-dlbackup],[data-bio],[data-push],[data-cashper],[data-cashxfer],[data-savecashxfer],[data-exyear],[data-exprint],[data-cloture],[data-giftgiven],[data-savegift],[data-resetclient]");
   if(!el) return; var d=el.dataset;
   if((d.del!==undefined||d.delclient!==undefined||d.delprod!==undefined||d.delcat!==undefined||d.delrule!==undefined)&&!isAdmin()){ toast("Suppression réservée au gérant principal."); return; }
   if(d.bio!==undefined){ toggleBio(); }
@@ -1942,6 +2043,7 @@ document.addEventListener("click",function(e){
   else if(d.savecashxfer!==undefined){ saveCashTransfer(); }
   else if(d.exyear!==undefined){ exYear=d.exyear; render(); }
   else if(d.exprint!==undefined){ printExercice(); }
+  else if(d.cloture!==undefined){ cloturerExercice(d.cloture); }
   else if(d.giftgiven!==undefined){ var gg=d.giftgiven.split(":"); giftGivenForm(gg[0],gg[1]); }
   else if(d.savegift!==undefined){ var sg=d.savegift.split(":"); saveGiftExpense(sg[0],sg[1]); }
   else if(d.resetclient!==undefined){ resetClientOps(d.resetclient); }
@@ -2012,7 +2114,8 @@ async function resetClientOps(id){
     closeSheet(); toast("Sauvegarde et réinitialisation…");
     // 1) sauvegarde des données du client
     var snap={client:c, deliveries:by(S.deliveries,id), credits:by(S.credits,id), payments:by(S.payments,id), orders:by(S.orders,id), reset_at:new Date().toISOString()};
-    try{ await sb.from('backups').insert({data:snap, note:'Réinitialisation client : '+(c.full_name||id)}); }catch(e){}
+    var bk=await sb.from('backups').insert({data:snap, note:'Réinitialisation client : '+(c.full_name||id)});
+    if(bk.error){ toast("Réinitialisation annulée : la sauvegarde a échoué ("+bk.error.message+")."); return; }
     // 2) report éventuel du solde dû en dette antérieure
     if(carry){ var newOpening=Math.max(0, t.du); var ru=await sb.from('profiles').update({opening_debt:newOpening}).eq('id',id); if(ru.error){ toast("Erreur (report dette) : "+ru.error.message); return; } }
     // 3) suppression des opérations
