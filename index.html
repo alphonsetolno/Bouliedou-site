@@ -327,12 +327,12 @@ function viewAccueil(){
     +'<p class="chips-hint">'+t('chips_hint')+'</p>'
     +'<div class="cta">'+waBtn('btn-gold',t('hero_wa'),t('wa_hello'))+'<button class="btn btn-ghost" onclick="go(\'contact\')">'+t('hero_write')+'</button></div>'
     +'</div>'
-    +'<div class="hero-media"><img src="img/hero.jpg" alt="Bouliedou Global Business"><span class="illus-badge">'+t('illus_img')+'</span><span class="hero-badge"><img src="img/logo-emblem.svg" alt="Bouliedou Global Business"><b>BOULIEDOU GLOBAL BUSINESS</b></span></div>'
+    +'<div class="hero-media"><img src="img/hero.jpg" alt="Bouliedou Global Business"><span class="hero-badge"><img src="img/logo-emblem.svg" alt="Bouliedou Global Business"><b>BOULIEDOU GLOBAL BUSINESS</b></span></div>'
     +'</div></section>';
   h+='<div class="wrap sec"><p class="kicker">'+t('our_biz_k')+'</p><h2 class="big">'+t('our_biz_h')+'</h2><p class="intro">'+t('our_biz_i')+'</p>'
     +'<div class="rz-grid">'+C.poles.items.map(function(it,i){
       return '<button type="button" class="rz-card" onclick="openMetier('+i+')">'
-        +'<div class="rz-img"><img src="'+it.img[0]+'" alt="'+esc(L(it.t))+'" loading="lazy"><span class="illus-badge">'+t('illus')+'</span></div>'
+        +'<div class="rz-img"><img src="'+it.img[0]+'" alt="'+esc(L(it.t))+'" loading="lazy"></div>'
         +'<div class="rz-body"><h3>'+esc(L(it.t))+'</h3><p>'+esc(L(it.d))+'</p><span class="go">'+t('view_biz')+'</span></div></button>';
     }).join('')+'</div>'
     +'<p class="intro" style="margin-top:22px;font-size:15px">'+t('learn_more')+' : '
@@ -344,11 +344,11 @@ function viewAccueil(){
 }
 function viewPoles(){var p=C.poles;
   return '<div class="wrap sec"><p class="kicker">'+esc(L(p.kicker))+'</p><h2 class="big">'+esc(L(p.h2))+'</h2><p class="intro">'+esc(L(p.intro))+'</p>'
-    +'<div class="grid rz-grid">'+p.items.map(function(it,i){return '<button type="button" class="rz-card" onclick="openMetier('+i+')"><div class="rz-img"><img src="'+it.img[0]+'" alt="'+esc(L(it.t))+'" loading="lazy"><span class="illus-badge">'+t('illus')+'</span></div><div class="rz-body"><h3>'+esc(L(it.t))+'</h3><p>'+esc(L(it.d))+'</p><span class="go">'+t('see_detail')+'</span></div></button>';}).join('')+'</div></div>';
+    +'<div class="grid rz-grid">'+p.items.map(function(it,i){return '<button type="button" class="rz-card" onclick="openMetier('+i+')"><div class="rz-img"><img src="'+it.img[0]+'" alt="'+esc(L(it.t))+'" loading="lazy"></div><div class="rz-body"><h3>'+esc(L(it.t))+'</h3><p>'+esc(L(it.d))+'</p><span class="go">'+t('see_detail')+'</span></div></button>';}).join('')+'</div></div>';
 }
 function viewMetier(i){
   var it=C.poles.items[i]; if(!it) return viewPoles();
-  var imgs=(it.img||[]).map(function(src){return '<div class="ill"><img src="'+src+'" alt="'+esc(L(it.t))+'" loading="lazy"><span class="illus-badge">'+t('illus')+'</span></div>';}).join('');
+  var imgs=(it.img||[]).map(function(src){return '<div class="ill"><img src="'+src+'" alt="'+esc(L(it.t))+'" loading="lazy"></div>';}).join('');
   var offers=(L(it.offers)||[]).map(function(o){return '<span class="offer">'+esc(o)+'</span>';}).join('');
   var steps=STEPS.map(function(s,k){return '<div class="step"><div class="step-n">'+(k+1)+'</div><div><h4>'+esc(L(s.t))+'</h4><p>'+esc(L(s.d))+'</p></div></div>';}).join('');
   var devisTxt=(LANG==='en'?'Hello Bouliedou Global Business, I would like a quote for "':'Bonjour Bouliedou Global Business, je souhaite un devis pour « ')+L(it.t)+(LANG==='en'?'".':' ».');
@@ -380,7 +380,7 @@ function viewPourquoi(){var w=C.pourquoi;
 }
 function viewRealisations(){var r=C.work;
   return '<div class="wrap sec"><p class="kicker">'+esc(L(r.kicker))+'</p><h2 class="big">'+esc(L(r.h2))+'</h2><p class="intro">'+esc(L(r.intro))+'</p>'
-    +'<div class="rz-grid">'+r.items.map(function(it){return '<div class="rz-card"><div class="rz-img"><img src="'+it.img+'" alt="'+esc(L(it.title))+'" loading="lazy"><span class="illus-badge">'+t('illus')+'</span></div><div class="rz-body"><span class="rz-tag">'+esc(L(it.tag))+'</span><h3>'+esc(L(it.title))+'</h3></div></div>';}).join('')+'</div></div>';
+    +'<div class="rz-grid">'+r.items.map(function(it){return '<div class="rz-card"><div class="rz-img"><img src="'+it.img+'" alt="'+esc(L(it.title))+'" loading="lazy"></div><div class="rz-body"><span class="rz-tag">'+esc(L(it.tag))+'</span><h3>'+esc(L(it.title))+'</h3></div></div>';}).join('')+'</div></div>';
 }
 function viewContact(){var c=C.contact;
   return '<div class="wrap sec"><p class="kicker">'+esc(L(c.kicker))+'</p><h2 class="big">'+esc(L(c.h2))+'</h2><p class="intro">'+esc(L(c.intro))+'</p>'
