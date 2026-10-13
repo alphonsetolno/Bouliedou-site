@@ -4,8 +4,8 @@
     "eyebrow_en": "One company, five areas of expertise at your service",
     "title_fr": "Votre partenaire de confiance pour <span class=\"hl\">le commerce et le développement</span> en Guinée.",
     "title_en": "Your trusted partner for <span class=\"hl\">trade and development</span> in Guinea.",
-    "text_fr": "Bouliedou Global Business réunit le commerce, l'agrobusiness, la fourniture de biens, les prestations de services et la formation sous une même maison — avec exigence, proximité et ambition.",
-    "text_en": "Bouliedou Global Business brings trade, agribusiness, supply of goods, professional services and training together under one roof — with rigor, local presence and ambition.",
+    "text_fr": "Bouliedou Global Business réunit le commerce, l'agrobusiness, la fourniture de biens, les services et travaux et la formation sous une même maison — avec exigence, proximité et ambition.",
+    "text_en": "Bouliedou Global Business brings trade, agribusiness, supply of goods, services & works and training together under one roof — with rigor, local presence and ambition.",
     "chips": [
       {
         "label_fr": "Commerce",
@@ -20,8 +20,8 @@
         "label_en": "Supply of goods"
       },
       {
-        "label_fr": "Prestations de services",
-        "label_en": "Professional services"
+        "label_fr": "Services et travaux",
+        "label_en": "Services & works"
       },
       {
         "label_fr": "Formation & insertion",
@@ -60,10 +60,10 @@
       },
       {
         "icon": "services",
-        "title_fr": "Prestations de services",
-        "title_en": "Professional services",
-        "text_fr": "Conseil, accompagnement technique et opérationnel et services aux entreprises, aux institutions et aux particuliers, pour la mise en œuvre de leurs activités et de leurs projets.",
-        "text_en": "Advice, technical and operational support and services for businesses, institutions and individuals, to carry out their activities and projects."
+        "title_fr": "Services et travaux",
+        "title_en": "Services & works",
+        "text_fr": "Conseil et appui technique et opérationnel, bâtiment, rénovation, électricité, plomberie et aménagement ; construction et réhabilitation, installation et maintenance d'équipements, déménagement et entretien des locaux ; énergie, eau, assainissement et aménagements agricoles — des prestations ponctuelles ou régulières pour les particuliers, les entreprises et les institutions.",
+        "text_en": "Consulting and technical and operational support, building, renovation, electricity, plumbing and fitting-out; construction and rehabilitation, installation and maintenance of equipment, removals and upkeep of premises; energy, water, sanitation and agricultural works — one-off or recurring services for individuals, businesses and institutions."
       },
       {
         "icon": "formation",
@@ -98,8 +98,8 @@
         "image": "galerie-commerce.jpg"
       },
       {
-        "caption_fr": "Prestations de services",
-        "caption_en": "Professional services",
+        "caption_fr": "Services et travaux",
+        "caption_en": "Services & works",
         "image": "galerie-services.jpg"
       },
       {
@@ -148,8 +148,8 @@
       {
         "title_fr": "Diversification",
         "title_en": "Diversification",
-        "text_fr": "Commerce, agrobusiness, fourniture de biens, services et formation : des métiers complémentaires pour répondre à des besoins variés.",
-        "text_en": "Trade, agribusiness, supply of goods, services and training — complementary businesses to meet varied needs."
+        "text_fr": "Commerce, agrobusiness, fourniture de biens, services et travaux, et formation : des métiers complémentaires pour répondre à des besoins variés.",
+        "text_en": "Trade, agribusiness, supply of goods, services & works, and training — complementary businesses to meet varied needs."
       },
       {
         "title_fr": "Proximité",
@@ -188,8 +188,8 @@
     "hours_en": "Monday – Saturday: 8am – 6pm"
   },
   "footer": {
-    "about_fr": "Commerce, agrobusiness, fourniture de biens, prestations de services et formation — une société guinéenne au service de vos projets.",
-    "about_en": "Trade, agribusiness, supply of goods, professional services and training — a Guinean company at the service of your projects.",
+    "about_fr": "Commerce, agrobusiness, fourniture de biens, services et travaux et formation — une société guinéenne au service de vos projets.",
+    "about_en": "Trade, agribusiness, supply of goods, services & works and training — a Guinean company at the service of your projects.",
     "website": "www.bouliedou.com"
   }
 }
