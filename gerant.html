@@ -1511,8 +1511,12 @@ function entryForm(type,clientId){
   h+='<div class="field"><label>Manque / Triage (<span id="u_sale2">kg</span>) <span style="color:var(--muted);font-weight:500">— facultatif</span></label><input id="e_triage" type="number" inputmode="decimal" min="0" placeholder="0"></div>';
   h+='<div class="hint" style="margin:-6px 0 10px">Poids manquant constaté à la pesée (sac incomplet, colas écrasés). Il est retiré du stock et repris au tableau de bord.</div>';
   if(type==="credit"){
-    h+='<div class="hint" id="e_priceHint"></div>';
-    h+='<div class="field-row">'+fld("Montant (FG)","number","e_amount","","0")+fld("Date","date","e_date",t,"")+'</div>';
+    h+='<div class="field-row">'
+      +'<div class="field"><label>Prix du <span id="u_sale3">kg</span> (FG)</label><input id="e_price" type="number" inputmode="numeric" min="0" placeholder="0"></div>'
+      +fld("Montant (FG)","number","e_amount","","0")
+      +'</div>';
+    h+='<div class="hint" id="e_priceHint">Vous pouvez modifier le prix à chaque vente (prix du jour, négociation).</div>';
+    h+=fld("Date","date","e_date",t,"");
   } else {
     h+=fld("Date","date","e_date",t,"");
   }
@@ -1522,6 +1526,7 @@ function entryForm(type,clientId){
   sel.addEventListener("change",onEntryProd);
   document.getElementById("e_qty").addEventListener("input",onEntryProd);
   document.getElementById("e_content").addEventListener("input",updateAmount);
+  var pe=document.getElementById("e_price"); if(pe) pe.addEventListener("input",updateAmount);
 }
 function onEntryProd(){
   var sel=document.getElementById("e_prod"); if(!sel) return;
@@ -1535,19 +1540,21 @@ function onEntryProd(){
   var cont=(p&&p.content_per_unit)?Number(p.content_per_unit):null;
   var cEl=document.getElementById("e_content");
   if(cont&&qty>0&&cEl) cEl.value=Math.round(cont*qty*100)/100;
+  var us3=document.getElementById("u_sale3"); if(us3) us3.textContent=cat?cat.sale_unit:"unité";
+  var priceEl=document.getElementById("e_price"); if(p&&priceEl&&!priceEl.value&&p.price!=null) priceEl.value=p.price;
   updateAmount();
 }
 function updateAmount(){
   var sel=document.getElementById("e_prod"); if(!sel||sel.getAttribute("data-type")!=="credit") return;
-  var p=prodById(sel.value), cat=p?prodCat(p):null;
+  var p=prodById(sel.value), cat=p?prodCat(p):null, su=cat?cat.sale_unit:"unité";
   var hint=document.getElementById("e_priceHint");
   var content=Number((document.getElementById("e_content")||{}).value)||0;
+  var price=Number((document.getElementById("e_price")||{}).value)||0;
   var amtEl=document.getElementById("e_amount");
-  if(p&&p.price!=null){
-    var cont=(p.content_per_unit)?Number(p.content_per_unit):null;
-    if(hint) hint.textContent="Prix : "+money(p.price)+" / "+(cat?cat.sale_unit:"unité")+(cont?(" · "+cont+" "+(cat?cat.sale_unit:"")+" par "+(cat?cat.order_unit:"")):"");
-    if(content>0&&amtEl) amtEl.value=Math.round(Number(p.price)*content);
-  } else if(hint){ hint.textContent=""; }
+  if(price>0 && content>0){
+    if(amtEl) amtEl.value=Math.round(price*content);
+    if(hint) hint.innerHTML='Montant = '+money(price)+' / '+esc(su)+' × '+rnd(content)+' '+esc(su)+' = <b>'+money(price*content)+'</b>. <span style="color:var(--muted)">Prix modifiable.</span>';
+  } else if(hint){ hint.textContent="Vous pouvez modifier le prix à chaque vente (prix du jour, négociation)."; }
 }
 function numOrNull(id){ var v=V(id); return v===""?null:Number(v); }
 function prodForm(p){
