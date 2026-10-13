@@ -971,7 +971,7 @@ function renderStock(){
     var thrKg=(p&&p.reorder_threshold!=null)?Number(p.reorder_threshold)*prodUnits(pid).content:null;
     var isLow=thrKg!=null && r.ckyNet<=thrKg;
     h+='<div class="item"><div class="body"><div class="top"><span class="lab">'+esc(p?p.name:"Produit")+(isLow?' <span class="pill nouvelle">à racheter</span>':'')+'</span><span class="amt tnum" style="color:'+(tot>0?'var(--good)':'var(--muted)')+'">'+stkQty(tot,pid)+'</span></div>'
-      +'<div class="sub">Conakry '+stkQty(r.ckyNet,pid)+(r.routeNet>0?(' · <span style="color:var(--gold-deep,#A87C2E);font-weight:700">en route '+rnd(r.routeNet)+' '+esc(prodUnits(pid).su)+'</span>'):'')+(r.triage>0?(' · <span style="color:var(--crit)">manques '+rnd(r.triage)+' '+esc(prodUnits(pid).su)+'</span>'):'')+'</div></div></div>';
+      +'<div class="sub">Conakry '+stkQty(r.ckyNet,pid)+(r.routeNet>0?(' · <span style="color:var(--gold-deep,#A87C2E);font-weight:700">non acheminé '+rnd(r.routeNet/prodUnits(pid).content)+' '+esc(prodUnits(pid).ou||'sac')+'</span>'):'')+(r.triage>0?(' · <span style="color:var(--crit)">manques '+rnd(r.triage)+' '+esc(prodUnits(pid).su)+'</span>'):'')+'</div></div></div>';
   }); h+='</div></div>'; }
   h+='<div class="section-h"><h2>Mouvements récents</h2></div>';
   if(S.stock.length===0) h+='<div class="item-empty">Aucun mouvement.</div>';
@@ -1047,27 +1047,34 @@ async function saveStock(kind){
   finishEntry(r);
 }
 /* ===== ACHEMINEMENT (route → Conakry), partiel, en kg ===== */
+function routeSacs(pid){ var u=prodUnits(pid); var av=stockByProduct()[pid]; return av?(av.routeNet/(u.content>0?u.content:1)):0; }
 function achemineForm(pid){
   var m=stockByProduct();
-  var opts=Object.keys(m).filter(function(k){return m[k].routeNet>0.0001;}).map(function(k){var p=prodById(k);return '<option value="'+k+'"'+(k===pid?' selected':'')+'>'+esc(p?p.name:'Produit')+' — en route '+rnd(m[k].routeNet)+' '+esc(prodUnits(k).su)+'</option>';}).join('');
-  if(!opts){ toast("Aucun stock « en route » à acheminer."); return; }
-  openSheet('<h3>Acheminer vers Conakry</h3><p class="view-sub" style="margin:-6px 0 10px">Déplacer une partie du stock acheté vers le magasin de Conakry.</p>'
+  var opts=Object.keys(m).filter(function(k){return m[k].routeNet>0.0001;}).map(function(k){var p=prodById(k);var u=prodUnits(k);return '<option value="'+k+'"'+(k===pid?' selected':'')+'>'+esc(p?p.name:'Produit')+' — '+rnd(routeSacs(k))+' '+esc(u.ou||'sac')+' non acheminé</option>';}).join('');
+  if(!opts){ toast("Aucun stock « non acheminé » à acheminer."); return; }
+  var firstPid=pid||Object.keys(m).filter(function(k){return m[k].routeNet>0.0001;})[0];
+  var availFirst=rnd(routeSacs(firstPid));
+  openSheet('<h3>Acheminer vers Conakry</h3><p class="view-sub" style="margin:-6px 0 10px">Déplacer des sacs du stock acheté vers le magasin de Conakry.</p>'
     +'<div class="field"><label for="a_prod">Produit</label><select id="a_prod">'+opts+'</select></div>'
-    +'<div class="field"><label>Quantité à acheminer (<span id="a_unit">kg</span>)</label><input id="a_qty" type="number" inputmode="decimal" min="0" placeholder="0"></div>'
+    +'<div class="field"><label>Quantité à acheminer (<span id="a_unit">sac</span>)</label><input id="a_qty" type="number" inputmode="decimal" min="0" max="'+availFirst+'" value="'+availFirst+'" placeholder="0"></div>'
     +'<div class="hint" id="a_hint"></div>'
     +fld("Date","date","a_date",today(),"")
     +'<div class="sheet-actions"><button class="btn btn-ghost" data-cancel="1">Annuler</button><button class="btn btn-green" data-saveachemine="1">Acheminer</button></div>');
   var sp=document.getElementById("a_prod");
-  function sync(){ var k=V("a_prod"); var u=prodUnits(k); var el=document.getElementById("a_unit"); if(el) el.textContent=u.su; var av=stockByProduct()[k]; var hint=document.getElementById("a_hint"); if(hint&&av) hint.textContent="Disponible « en route » : "+rnd(av.routeNet)+" "+u.su+(u.content>1?(" (≈ "+rnd(av.routeNet/u.content)+" "+u.ou+")"):""); }
-  if(sp) sp.addEventListener("change",sync); sync();
+  function sync(){ var k=V("a_prod"); var u=prodUnits(k); var el=document.getElementById("a_unit"); if(el) el.textContent=u.ou||'sac';
+    var av=rnd(routeSacs(k)); var qf=document.getElementById("a_qty"); if(qf){ qf.setAttribute("max",av); if(Number(qf.value)>av) qf.value=av; }
+    var hint=document.getElementById("a_hint"); if(hint) hint.innerHTML="Disponible « non acheminé » : <b>"+av+" "+esc(u.ou||'sac')+"</b>"+(u.content>1?(" (soit "+rnd(av*u.content)+" "+esc(u.su)+")"):""); }
+  if(sp) sp.addEventListener("change",sync);
+  var qf=document.getElementById("a_qty"); if(qf) qf.addEventListener("input",function(){ var av=rnd(routeSacs(V("a_prod"))); if(Number(qf.value)>av) qf.value=av; });
+  sync();
 }
 async function saveAcheminement(){
   var pid=V("a_prod")||null; if(!pid){ toast("Choisissez un produit."); return; }
-  var kg=numOrNull("a_qty"); if(!kg||kg<=0){ toast("Indiquez la quantité."); return; }
-  var av=stockByProduct()[pid];
-  if(av && kg>av.routeNet+0.001){ toast("Pas plus que le stock en route ("+rnd(av.routeNet)+" "+prodUnits(pid).su+")."); return; }
-  var p=prodById(pid);
-  var data={kind:'transfert', product_id:pid, label:(p?p.name:'Acheminement'), qty_kg:kg, unit:prodUnits(pid).su, date:V("a_date")||today()};
+  var sacs=numOrNull("a_qty"); if(!sacs||sacs<=0){ toast("Indiquez le nombre de sacs."); return; }
+  var u=prodUnits(pid), availSacs=routeSacs(pid);
+  if(sacs>availSacs+0.001){ toast("Vous ne pouvez pas acheminer plus que "+rnd(availSacs)+" "+(u.ou||'sac')+" disponible(s)."); return; }
+  var p=prodById(pid), kg=sacs*(u.content>0?u.content:1);
+  var data={kind:'transfert', product_id:pid, label:(p?p.name:'Acheminement'), qty:sacs, qty_kg:Math.round(kg*1000)/1000, unit:(u.ou||'sac'), date:V("a_date")||today()};
   var r=await saveOp({type:'stock', table:'stock_entries', payload:data});
   finishEntry(r);
 }
@@ -1501,6 +1508,8 @@ function entryForm(type,clientId){
     +'<div class="field"><label>Quantité (<span id="u_order">unité</span>)</label><input id="e_qty" type="number" inputmode="decimal" min="0" placeholder="0"></div>'
     +'<div class="field"><label>Contenu (<span id="u_sale">unité</span>)</label><input id="e_content" type="number" inputmode="decimal" min="0" placeholder="0"></div>'
     +'</div>';
+  h+='<div class="field"><label>Manque / Triage (<span id="u_sale2">kg</span>) <span style="color:var(--muted);font-weight:500">— facultatif</span></label><input id="e_triage" type="number" inputmode="decimal" min="0" placeholder="0"></div>';
+  h+='<div class="hint" style="margin:-6px 0 10px">Poids manquant constaté à la pesée (sac incomplet, colas écrasés). Il est retiré du stock et repris au tableau de bord.</div>';
   if(type==="credit"){
     h+='<div class="hint" id="e_priceHint"></div>';
     h+='<div class="field-row">'+fld("Montant (FG)","number","e_amount","","0")+fld("Date","date","e_date",t,"")+'</div>';
@@ -1518,9 +1527,10 @@ function onEntryProd(){
   var sel=document.getElementById("e_prod"); if(!sel) return;
   var p=prodById(sel.value), cat=p?prodCat(p):null;
   var lab=document.getElementById("e_label"); if(p&&lab) lab.value=p.name;
-  var uo=document.getElementById("u_order"), us=document.getElementById("u_sale");
+  var uo=document.getElementById("u_order"), us=document.getElementById("u_sale"), us2=document.getElementById("u_sale2");
   if(uo) uo.textContent=cat?cat.order_unit:"unité";
   if(us) us.textContent=cat?cat.sale_unit:"unité";
+  if(us2) us2.textContent=cat?cat.sale_unit:"kg";
   var qty=Number((document.getElementById("e_qty")||{}).value)||0;
   var cont=(p&&p.content_per_unit)?Number(p.content_per_unit):null;
   var cEl=document.getElementById("e_content");
@@ -1718,6 +1728,10 @@ async function delClient(id){
     currentId=null; toast("Client supprimé"); await refresh();
   });
 }
+async function saveTriageFromSale(pid, cat, d){
+  var tr=numOrNull("e_triage");
+  if(tr&&tr>0&&pid){ await saveOp({type:'stock', table:'stock_entries', payload:{kind:'sortie', reason:'triage', product_id:pid, label:'Manque à la vente', qty_kg:tr, unit:(cat?cat.sale_unit:'kg'), date:d||today(), note:'vente'}}); }
+}
 async function saveEntry(type,clientId){
   var d=V("e_date")||today();
   if(type==="deliv"){
@@ -1726,7 +1740,9 @@ async function saveEntry(type,clientId){
       label:V("e_label")||(p?p.name:"Livraison"), qty:numOrNull("e_qty"),
       order_unit:cat?cat.order_unit:null, content_qty:numOrNull("e_content"),
       sale_unit:cat?cat.sale_unit:null, date:d};
-    finishEntry(await saveOp({type:'deliv', table:'deliveries', payload:payload}));
+    var rd=await saveOp({type:'deliv', table:'deliveries', payload:payload});
+    await saveTriageFromSale(pid, cat, d);
+    finishEntry(rd);
   } else if(type==="credit"){
     var pid2=V("e_prod")||null, p2=pid2?prodById(pid2):null, cat2=p2?prodCat(p2):null;
     var a=Number(V("e_amount"))||0; if(a<=0){ toast("Indiquez un montant."); return; }
@@ -1734,7 +1750,9 @@ async function saveEntry(type,clientId){
       label:V("e_label")||(p2?p2.name:"Crédit"), amount:a, qty:numOrNull("e_qty"),
       order_unit:cat2?cat2.order_unit:null, content_qty:numOrNull("e_content"),
       sale_unit:cat2?cat2.sale_unit:null, date:d};
-    finishEntry(await saveOp({type:'credit', table:'credits', payload:payload2}));
+    var rc=await saveOp({type:'credit', table:'credits', payload:payload2});
+    await saveTriageFromSale(pid2, cat2, d);
+    finishEntry(rc);
   } else {
     var m=Number(V("e_amount"))||0; if(m<=0){ toast("Indiquez un montant."); return; }
     finishEntry(await saveOp({type:'payment', table:'payments', payload:{client_id:clientId,amount:m,note:V("e_note"),date:d,product_id:V("e_payprod")||null}}));
