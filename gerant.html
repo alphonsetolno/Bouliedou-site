@@ -742,7 +742,7 @@ function renderHome(){
       +'<div class="ss-h"><span>Stock</span><b class="tnum">'+money(lv.total)+'</b></div>'
       +'<div class="ss-row"><span><i style="background:var(--green)"></i>Disponible à Conakry</span><b class="tnum">'+money(lv.cky)+'</b></div>'
       +'<div class="ss-row"><span><i style="background:var(--gold)"></i>Acheté — non acheminé</span><b class="tnum">'+money(lv.route)+'</b></div>'
-      +(lv.triageKg>0?'<div class="ss-row"><span><i style="background:var(--crit)"></i>Manques / triages</span><b class="tnum" style="color:var(--crit)">'+rnd(lv.triageKg)+' kg · '+money(lv.triageVal)+'</b></div>':'')
+      +(lv.triageKg>0?'<div class="ss-row"><span><i style="background:var(--crit)"></i>Manques / triages (sur ventes)</span><b class="tnum" style="color:var(--crit)">'+rnd(lv.triageKg)+' kg · '+money(lv.triageVal)+'</b></div>':'')
       +'<div class="ss-row tot"><span>Total (Conakry + non acheminé)</span><b class="tnum">'+money(lv.total)+'</b></div>'
       +'<div class="ss-s">Valeurs au prix d\'achat moyen · détail par catégorie dans « Stock »</div></button>';
     // --- Synthèse trésorerie : caisse / banque ---
@@ -962,7 +962,10 @@ function stockByProduct(){
   // niveaux nets (kg)
   Object.keys(m).forEach(function(k){ var r=m[k];
     r.routeNet=Math.max(0, r.route - r.transfer);
-    r.ckyNet=Math.max(0, r.cky + r.transfer - r.sortie - r.triage - r.sold);
+    // Les manques / triages / cassées proviennent de sacs DÉJÀ vendus :
+    // ils se déduisent des sacs vendus, PAS du stock présent à Conakry.
+    r.ckyNet=Math.max(0, r.cky + r.transfer - r.sortie - r.sold);
+    r.soldNet=Math.max(0, r.sold - r.triage); // poids réellement conservé par le client
     r.avg=r.qtyIn>0?r.amtIn/r.qtyIn:0; // coût moyen pondéré par kg
   });
   return m;
@@ -987,7 +990,7 @@ function renderStock(){
   // --- déperdition (triages / manques) ---
   if(lv.triageKg>0){
     h+='<div class="card" style="margin-top:12px;border-left:4px solid var(--crit)"><div class="info-row"><span class="k" style="font-weight:800">Triages / Manques cumulés</span><b class="tnum" style="color:var(--crit)">'+rnd(lv.triageKg)+' kg · '+money(lv.triageVal)+'</b></div>'
-      +'<div class="hint" style="margin:6px 0 0">Pertes de poids (pesée, casse) retirées du stock disponible.</div></div>';
+      +'<div class="hint" style="margin:6px 0 0">Poids usé / non utilisable constaté dans des sacs déjà vendus. Déduit des ventes — n\'affecte pas le stock de Conakry.</div></div>';
   }
   // --- synthèse par catégorie ---
   var cats=stockByCategory(), ck=Object.keys(cats);
@@ -1014,7 +1017,7 @@ function renderStock(){
     var thrKg=(p&&p.reorder_threshold!=null)?Number(p.reorder_threshold)*prodUnits(pid).content:null;
     var isLow=thrKg!=null && r.ckyNet<=thrKg;
     h+='<div class="item"><div class="body"><div class="top"><span class="lab">'+esc(p?p.name:"Produit")+(isLow?' <span class="pill nouvelle">à racheter</span>':'')+'</span><span class="amt tnum" style="color:'+(tot>0?'var(--good)':'var(--muted)')+'">'+stkQty(tot,pid)+'</span></div>'
-      +'<div class="sub">Conakry '+stkQty(r.ckyNet,pid)+(r.routeNet>0?(' · <span style="color:var(--gold-deep,#A87C2E);font-weight:700">non acheminé '+rnd(r.routeNet/prodUnits(pid).content)+' '+esc(prodUnits(pid).ou||'sac')+'</span>'):'')+(r.sold>0?(' · <span style="color:var(--muted)">vendu '+rnd(r.sold)+' '+esc(prodUnits(pid).su)+'</span>'):'')+(r.triage>0?(' · <span style="color:var(--crit)">manques '+rnd(r.triage)+' '+esc(prodUnits(pid).su)+'</span>'):'')+'</div></div></div>';
+      +'<div class="sub">Conakry '+stkQty(r.ckyNet,pid)+(r.routeNet>0?(' · <span style="color:var(--gold-deep,#A87C2E);font-weight:700">non acheminé '+rnd(r.routeNet/prodUnits(pid).content)+' '+esc(prodUnits(pid).ou||'sac')+'</span>'):'')+(r.soldNet>0?(' · <span style="color:var(--muted)">vendu '+rnd(r.soldNet)+' '+esc(prodUnits(pid).su)+'</span>'):'')+(r.triage>0?(' · <span style="color:var(--crit)">manques '+rnd(r.triage)+' '+esc(prodUnits(pid).su)+'</span>'):'')+'</div></div></div>';
   }); h+='</div></div>'; }
   h+='<div class="section-h"><h2>Mouvements récents</h2></div>';
   if(S.stock.length===0) h+='<div class="item-empty">Aucun mouvement.</div>';
@@ -1112,19 +1115,47 @@ function achemineForm(pid){
   var qf=document.getElementById("a_qty"); if(qf) qf.addEventListener("input",function(){ var av=rnd(routeSacs(V("a_prod"))); if(Number(qf.value)>av) qf.value=av; });
   sync();
 }
+/* Acheminement : on déplace les entrées « route » vers « Conakry » (colonne
+   location). Ni nouveau type de mouvement, ni contrainte de base à modifier :
+   le stock acheminé devient immédiatement disponible et valorisé à Conakry,
+   et diminue d'autant le stock non acheminé. Les montants d'achat sont
+   répartis au prorata quand on n'achemine qu'une partie d'un lot. */
 async function saveAcheminement(){
   var pid=V("a_prod")||null; if(!pid){ toast("Choisissez un produit."); return; }
   var sacs=numOrNull("a_qty"); if(!sacs||sacs<=0){ toast("Indiquez le nombre de sacs."); return; }
+  if(needsOnline()) return;
   var u=prodUnits(pid), availSacs=routeSacs(pid);
   if(sacs>availSacs+0.001){ toast("Vous ne pouvez pas acheminer plus que "+rnd(availSacs)+" "+(u.ou||'sac')+" disponible(s)."); return; }
-  var p=prodById(pid), kg=sacs*(u.content>0?u.content:1);
-  var data={kind:'transfert', product_id:pid, label:(p?p.name:'Acheminement'), qty:sacs, qty_kg:Math.round(kg*1000)/1000, unit:(u.ou||'sac'), date:V("a_date")||today()};
-  var r=await saveOp({type:'stock', table:'stock_entries', payload:data});
-  finishEntry(r);
+  var content=(u.content>0?u.content:1), needKg=Math.round(sacs*content*1000)/1000, EPS=0.001, d=V("a_date")||today();
+  var routeRows=S.stock.filter(function(x){return x.product_id===pid && x.kind==='entree' && x.location==='route';})
+    .slice().sort(function(a,b){return (String(a.date||'').localeCompare(String(b.date||'')))||(String(a.created_at||'').localeCompare(String(b.created_at||'')));});
+  var err=null, moved=0;
+  for(var i=0;i<routeRows.length && needKg>EPS;i++){
+    var x=routeRows[i], xKg=entryKg(x); if(xKg<=EPS) continue;
+    if(xKg<=needKg+EPS){
+      // le lot entier part à Conakry
+      var r=await sb.from('stock_entries').update({location:'conakry'}).eq('id',x.id);
+      if(r&&r.error){ err=r.error; break; }
+      needKg=Math.round((needKg-xKg)*1000)/1000; moved++;
+    } else {
+      // acheminement partiel : on scinde le lot (reste en route + part à Conakry)
+      var frac=needKg/xKg, movedKg=Math.round(needKg*1000)/1000, remKg=Math.round((xKg-needKg)*1000)/1000;
+      var amt=Number(x.amount)||0, movedAmt=Math.round(amt*frac), remAmt=amt-movedAmt;
+      var qty=(x.qty!=null&&x.qty!=="")?Number(x.qty):null, movedQty=(qty!=null)?Math.round(qty*frac*1000)/1000:null, remQty=(qty!=null)?Math.round((qty-movedQty)*1000)/1000:null;
+      var r1=await sb.from('stock_entries').update({qty_kg:remKg, amount:remAmt, qty:remQty}).eq('id',x.id);
+      if(r1&&r1.error){ err=r1.error; break; }
+      var r2=await sb.from('stock_entries').insert({kind:'entree', location:'conakry', product_id:pid, label:(x.label||(prodById(pid)?prodById(pid).name:'Acheminement')), qty:movedQty, qty_kg:movedKg, unit:(x.unit||u.ou||'sac'), amount:movedAmt, content_per_unit:(x.content_per_unit!=null?x.content_per_unit:null), supplier:(x.supplier||null), date:(x.date||d), note:'acheminé vers Conakry'});
+      if(r2&&r2.error){ err=r2.error; break; }
+      needKg=0; moved++;
+    }
+  }
+  if(err){ toast("Erreur acheminement : "+err.message); await refresh(); return; }
+  if(!moved){ toast("Aucun stock « non acheminé » à acheminer."); return; }
+  closeSheet(); toast("Acheminé vers Conakry ✓"); await refresh();
 }
 /* ===== MANQUE / TRIAGE (perte de poids) ===== */
 function triageForm(){
-  openSheet('<h3>Manque / Triage</h3><p class="view-sub" style="margin:-6px 0 10px">Poids retiré du stock disponible (écart de pesée, casse, colas écrasés).</p>'
+  openSheet('<h3>Manque / Triage</h3><p class="view-sub" style="margin:-6px 0 10px">Poids usé / non utilisable constaté dans un sac déjà vendu. Déduit des ventes, repris au tableau de bord — n\'affecte pas le stock de Conakry.</p>'
     +'<div class="field"><label for="t_prod">Produit</label><select id="t_prod">'+allProdOptions()+'</select></div>'
     +'<div class="field"><label>Quantité perdue (<span id="t_unit">kg</span>)</label><input id="t_qty" type="number" inputmode="decimal" min="0" placeholder="0"></div>'
     +'<div class="field"><label for="t_reason">Motif</label><select id="t_reason"><option value="pesée">Écart de pesée</option><option value="casse">Casse / écrasé</option><option value="autre">Autre</option></select></div>'
