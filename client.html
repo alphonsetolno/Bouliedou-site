@@ -494,9 +494,9 @@ async function loadAll(){
 
 /* ===== RENDER ===== */
 function render(){
-  document.querySelectorAll(".tab").forEach(function(b){ b.classList.toggle("on", b.dataset.tab===view); });
+  document.querySelectorAll(".tab").forEach(function(b){ b.classList.toggle("on", b.dataset.tab===view || ((view==="credits"||view==="payments") && b.dataset.tab==="home")); });
   var root=document.getElementById("root");
-  root.innerHTML = view==="home"?renderHome() : view==="order"?renderOrder() : view==="orders"?renderOrders() : renderAccount();
+  root.innerHTML = view==="home"?renderHome() : view==="order"?renderOrder() : view==="orders"?renderOrders() : view==="credits"?renderCreditsFull() : view==="payments"?renderPaymentsFull() : renderAccount();
 }
 
 function renderHome(){
@@ -509,30 +509,46 @@ function renderHome(){
   h+='<button class="btn btn-gold btn-block" data-go="order" style="margin-top:16px">Passer une commande</button>';
   h+=rewardsSection();
   // dernières commandes
-  h+='<div class="section-h"><h2>Mes dernières commandes</h2></div>';
+  // --- 3 dernières opérations par rubrique, « Voir tout » pour l'intégralité ---
+  h+=secHead("Mes dernières commandes", S.orders.length>3?"orders":null);
   if(S.orders.length===0) h+='<div class="item-empty">Aucune commande pour l\'instant.</div>';
-  else { h+='<div class="card"><div class="items">'; S.orders.slice(0,4).forEach(function(o){ h+=orderRow(o); }); h+='</div></div>'; }
-  // historique (marchandises à crédit + paiements) directement sur l'accueil
-  h+='<div class="section-h"><h2>Mon historique</h2></div>';
-  h+=historyCards();
+  else { h+='<div class="card"><div class="items">'; S.orders.slice(0,3).forEach(function(o){ h+=orderRow(o); }); h+='</div></div>'; }
+
+  h+=secHead("Marchandises prises à crédit", S.credits.length>3?"credits":null);
+  if(S.credits.length===0) h+='<div class="item-empty">Aucune.</div>';
+  else { h+='<div class="card"><div class="items">'; S.credits.slice(0,3).forEach(function(x){ h+=creditRow(x); }); h+='</div></div>'; }
+
+  h+=secHead("Mes paiements", S.payments.length>3?"payments":null);
+  if(S.payments.length===0) h+='<div class="item-empty">Aucun paiement enregistré.</div>';
+  else { h+='<div class="card"><div class="items">'; S.payments.slice(0,3).forEach(function(x){ h+=paymentRow(x); }); h+='</div></div>'; }
   return h;
 }
-/* Cartes d'historique : marchandises prises à crédit + paiements. */
-function historyCards(){
-  var h='<div class="card"><div class="card-h"><h3>Marchandises prises à crédit</h3></div>';
+/* En-tête de rubrique avec lien « Voir tout » (affiché s'il y a plus de 3 lignes). */
+function secHead(title, goView){
+  return '<div class="section-h" style="display:flex;justify-content:space-between;align-items:baseline;gap:10px"><h2>'+esc(title)+'</h2>'
+    +(goView?'<button class="add-link" data-go="'+goView+'">Voir tout ›</button>':'')+'</div>';
+}
+function creditRow(x){
+  return '<div class="item"><div class="body"><div class="top"><span class="lab">'+esc(x.label||"Crédit")+'</span><span class="amt tnum">'+money(x.amount)+'</span></div>'
+    +'<div class="sub">'+subQty(x)+fmtDate(x.date)+'</div></div></div>';
+}
+function paymentRow(x){
+  return '<div class="item"><div class="body"><div class="top"><span class="lab">'+esc(x.note||"Paiement")+'</span><span class="amt tnum" style="color:var(--good)">'+money(x.amount)+'</span></div>'
+    +'<div class="sub">'+fmtDate(x.date)+'</div></div></div>';
+}
+/* Historique complet d'une rubrique (depuis « Voir tout »). */
+function renderCreditsFull(){
+  var h='<button class="add-link" data-go="home" style="margin:2px 0 12px">‹ Accueil</button>';
+  h+='<div class="view-title">Marchandises prises à crédit</div><p class="view-sub">'+S.credits.length+' opération(s).</p>';
   if(S.credits.length===0) h+='<div class="item-empty">Aucune.</div>';
-  else { h+='<div class="items">'; S.credits.forEach(function(x){
-    h+='<div class="item"><div class="body"><div class="top"><span class="lab">'+esc(x.label||"Crédit")+'</span><span class="amt tnum">'+money(x.amount)+'</span></div>'
-      +'<div class="sub">'+subQty(x)+fmtDate(x.date)+'</div></div></div>';
-  }); h+='</div>'; }
-  h+='</div>';
-  h+='<div class="card"><div class="card-h"><h3>Mes paiements</h3></div>';
+  else { h+='<div class="card"><div class="items">'; S.credits.forEach(function(x){ h+=creditRow(x); }); h+='</div></div>'; }
+  return h;
+}
+function renderPaymentsFull(){
+  var h='<button class="add-link" data-go="home" style="margin:2px 0 12px">‹ Accueil</button>';
+  h+='<div class="view-title">Mes paiements</div><p class="view-sub">'+S.payments.length+' paiement(s).</p>';
   if(S.payments.length===0) h+='<div class="item-empty">Aucun paiement enregistré.</div>';
-  else { h+='<div class="items">'; S.payments.forEach(function(x){
-    h+='<div class="item"><div class="body"><div class="top"><span class="lab">'+esc(x.note||"Paiement")+'</span><span class="amt tnum" style="color:var(--good)">'+money(x.amount)+'</span></div>'
-      +'<div class="sub">'+fmtDate(x.date)+'</div></div></div>';
-  }); h+='</div>'; }
-  h+='</div>';
+  else { h+='<div class="card"><div class="items">'; S.payments.forEach(function(x){ h+=paymentRow(x); }); h+='</div></div>'; }
   return h;
 }
 
