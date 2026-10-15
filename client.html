@@ -510,10 +510,7 @@ function renderHome(){
   h+=rewardsSection();
   // dernières commandes
   // --- 3 dernières opérations par rubrique, « Voir tout » pour l'intégralité ---
-  h+=secHead("Mes dernières commandes", S.orders.length>3?"orders":null);
-  if(S.orders.length===0) h+='<div class="item-empty">Aucune commande pour l\'instant.</div>';
-  else { h+='<div class="card"><div class="items">'; S.orders.slice(0,3).forEach(function(o){ h+=orderRow(o); }); h+='</div></div>'; }
-
+  // (L'historique des commandes est dans l'onglet « Commandes ».)
   h+=secHead("Marchandises prises à crédit", S.credits.length>3?"credits":null);
   if(S.credits.length===0) h+='<div class="item-empty">Aucune.</div>';
   else { h+='<div class="card"><div class="items">'; S.credits.slice(0,3).forEach(function(x){ h+=creditRow(x); }); h+='</div></div>'; }
