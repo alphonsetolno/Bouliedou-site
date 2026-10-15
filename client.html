@@ -512,6 +512,27 @@ function renderHome(){
   h+='<div class="section-h"><h2>Mes dernières commandes</h2></div>';
   if(S.orders.length===0) h+='<div class="item-empty">Aucune commande pour l\'instant.</div>';
   else { h+='<div class="card"><div class="items">'; S.orders.slice(0,4).forEach(function(o){ h+=orderRow(o); }); h+='</div></div>'; }
+  // historique (marchandises à crédit + paiements) directement sur l'accueil
+  h+='<div class="section-h"><h2>Mon historique</h2></div>';
+  h+=historyCards();
+  return h;
+}
+/* Cartes d'historique : marchandises prises à crédit + paiements. */
+function historyCards(){
+  var h='<div class="card"><div class="card-h"><h3>Marchandises prises à crédit</h3></div>';
+  if(S.credits.length===0) h+='<div class="item-empty">Aucune.</div>';
+  else { h+='<div class="items">'; S.credits.forEach(function(x){
+    h+='<div class="item"><div class="body"><div class="top"><span class="lab">'+esc(x.label||"Crédit")+'</span><span class="amt tnum">'+money(x.amount)+'</span></div>'
+      +'<div class="sub">'+subQty(x)+fmtDate(x.date)+'</div></div></div>';
+  }); h+='</div>'; }
+  h+='</div>';
+  h+='<div class="card"><div class="card-h"><h3>Mes paiements</h3></div>';
+  if(S.payments.length===0) h+='<div class="item-empty">Aucun paiement enregistré.</div>';
+  else { h+='<div class="items">'; S.payments.forEach(function(x){
+    h+='<div class="item"><div class="body"><div class="top"><span class="lab">'+esc(x.note||"Paiement")+'</span><span class="amt tnum" style="color:var(--good)">'+money(x.amount)+'</span></div>'
+      +'<div class="sub">'+fmtDate(x.date)+'</div></div></div>';
+  }); h+='</div>'; }
+  h+='</div>';
   return h;
 }
 
@@ -580,22 +601,7 @@ function renderAccount(){
     +'<div class="m"><div class="lab">À crédit</div><div class="v tnum">'+money(t.credit)+'</div></div>'
     +'<div class="m"><div class="lab">Payé</div><div class="v tnum">'+money(t.paye)+'</div></div>'
     +'<div class="m due'+(t.du>0?'':' ok')+'"><div class="lab">Solde dû</div><div class="v tnum">'+money(t.du)+'</div></div></div></div>';
-  // marchandises à crédit
-  h+='<div class="card"><div class="card-h"><h3>Marchandises prises à crédit</h3></div>';
-  if(S.credits.length===0) h+='<div class="item-empty">Aucune.</div>';
-  else { h+='<div class="items">'; S.credits.forEach(function(x){
-    h+='<div class="item"><div class="body"><div class="top"><span class="lab">'+esc(x.label||"Crédit")+'</span><span class="amt tnum">'+money(x.amount)+'</span></div>'
-      +'<div class="sub">'+subQty(x)+fmtDate(x.date)+'</div></div></div>';
-  }); h+='</div>'; }
-  h+='</div>';
-  // paiements
-  h+='<div class="card"><div class="card-h"><h3>Mes paiements</h3></div>';
-  if(S.payments.length===0) h+='<div class="item-empty">Aucun paiement enregistré.</div>';
-  else { h+='<div class="items">'; S.payments.forEach(function(x){
-    h+='<div class="item"><div class="body"><div class="top"><span class="lab">'+esc(x.note||"Paiement")+'</span><span class="amt tnum" style="color:var(--good)">'+money(x.amount)+'</span></div>'
-      +'<div class="sub">'+fmtDate(x.date)+'</div></div></div>';
-  }); h+='</div>'; }
-  h+='</div>';
+  h+='<div class="hint" style="margin:-2px 0 12px">Votre historique (marchandises à crédit et paiements) est désormais sur l\'accueil.</div>';
   // sécurité
   h+='<div class="card"><div class="card-h"><h3>Sécurité</h3></div>'
     +'<div class="info-row"><span class="k">Verrouillage</span><span>Automatique après 5 min d\'inactivité</span></div>'
