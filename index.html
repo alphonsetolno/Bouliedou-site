@@ -34,8 +34,8 @@
   /* ---- Top bar ---- */
   .top{position:sticky;top:0;z-index:40;background:rgba(251,248,239,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
   .top-in{display:flex;align-items:center;justify-content:space-between;height:70px;gap:14px}
-  .brand{display:flex;align-items:center;gap:11px;flex:0 0 auto}
-  .brand .logo{height:46px;width:auto;display:block}
+  .brand{display:flex;align-items:center;gap:11px;flex:0 1 auto;min-width:0}
+  .brand .logo{height:44px;width:auto;aspect-ratio:1139.9/524.52;max-width:118px;object-fit:contain;display:block}
   .brand-txt b{display:block;font-size:15px;font-weight:800;color:var(--green);letter-spacing:.3px;line-height:1}
   .brand-txt span{display:block;font-size:9.5px;letter-spacing:.2em;color:var(--gold-deep);font-weight:700;margin-top:2px}
   @media(max-width:520px){.brand-txt{display:none}}
