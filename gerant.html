@@ -1899,7 +1899,7 @@ function entryForm(type,clientId){
     +'<div class="field"><label>Contenu (<span id="u_sale">unité</span>)</label><input id="e_content" type="number" inputmode="decimal" min="0" placeholder="0"></div>'
     +'</div>';
   h+='<div class="field"><label>Manque / Triage (<span id="u_sale2">kg</span>) <span style="color:var(--muted);font-weight:500">— facultatif</span></label><input id="e_triage" type="number" inputmode="decimal" min="0" placeholder="0"></div>';
-  h+='<div class="hint" style="margin:-6px 0 10px">Poids manquant constaté à la pesée (sac incomplet, colas écrasés). Il est retiré du stock et repris au tableau de bord.</div>';
+  h+='<div class="hint" style="margin:-6px 0 10px">Poids usé / non utilisable (écart de pesée, colas écrasés). Il est déduit du montant (poids net × prix) et repris au tableau de bord.</div>';
   if(type==="credit"){
     h+='<div class="field-row">'
       +'<div class="field"><label>Prix du <span id="u_sale3">kg</span> (FG)</label><input id="e_price" type="number" inputmode="numeric" min="0" placeholder="0"></div>'
@@ -1917,6 +1917,7 @@ function entryForm(type,clientId){
   document.getElementById("e_qty").addEventListener("input",onEntryProd);
   document.getElementById("e_content").addEventListener("input",updateAmount);
   var pe=document.getElementById("e_price"); if(pe) pe.addEventListener("input",updateAmount);
+  var te=document.getElementById("e_triage"); if(te) te.addEventListener("input",updateAmount);
 }
 function onEntryProd(){
   var sel=document.getElementById("e_prod"); if(!sel) return;
@@ -1939,11 +1940,16 @@ function updateAmount(){
   var p=prodById(sel.value), cat=p?prodCat(p):null, su=cat?cat.sale_unit:"unité";
   var hint=document.getElementById("e_priceHint");
   var content=Number((document.getElementById("e_content")||{}).value)||0;
+  var triage=Number((document.getElementById("e_triage")||{}).value)||0;
   var price=Number((document.getElementById("e_price")||{}).value)||0;
+  var net=Math.max(0, content-triage); // poids réellement facturé = sac − triage/mélange
   var amtEl=document.getElementById("e_amount");
   if(price>0 && content>0){
-    if(amtEl) amtEl.value=Math.round(price*content);
-    if(hint) hint.innerHTML='Montant = '+money(price)+' / '+esc(su)+' × '+rnd(content)+' '+esc(su)+' = <b>'+money(price*content)+'</b>. <span style="color:var(--muted)">Prix modifiable.</span>';
+    if(amtEl) amtEl.value=Math.round(price*net);
+    if(hint){
+      if(triage>0) hint.innerHTML='Montant = '+money(price)+' / '+esc(su)+' × ('+rnd(content)+' − '+rnd(triage)+' triage) = '+money(price)+' × '+rnd(net)+' '+esc(su)+' = <b>'+money(price*net)+'</b>.';
+      else hint.innerHTML='Montant = '+money(price)+' / '+esc(su)+' × '+rnd(content)+' '+esc(su)+' = <b>'+money(price*net)+'</b>. <span style="color:var(--muted)">Prix modifiable.</span>';
+    }
   } else if(hint){ hint.textContent="Vous pouvez modifier le prix à chaque vente (prix du jour, négociation)."; }
 }
 function numOrNull(id){ var v=V(id); return v===""?null:Number(v); }
@@ -2178,18 +2184,19 @@ function editCreditForm(id){
     +'<div class="field"><label>Contenu vendu (<span id="u_sale">'+esc(su)+'</span>)</label><input id="e_content" type="number" inputmode="decimal" min="0" value="'+content+'"></div>'
     +'</div>';
   h+='<div class="field"><label>Manque / Triage (<span id="u_sale2">'+esc(su)+'</span>) <span style="color:var(--muted);font-weight:500">— facultatif</span></label><input id="e_triage" type="number" inputmode="decimal" min="0" placeholder="0"></div>';
-  h+='<div class="hint" style="margin:-6px 0 10px">Poids usé/non utilisable signalé après la livraison. Il est retiré du stock (triage) et repris au tableau de bord.</div>';
+  h+='<div class="hint" style="margin:-6px 0 10px">Poids usé / non utilisable signalé après la livraison. Il est déduit du montant et repris au tableau de bord.</div>';
   h+='<div class="field-row">'
     +'<div class="field"><label>Prix du <span id="u_sale3">'+esc(su)+'</span> (FG)</label><input id="e_price" type="number" inputmode="numeric" min="0" value="'+price+'"></div>'
     +fld("Montant (FG)","number","e_amount",(x.amount!=null?x.amount:''),"0")
     +'</div>';
-  h+='<div class="hint" id="e_priceHint">Si vous baissez le contenu, le montant se recalcule (prix × contenu).</div>';
+  h+='<div class="hint" id="e_priceHint">Le montant se recalcule : prix × (contenu − triage).</div>';
   h+=fld("Date","date","e_date",(x.date||today()),"");
   h+='<div class="sheet-actions"><button class="btn btn-ghost" data-cancel="1">Annuler</button><button class="btn btn-green" data-saveeditcredit="'+id+'">Enregistrer</button></div>';
   openSheet(h);
   var sel=document.getElementById("e_prod"); if(sel){ sel.value=x.product_id||""; sel.addEventListener("change",onEntryProd); }
   var ce=document.getElementById("e_content"); if(ce) ce.addEventListener("input",updateAmount);
   var pe=document.getElementById("e_price"); if(pe) pe.addEventListener("input",updateAmount);
+  var te=document.getElementById("e_triage"); if(te) te.addEventListener("input",updateAmount);
 }
 async function saveEditCredit(id){
   if(!isAdmin()){ toast("Réservé au gérant principal."); return; }
