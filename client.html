@@ -226,6 +226,7 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 var SUPABASE_URL = "https://relosibnlcisdpjrtfhz.supabase.co";
 var SUPABASE_KEY = "sb_publishable_HVqsBjVpMiOFKgYL88mu4g_5Vfw-jFu";
 var EMAIL_DOMAIN = "clients.bouliedou.com";
+var BGB_WA = "224623010818"; /* numéro Bouliedou pour appel / WhatsApp */
 var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 var ME=null;
@@ -321,6 +322,38 @@ async function verifyLock(entered){
   var r=lsGet(LOCKKEY,null); if(!(r&&r.uid===curUid()&&r.salt)) return false;
   try{ var lk=await hashSecret(entered, r.salt); return lk.hash===r.hash; }catch(e){ return false; }
 }
+/* --- Notifications push (commande validée/livrée, paiement reçu) --- */
+var VAPID_PUBLIC="BMwcnCjGhmoVtb-bph8QRupdojSkodl3LH2KHoe8Pv5Dbwlc8Ia6P8h3X5-ZAQ65ssxuyxUk3obXU0qOBjW2NkU";
+var PUSHKEY='bgb_cli_push';
+function pushSupported(){ return ('serviceWorker' in navigator) && ('PushManager' in window) && ('Notification' in window); }
+function pushEnabled(){ return lsGet(PUSHKEY,false)===true; }
+function urlB64ToUint8(b){ var pad='='.repeat((4-b.length%4)%4); var s=(b+pad).replace(/-/g,'+').replace(/_/g,'/'); var raw=atob(s); var a=new Uint8Array(raw.length); for(var i=0;i<raw.length;i++)a[i]=raw.charCodeAt(i); return a; }
+async function enablePush(){
+  if(!pushSupported()){ toast("Notifications non supportées sur cet appareil."); return false; }
+  try{
+    var perm=await Notification.requestPermission();
+    if(perm!=='granted'){ toast("Notifications refusées dans les réglages du téléphone."); return false; }
+    var reg=await navigator.serviceWorker.ready;
+    var sub=await reg.pushManager.getSubscription();
+    if(!sub) sub=await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:urlB64ToUint8(VAPID_PUBLIC) });
+    var j=sub.toJSON();
+    var res=await sb.from('push_subscriptions').upsert({ auth_user_id:curUid(), role:'client', endpoint:j.endpoint, p256dh:j.keys.p256dh, auth:j.keys.auth, user_agent:navigator.userAgent }, { onConflict:'endpoint' });
+    if(res.error){ toast("Erreur : "+res.error.message); return false; }
+    lsSet(PUSHKEY,true); toast("Notifications activées ✓"); return true;
+  }catch(e){ toast("Activation impossible : "+((e&&e.message)||e)); return false; }
+}
+async function disablePush(){
+  try{ var reg=await navigator.serviceWorker.ready; var sub=await reg.pushManager.getSubscription(); if(sub){ var ep=sub.endpoint; await sub.unsubscribe(); await sb.from('push_subscriptions').delete().eq('endpoint',ep); } }catch(e){}
+  lsSet(PUSHKEY,false); toast("Notifications désactivées");
+}
+async function togglePush(){ if(pushEnabled()){ await disablePush(); } else { await enablePush(); } render(); }
+async function refreshPush(){
+  if(!pushEnabled()||!pushSupported()) return;
+  try{ var reg=await navigator.serviceWorker.ready; var sub=await reg.pushManager.getSubscription(); if(!sub) return; var j=sub.toJSON();
+    await sb.from('push_subscriptions').upsert({ auth_user_id:curUid(), role:'client', endpoint:j.endpoint, p256dh:j.keys.p256dh, auth:j.keys.auth, user_agent:navigator.userAgent }, { onConflict:'endpoint' });
+  }catch(e){}
+}
+
 /* --- Biométrie (empreinte / Face ID) via WebAuthn --- */
 var BIOKEY='bgb_cli_bio';
 async function bioAvailable(){ try{ return !!window.PublicKeyCredential && await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable(); }catch(e){ return false; } }
@@ -518,6 +551,7 @@ function renderHome(){
   h+=secHead("Mes paiements", S.payments.length>3?"payments":null);
   if(S.payments.length===0) h+='<div class="item-empty">Aucun paiement enregistré.</div>';
   else { h+='<div class="card"><div class="items">'; S.payments.slice(0,3).forEach(function(x){ h+=paymentRow(x); }); h+='</div></div>'; }
+  h+='<div class="section-h"><h2>Besoin d\'aide ?</h2></div>'+contactButtons();
   return h;
 }
 /* En-tête de rubrique avec lien « Voir tout » (affiché s'il y a plus de 3 lignes). */
@@ -552,7 +586,7 @@ function renderPaymentsFull(){
 function renderOrder(){
   var h='<div class="view-title">Commander</div><p class="view-sub">Choisissez vos produits et les quantités. Les prix affichés sont indicatifs.</p>';
   var list=productsForMe();
-  if(list.length===0){ h+='<div class="item-empty">Aucun produit disponible pour votre compte pour le moment. Contactez Bouliedou.</div>'; return h; }
+  if(list.length===0){ h+='<div class="item-empty">Aucun produit disponible pour votre compte pour le moment.</div><div class="card">'+contactButtons()+'</div>'; return h; }
   // grouper par interface
   var groups={}, order=[];
   list.forEach(function(p){ var k=p.category_id||"__none"; if(!groups[k]){groups[k]=[];order.push(k);} groups[k].push(p); });
@@ -615,10 +649,18 @@ function renderAccount(){
     +'<div class="m"><div class="lab">Payé</div><div class="v tnum">'+money(t.paye)+'</div></div>'
     +'<div class="m due'+(t.du>0?'':' ok')+'"><div class="lab">Solde dû</div><div class="v tnum">'+money(t.du)+'</div></div></div></div>';
   h+='<div class="hint" style="margin:-2px 0 12px">Votre historique (marchandises à crédit et paiements) est désormais sur l\'accueil.</div>';
+  h+='<button class="btn btn-ghost btn-block" data-statement="1" style="margin-bottom:14px">📄 Télécharger mon relevé (PDF)</button>';
+  // aide & contact
+  h+=contactCard();
+  // notifications
+  h+='<div class="card"><div class="card-h"><h3>Notifications</h3></div>'
+    +'<div class="hint" style="margin:-4px 0 10px">Soyez prévenu(e) quand votre commande est validée ou livrée, et quand un paiement est enregistré.</div>'
+    +'<button class="btn '+(pushEnabled()?'btn-ghost':'btn-green')+' btn-block" data-push="1">'+(pushEnabled()?'Désactiver les notifications':'🔔 Activer les notifications')+'</button></div>';
   // sécurité
   h+='<div class="card"><div class="card-h"><h3>Sécurité</h3></div>'
     +'<div class="info-row"><span class="k">Verrouillage</span><span>Automatique après 5 min d\'inactivité</span></div>'
-    +'<button class="btn btn-ghost btn-block" data-bio="1" style="margin-top:10px">'+(bioEnrolled()?'Désactiver la biométrie':'Activer la biométrie (empreinte / Face ID)')+'</button></div>';
+    +'<button class="btn btn-ghost btn-block" data-changepin="1" style="margin-top:10px">🔑 Changer mon code PIN</button>'
+    +'<button class="btn btn-ghost btn-block" data-bio="1" style="margin-top:8px">'+(bioEnrolled()?'Désactiver la biométrie':'Activer la biométrie (empreinte / Face ID)')+'</button></div>';
   return h;
 }
 function subQty(x){
@@ -626,6 +668,79 @@ function subQty(x){
   if(x.qty!=null&&x.qty!==""&&x.order_unit) parts.push(x.qty+" "+x.order_unit);
   if(x.content_qty!=null&&x.content_qty!==""&&x.sale_unit) parts.push(x.content_qty+" "+x.sale_unit);
   return parts.length?esc(parts.join(" · "))+" · ":"";
+}
+
+/* ===== AIDE / CONTACT ===== */
+var ABTN='display:inline-flex;align-items:center;justify-content:center;gap:6px;flex:1;min-width:130px;text-align:center;text-decoration:none';
+function contactButtons(){
+  return '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+    +'<a class="btn btn-green" href="tel:+'+BGB_WA+'" style="'+ABTN+'">📞 Appeler</a>'
+    +'<a class="btn btn-gold" href="https://wa.me/'+BGB_WA+'" target="_blank" rel="noopener" style="'+ABTN+'">💬 WhatsApp</a>'
+    +'</div>';
+}
+function contactCard(){
+  return '<div class="card"><div class="card-h"><h3>Aide &amp; contact</h3></div>'
+    +'<div class="hint" style="margin:-4px 0 10px">Une question sur une commande, un prix ou votre solde ? Joignez Bouliedou directement.</div>'
+    +contactButtons()+'</div>';
+}
+
+/* ===== CHANGER MON CODE PIN (le client lui-même) ===== */
+function changePinSheet(){
+  openSheet('<h3>Changer mon code PIN</h3>'
+    +'<div class="hint" style="margin-bottom:4px">Choisissez un nouveau code à 6 chiffres. Vous l\'utiliserez pour vous connecter la prochaine fois. Notez-le bien.</div>'
+    +'<div class="field"><label for="np1">Nouveau code PIN</label><input id="np1" type="password" inputmode="numeric" maxlength="6" placeholder="••••••"></div>'
+    +'<div class="field"><label for="np2">Confirmer le code</label><input id="np2" type="password" inputmode="numeric" maxlength="6" placeholder="••••••"></div>'
+    +'<div class="sheet-actions"><button class="btn btn-ghost" data-cancel="1">Annuler</button><button class="btn btn-green" id="confNewPin">Enregistrer</button></div>');
+  var b=document.getElementById("confNewPin"); if(b) b.addEventListener("click",saveNewPin);
+}
+async function saveNewPin(){
+  if(!navigator.onLine){ toast("Une connexion Internet est nécessaire pour changer le code."); return; }
+  var a=(V2("np1")).replace(/\D/g,""), b=(V2("np2")).replace(/\D/g,"");
+  if(a.length!==6){ toast("Le code doit avoir exactement 6 chiffres."); return; }
+  if(a!==b){ toast("Les deux codes ne correspondent pas."); return; }
+  var btn=document.getElementById("confNewPin"); if(btn){ btn.disabled=true; btn.textContent="Enregistrement…"; }
+  var res=await sb.auth.updateUser({ password:a });
+  if(res.error){ if(btn){ btn.disabled=false; btn.textContent="Enregistrer"; } toast("Impossible : "+(res.error.message||"réessayez")); return; }
+  try{ await storeLock(a); }catch(e){}
+  LOCK.pendingSecret=null;
+  closeSheet(); toast("Code PIN modifié ✓");
+}
+function V2(id){ var e=document.getElementById(id); return e?e.value:""; }
+
+/* ===== RELEVÉ DE COMPTE (impression / PDF) ===== */
+function accountStatement(){
+  var t=totals(), tdy=fmtDate(new Date().toISOString().slice(0,10));
+  function rows(arr,isCredit){
+    if(!arr.length) return '<tr><td colspan="3" style="color:#6B7A70">Aucune opération.</td></tr>';
+    return arr.slice().sort(function(a,b){return String(b.date||"").localeCompare(String(a.date||""));}).map(function(x){
+      return '<tr><td>'+fmtDate(x.date)+'</td><td>'+esc(isCredit?(x.label||"Crédit"):(x.note||"Paiement"))+'</td><td class="r">'+money(x.amount)+'</td></tr>';
+    }).join('');
+  }
+  var w=window.open('','_blank');
+  if(!w){ toast("Autorisez l'ouverture des fenêtres pour générer le relevé."); return; }
+  var html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+    +'<title>Relevé — '+esc(ME.full_name||"client")+'</title><style>'
+    +'body{font-family:Arial,Helvetica,sans-serif;color:#1B2821;margin:22px;font-size:13px;line-height:1.5}'
+    +'h1{color:#0C4A39;font-size:18px;margin:0;letter-spacing:.3px}.sub{color:#6B7A70;font-size:12px;margin:2px 0 14px}'
+    +'.who{font-size:14px;margin-bottom:12px}table{width:100%;border-collapse:collapse;margin:6px 0 16px}'
+    +'th,td{text-align:left;padding:7px 8px;border-bottom:1px solid #E7E1CF;font-size:12.5px}th{color:#6B7A70}td.r,th.r{text-align:right}'
+    +'h2{font-size:14px;color:#0C4A39;margin:16px 0 2px}'
+    +'.sum{background:#FAF7EE;border:1px solid #E7E1CF;border-radius:10px;padding:12px 14px;margin:10px 0}'
+    +'.sum div{display:flex;justify-content:space-between;padding:3px 0}.due b{color:#C0392B}'
+    +'.foot{color:#6B7A70;font-size:11px;margin-top:18px;border-top:1px solid #E7E1CF;padding-top:8px}'
+    +'.bar{display:flex;gap:8px;margin:16px 0 6px}.bar button{padding:10px 16px;border:0;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px}'
+    +'.print{background:#0C4A39;color:#fff}.close{background:#eee;color:#333}@media print{.bar{display:none}body{margin:12mm}}</style></head><body>'
+    +'<h1>BOULIEDOU GLOBAL BUSINESS</h1><div class="sub">Relevé de compte client · édité le '+tdy+'</div>'
+    +'<div class="who"><b>'+esc(ME.full_name||"")+'</b>'+(ME.phone?(' · '+esc(ME.phone)):'')+'</div>'
+    +'<div class="sum"><div><span>Total pris à crédit</span><b>'+money(t.credit)+'</b></div>'
+    +'<div><span>Total payé</span><b>'+money(t.paye)+'</b></div>'
+    +'<div class="due"><span>Solde dû</span><b>'+money(t.du)+'</b></div></div>'
+    +'<h2>Marchandises prises à crédit</h2><table><tr><th>Date</th><th>Détail</th><th class="r">Montant</th></tr>'+rows(S.credits,true)+'</table>'
+    +'<h2>Paiements</h2><table><tr><th>Date</th><th>Détail</th><th class="r">Montant</th></tr>'+rows(S.payments,false)+'</table>'
+    +'<div class="foot">Enta marché, Conakry · +224 623 01 08 18 · contact@bouliedou.com · www.bouliedou.com<br>Document informatif reflétant les opérations enregistrées à la date d\'édition.</div>'
+    +'<div class="bar"><button class="print" onclick="window.print()">Imprimer / Enregistrer en PDF</button><button class="close" onclick="window.close()">Fermer</button></div>'
+    +'</body></html>';
+  w.document.write(html); w.document.close();
 }
 
 /* ===== SHEETS ===== */
@@ -674,9 +789,12 @@ async function submitOrder(){
 
 /* ===== EVENTS ===== */
 document.addEventListener("click",function(e){
-  var el=e.target.closest("[data-tab],[data-go],[data-inc],[data-dec],[data-checkout],[data-cancel],[data-cancelorder],[data-bio]");
+  var el=e.target.closest("[data-tab],[data-go],[data-inc],[data-dec],[data-checkout],[data-cancel],[data-cancelorder],[data-bio],[data-changepin],[data-statement],[data-push]");
   if(!el) return; var d=el.dataset;
-  if(d.bio!==undefined){ toggleBio(); }
+  if(d.changepin!==undefined){ changePinSheet(); }
+  else if(d.statement!==undefined){ accountStatement(); }
+  else if(d.push!==undefined){ togglePush(); }
+  else if(d.bio!==undefined){ toggleBio(); }
   else if(d.tab!==undefined){ view=d.tab; window.scrollTo(0,0); render(); }
   else if(d.go!==undefined){ view=d.go; window.scrollTo(0,0); render(); }
   else if(d.inc!==undefined){ CART[d.inc]=(CART[d.inc]||0)+1; updateQty(d.inc); }
@@ -729,7 +847,7 @@ async function enterApp(){
   document.getElementById("bootView").hidden=true;
   document.getElementById("appView").hidden=false;
   if(LOCK.pendingSecret){ await storeLock(LOCK.pendingSecret); LOCK.pendingSecret=null; }
-  armIdle(); setTimeout(offerBio, 1200);
+  armIdle(); setTimeout(offerBio, 1200); refreshPush();
   view="home"; render(); renderSyncBar(); syncQueue();
 }
 document.getElementById("loginForm").addEventListener("submit",async function(e){
