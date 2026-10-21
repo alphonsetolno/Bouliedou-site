@@ -1,0 +1,874 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Mon espace — Bouliedou</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="/manifest-client.json">
+<meta name="theme-color" content="#0C4A39">
+<link rel="apple-touch-icon" href="/bgb-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Bouliedou">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --green:#0C4A39; --green-deep:#06382C; --gold:#C2993F; --gold-soft:#D8B65F;
+  --bg:#F4F1E7; --surface:#FFFFFF; --surface-2:#FAF7EE; --line:#E7E1CF;
+  --ink:#1B2821; --muted:#6B7A70; --ink-soft:#3A4A41;
+  --good:#1F8F5F; --good-bg:#E4F2EA; --warn:#B07D18; --warn-bg:#F7ECD2;
+  --crit:#C0392B; --crit-bg:#F7E3E0; --neutral:#5B6B7A; --neutral-bg:#E8ECF0;
+  --shadow:0 1px 2px rgba(12,44,44,.05),0 10px 26px -16px rgba(12,44,44,.35);
+  --sheet-shadow:0 -8px 40px -12px rgba(12,44,44,.4);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Manrope",-apple-system,BlinkMacSystemFont,sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased;display:flex;flex-direction:column}
+h1,h2,h3,.mont{font-family:"Montserrat",sans-serif}
+button{font:inherit;cursor:pointer}
+input,select,textarea{font:inherit}
+.tnum{font-variant-numeric:tabular-nums}
+[hidden]{display:none!important}
+
+.login{flex:1;display:flex;align-items:center;justify-content:center;padding:24px}
+.login-card{background:var(--surface);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);padding:30px 24px;width:100%;max-width:400px}
+.login-logo{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:18px}
+.login-logo svg,.login-logo img{width:62px;height:auto}
+.login-logo b{font-family:"Montserrat";font-weight:800;color:var(--green);font-size:18px;letter-spacing:.3px}
+.login-logo span{font-size:11px;color:var(--gold);font-weight:700;letter-spacing:.14em;text-transform:uppercase}
+.login h1{font-size:19px;text-align:center;margin:0 0 4px}
+.login p.sub{text-align:center;color:var(--muted);font-size:13.5px;margin:0 0 20px}
+
+.app-head{position:sticky;top:env(safe-area-inset-top,0px);z-index:30;background:var(--green-deep);color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:center;gap:9px;min-width:0}
+.brand svg,.brand img{width:32px;height:auto;flex:none}
+.app-head .brand svg{--mk-stroke:#F5EFDE;--mk-gold:#D8B65F}
+.brand .t{display:flex;flex-direction:column;line-height:1.05;min-width:0}
+.brand .t b{font-family:"Montserrat";font-weight:800;font-size:15px}
+.brand .t span{font-size:10px;color:var(--gold-soft);font-weight:600;letter-spacing:.1em;text-transform:uppercase}
+.head-btn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);color:#fff;border-radius:10px;padding:8px 11px;font-size:12.5px;font-weight:700}
+
+main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.wrap{max-width:720px;margin:0 auto;padding:16px 16px 96px}
+.view-title{font-weight:800;font-size:22px;margin:4px 0 2px}
+.view-sub{color:var(--muted);font-size:13.5px;margin:0 0 16px}
+
+.hero{background:linear-gradient(155deg,var(--green) 0%,var(--green-deep) 100%);color:#fff;border-radius:18px;padding:20px;box-shadow:var(--shadow)}
+.hero .hi{font-size:14px;color:var(--gold-soft);font-weight:600}
+.hero .nm{font-size:21px;font-weight:800;margin:2px 0 14px}
+.hero .lab{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:rgba(255,255,255,.75);font-weight:700}
+.hero .solde{font-family:"Montserrat";font-weight:800;font-size:30px;margin-top:4px;letter-spacing:-.01em}
+.hero .solde.ok{color:var(--gold-soft)}
+
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 15px;box-shadow:var(--shadow)}
+.kpi .lab{font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.kpi .val{font-family:"Montserrat";font-weight:800;font-size:19px;margin-top:6px}
+
+.section-h{display:flex;align-items:center;justify-content:space-between;margin:24px 0 12px}
+.section-h h2{font-size:15px;font-weight:800;margin:0}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 15px;box-shadow:var(--shadow);margin-top:14px}
+.card-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.card-h h3{margin:0;font-size:14.5px;font-weight:800}
+.money-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.money-grid .m{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center}
+.money-grid .m .lab{font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase}
+.money-grid .m .v{font-family:"Montserrat";font-weight:800;font-size:15px;margin-top:4px}
+.money-grid .m.due .v{color:var(--crit)} .money-grid .m.due.ok .v{color:var(--good)}
+
+.items{display:flex;flex-direction:column}
+.item{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.item:last-child{border-bottom:0}
+.item .body{flex:1;min-width:0}
+.item .top{display:flex;justify-content:space-between;gap:10px}
+.item .lab{font-weight:600;font-size:14px}
+.item .amt{font-weight:800;font-size:14px;white-space:nowrap}
+.item .sub{font-size:12px;color:var(--muted);margin-top:1px}
+.item-empty{color:var(--muted);font-size:13px;text-align:center;padding:16px 0}
+.pill{font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:999px}
+.pill.nouvelle{background:var(--warn-bg);color:var(--warn)} .pill.validée{background:var(--neutral-bg);color:var(--neutral)}
+.pill.livrée{background:var(--good-bg);color:var(--good)} .pill.annulée{background:var(--line);color:var(--muted)}
+
+/* produits à commander */
+.prod{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 13px;box-shadow:var(--shadow);margin-bottom:10px}
+.prod .pm{flex:1;min-width:0}
+.prod .pn{font-weight:700;font-size:15px}
+.prod .pp{font-size:12.5px;color:var(--muted);margin-top:1px}
+.stepper{display:flex;align-items:center;gap:6px;flex:none}
+.step-btn{width:34px;height:34px;border-radius:10px;border:1px solid var(--line);background:var(--surface-2);font-size:19px;font-weight:700;color:var(--green);display:flex;align-items:center;justify-content:center;line-height:1}
+.step-btn:active{transform:scale(.95)}
+.qty{min-width:28px;text-align:center;font-weight:800;font-family:"Montserrat"}
+.cathead{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--green);margin:18px 0 8px}
+.pbar{height:9px;background:var(--line);border-radius:999px;overflow:hidden;margin-top:7px}
+.pbar span{display:block;height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-soft))}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid transparent;border-radius:12px;font-weight:700;font-size:14.5px;padding:13px 18px}
+.btn-green{background:var(--green);color:#fff}
+.btn-gold{background:var(--gold);color:#201604}
+.btn-ghost{background:var(--surface);border-color:var(--line);color:var(--ink)}
+.btn-block{width:100%}
+.btn[disabled]{opacity:.5;pointer-events:none}
+
+.cartbar{position:sticky;bottom:calc(64px + env(safe-area-inset-bottom,0px));z-index:20;margin:14px 0 0}
+.cartbar .inner{background:var(--green-deep);color:#fff;border-radius:14px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;box-shadow:var(--shadow)}
+.cartbar .ct{font-size:12.5px;color:var(--gold-soft);font-weight:700}
+.cartbar .tt{font-family:"Montserrat";font-weight:800;font-size:16px}
+.cartbar button{background:var(--gold);color:#201604;border:0;border-radius:10px;padding:10px 16px;font-weight:800;font-size:14px}
+
+.tabbar{position:sticky;bottom:0;z-index:30;background:var(--surface);border-top:1px solid var(--line);display:flex;padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px))}
+.tab{flex:1;background:none;border:0;display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 0;color:var(--muted);border-radius:12px}
+.tab svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.tab span{font-size:10.5px;font-weight:700}
+.tab.on{color:var(--green)}
+
+.scrim{position:fixed;inset:0;background:rgba(10,20,15,.5);z-index:40;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--surface);width:100%;max-width:560px;border-radius:20px 20px 0 0;box-shadow:var(--sheet-shadow);max-height:92vh;overflow-y:auto;padding:8px 18px calc(22px + env(safe-area-inset-bottom,0px))}
+.sheet .grab{width:38px;height:4px;border-radius:999px;background:var(--line);margin:8px auto 10px}
+.sheet h3{margin:4px 0 16px;font-size:18px}
+.field{margin-bottom:13px}
+.field label{display:block;font-size:12.5px;font-weight:700;color:var(--ink-soft);margin-bottom:6px}
+.field input,.field textarea{width:100%;padding:12px 13px;border:1px solid var(--line);border-radius:11px;background:var(--surface-2);color:var(--ink)}
+.field input:focus,.field textarea:focus{outline:none;border-color:var(--gold)}
+.field textarea{min-height:56px;resize:vertical}
+.sheet-actions{display:flex;gap:10px;margin-top:8px}.sheet-actions .btn{flex:1}
+
+.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:999px;font-size:13.5px;font-weight:600;z-index:60;box-shadow:var(--shadow);opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+.banner{background:var(--crit-bg);color:var(--crit);border-radius:12px;padding:11px 14px;font-size:13px;font-weight:600;margin-bottom:14px}
+.netbar{display:none;padding:8px 14px;font-size:12.5px;font-weight:700;text-align:center;flex:none}
+.netbar.show{display:block}
+.netbar.off{background:var(--warn-bg);color:var(--warn)}
+.netbar.sync{background:var(--neutral-bg);color:var(--neutral)}
+.pill.pending{background:var(--warn-bg);color:var(--warn)}
+.lockscreen{position:fixed;inset:0;z-index:9999;background:var(--green-deep);display:flex;align-items:center;justify-content:center;padding:24px}
+.lock-card{background:var(--surface);border-radius:22px;box-shadow:var(--shadow);padding:30px 24px;width:100%;max-width:380px;text-align:center}
+.lock-ic{font-size:38px;line-height:1;margin-bottom:8px}
+.lock-card h2{margin:0 0 6px;font-size:20px}
+.lock-card p{color:var(--muted);font-size:13.5px;margin:0 0 18px;line-height:1.5}
+.lock-logout{background:none;border:0;color:var(--muted);font-weight:700;font-size:13px;margin-top:14px;text-decoration:underline}
+.loading{flex:1;display:flex;align-items:center;justify-content:center;color:var(--muted);font-weight:600}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="hex" viewBox="0 0 300 300">
+    <path d="M150 12 L269.5 81 L269.5 219 L150 288 L30.5 219 L30.5 81 Z" fill="none" stroke="var(--mk-stroke,#0C4A39)" stroke-width="15" stroke-linejoin="round"/>
+    <path d="M150 12 L269.5 81" fill="none" stroke="var(--mk-gold,#C2993F)" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="150" y="156" text-anchor="middle" dominant-baseline="central" font-size="100" font-family="Montserrat,sans-serif" font-weight="800" letter-spacing="-3"><tspan fill="var(--mk-stroke,#0C4A39)">B</tspan><tspan fill="var(--mk-gold,#C2993F)">G</tspan><tspan fill="var(--mk-stroke,#0C4A39)">B</tspan></text>
+  </symbol>
+</defs></svg>
+
+<!-- LOGIN -->
+<div class="login" id="loginView">
+  <div class="login-card">
+    <div class="login-logo">
+      <img src="/logo-emblem.svg" alt="Bouliedou Global Business">
+      <b>BOULIEDOU</b><span>Espace client</span>
+    </div>
+    <h1>Connexion</h1>
+    <p class="sub">Entrez votre numéro et votre code PIN.</p>
+    <div class="banner" id="loginErr" hidden></div>
+    <form id="loginForm">
+      <div class="field"><label for="lp">Numéro de téléphone</label><input id="lp" type="tel" inputmode="numeric" autocomplete="username" placeholder="623010818" required></div>
+      <div class="field"><label for="lc">Code PIN</label><input id="lc" type="password" inputmode="numeric" autocomplete="current-password" placeholder="••••••" required></div>
+      <button class="btn btn-green btn-block" id="loginBtn" type="submit">Se connecter</button>
+    </form>
+  </div>
+</div>
+
+<div class="loading" id="bootView" hidden>Chargement…</div>
+
+<!-- APP -->
+<div id="appView" hidden style="display:flex;flex-direction:column;flex:1;min-height:0">
+  <header class="app-head">
+    <div class="brand">
+      <img src="/logo-emblem-cream.svg" alt="Bouliedou Global Business">
+      <div class="t"><b>Mon espace</b><span>Bouliedou</span></div>
+    </div>
+    <button class="head-btn" id="logoutBtn">Quitter</button>
+  </header>
+  <div class="netbar" id="netbar"></div>
+  <main><div class="wrap" id="root"></div></main>
+  <nav class="tabbar" id="tabbar">
+    <button class="tab on" data-tab="home"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg><span>Accueil</span></button>
+    <button class="tab" data-tab="order"><svg viewBox="0 0 24 24"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.4 12.2a1 1 0 0 0 1 .8h8.2a1 1 0 0 0 1-.8L21 7H6"/></svg><span>Commander</span></button>
+    <button class="tab" data-tab="orders"><svg viewBox="0 0 24 24"><path d="M6 2 3 6v14a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V6l-3-4z"/><path d="M3 6h18"/><path d="M8 10a4 4 0 0 0 8 0"/></svg><span>Commandes</span></button>
+    <button class="tab" data-tab="account"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.4"/><path d="M5 20a7 7 0 0 1 14 0"/></svg><span>Compte</span></button>
+  </nav>
+</div>
+
+<div class="lockscreen" id="lockscreen" hidden>
+  <div class="lock-card">
+    <div class="lock-ic">🔒</div>
+    <h2>Espace verrouillé</h2>
+    <p>Par sécurité, l'application s'est verrouillée après 5 minutes d'inactivité. Entrez votre code PIN pour continuer.</p>
+    <div class="banner" id="lockErr" hidden></div>
+    <form id="lockForm">
+      <div class="field"><input id="lockInput" type="password" inputmode="numeric" autocomplete="current-password" placeholder="Code PIN"></div>
+      <button class="btn btn-green btn-block" type="submit">Déverrouiller</button>
+    </form>
+    <button type="button" class="btn btn-ghost btn-block" id="bioBtn" hidden style="margin-top:10px">👆 Empreinte / Face ID</button>
+    <button type="button" class="lock-logout" id="lockLogout">Se déconnecter</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+/* ===== CONFIG ===== */
+var SUPABASE_URL = "https://relosibnlcisdpjrtfhz.supabase.co";
+var SUPABASE_KEY = "sb_publishable_HVqsBjVpMiOFKgYL88mu4g_5Vfw-jFu";
+var EMAIL_DOMAIN = "clients.bouliedou.com";
+var BGB_WA = "224623010818"; /* numéro Bouliedou pour appel / WhatsApp */
+var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+var ME=null;
+var S={products:[],orders:[],credits:[],payments:[],deliveries:[],categories:[],rules:[],redemptions:[]};
+var view="home";
+var CART={}; // product_id -> qty
+
+/* ===== HORS LIGNE / SYNCHRONISATION ===== */
+var NET={ uid:null, syncing:false, snapAt:null };
+var MEKEY='bgb_cli_me', SNAPKEY='bgb_cli_snap', QKEY='bgb_cli_queue';
+function lsGet(k,def){ try{ var v=localStorage.getItem(k); return v?JSON.parse(v):def; }catch(e){ return def; } }
+function lsSet(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); return true; }catch(e){ return false; } }
+function curUid(){ return (ME&&ME.auth_user_id)||NET.uid||null; }
+function cacheMe(){ lsSet(MEKEY,{uid:curUid(), me:ME}); }
+function cachedMe(uid){ var o=lsGet(MEKEY,null); return (o&&o.uid===uid)?o.me:null; }
+function cacheSnap(){ lsSet(SNAPKEY,{uid:curUid(), at:Date.now(), S:{products:S.products,orders:S.orders,credits:S.credits,payments:S.payments,deliveries:S.deliveries,categories:S.categories,rules:S.rules,redemptions:S.redemptions}}); }
+function restoreSnap(uid){ var o=lsGet(SNAPKEY,null); if(!o||o.uid!==uid||!o.S) return false; for(var k in o.S){ S[k]=o.S[k]||[]; } NET.snapAt=o.at; return true; }
+function queueGet(){ return lsGet(QKEY,[]); }
+function queueSet(q){ lsSet(QKEY,q); }
+function queueAdd(op){ var q=queueGet(); op.localId='loc_'+Date.now()+'_'+Math.random().toString(36).slice(2,7); op.queued_at=new Date().toISOString(); op.tries=0; q.push(op); queueSet(q); return op; }
+function queueCount(){ return queueGet().filter(function(o){return !o._failed;}).length; }
+function isNetErr(err){
+  if(!navigator.onLine) return true;
+  var m=((err&&(err.message||err.msg))||err||"").toString().toLowerCase();
+  return m.indexOf('fetch')>=0||m.indexOf('network')>=0||m.indexOf('failed')>=0||m.indexOf('timeout')>=0||m.indexOf('offline')>=0;
+}
+async function applyOp(op){ return await sb.from(op.table).insert(op.payload); }
+async function saveOp(op){
+  if(navigator.onLine){
+    try{
+      var res=await applyOp(op);
+      if(res&&res.error){ if(isNetErr(res.error)){ queueAdd(op); return {queued:true}; } return {error:res.error.message}; }
+      return {ok:true};
+    }catch(e){ if(isNetErr(e)){ queueAdd(op); return {queued:true}; } return {error:(e&&e.message)||'Erreur'}; }
+  }
+  queueAdd(op); return {queued:true};
+}
+async function syncQueue(){
+  if(NET.syncing||!navigator.onLine){ renderSyncBar(); return; }
+  var q=queueGet(); if(!q.length){ renderSyncBar(); return; }
+  NET.syncing=true; renderSyncBar();
+  var remain=[];
+  for(var i=0;i<q.length;i++){ var op=q[i];
+    try{ var res=await applyOp(op);
+      if(res&&res.error){ op.tries=(op.tries||0)+1; if(!isNetErr(res.error)&&op.tries>=5) op._failed=true; remain.push(op); }
+    }catch(e){ op.tries=(op.tries||0)+1; if(!isNetErr(e)&&op.tries>=5) op._failed=true; remain.push(op); }
+  }
+  queueSet(remain);
+  NET.syncing=false;
+  if(navigator.onLine){ try{ await loadAll(); }catch(e){} }
+  render(); renderSyncBar();
+  var done=q.length-remain.length;
+  if(done>0) toast(done+' commande(s) synchronisée(s) ✓');
+}
+function stripPending(arr){ return (arr||[]).filter(function(x){return !x._pending;}); }
+function applyPendingToState(){
+  S.orders=stripPending(S.orders);
+  queueGet().forEach(function(op){
+    if(op.type==='order'){ var p=op.payload; S.orders.unshift({id:op.localId, client_id:p.client_id, items:p.items, total:p.total, status:p.status||'nouvelle', note:p.note, created_at:op.queued_at, _pending:true, _failed:op._failed}); }
+  });
+}
+function renderSyncBar(){
+  var b=document.getElementById('netbar'); if(!b) return;
+  var n=queueCount(), failed=queueGet().filter(function(o){return o._failed;}).length;
+  if(!navigator.onLine){ b.className='netbar show off'; b.textContent='Hors ligne'+(n>0?(' — '+n+' commande(s) en attente'):'')+' · envoi au retour du réseau'; return; }
+  if(NET.syncing){ b.className='netbar show sync'; b.textContent='Synchronisation…'+(n>0?(' ('+n+')'):''); return; }
+  if(n>0){ b.className='netbar show sync'; b.textContent=n+' commande(s) en attente d\'envoi'; return; }
+  if(failed>0){ b.className='netbar show off'; b.textContent=failed+' envoi(s) en échec — touchez pour réessayer'; return; }
+  b.className='netbar'; b.textContent='';
+}
+window.addEventListener('online', function(){ renderSyncBar(); syncQueue(); });
+window.addEventListener('offline', function(){ renderSyncBar(); });
+document.addEventListener('visibilitychange', function(){ if(!document.hidden && navigator.onLine) syncQueue(); });
+document.addEventListener('click', function(e){
+  if(e.target && e.target.id==='netbar'){ var q=queueGet(); q.forEach(function(o){ o._failed=false; o.tries=0; }); queueSet(q); syncQueue(); }
+});
+
+/* ===== VERROUILLAGE AUTOMATIQUE (inactivité) ===== */
+var LOCK={ IDLE:5*60*1000, last:Date.now(), locked:false, armed:false, timer:null, pendingSecret:null };
+var LOCKKEY='bgb_cli_lock';
+function bufToB64(buf){ var b=new Uint8Array(buf),s='';for(var i=0;i<b.length;i++)s+=String.fromCharCode(b[i]);return btoa(s); }
+function b64ToBuf(s){ var bin=atob(s),a=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);return a; }
+async function hashSecret(secret, saltB64){
+  var enc=new TextEncoder();
+  var salt=saltB64?b64ToBuf(saltB64):crypto.getRandomValues(new Uint8Array(16));
+  var k=await crypto.subtle.importKey('raw', enc.encode(String(secret)), {name:'PBKDF2'}, false, ['deriveBits']);
+  var bits=await crypto.subtle.deriveBits({name:'PBKDF2', salt:salt, iterations:120000, hash:'SHA-256'}, k, 256);
+  return { salt:bufToB64(salt), hash:bufToB64(bits) };
+}
+async function storeLock(secret){ try{ var lk=await hashSecret(secret); lsSet(LOCKKEY,{uid:curUid(), salt:lk.salt, hash:lk.hash}); }catch(e){} }
+function hasLock(){ var r=lsGet(LOCKKEY,null); return !!(r&&r.uid===curUid()&&r.salt&&r.hash); }
+async function verifyLock(entered){
+  var r=lsGet(LOCKKEY,null); if(!(r&&r.uid===curUid()&&r.salt)) return false;
+  try{ var lk=await hashSecret(entered, r.salt); return lk.hash===r.hash; }catch(e){ return false; }
+}
+/* --- Notifications push (commande validée/livrée, paiement reçu) --- */
+var VAPID_PUBLIC="BMwcnCjGhmoVtb-bph8QRupdojSkodl3LH2KHoe8Pv5Dbwlc8Ia6P8h3X5-ZAQ65ssxuyxUk3obXU0qOBjW2NkU";
+var PUSHKEY='bgb_cli_push';
+function pushSupported(){ return ('serviceWorker' in navigator) && ('PushManager' in window) && ('Notification' in window); }
+function pushEnabled(){ return lsGet(PUSHKEY,false)===true; }
+function urlB64ToUint8(b){ var pad='='.repeat((4-b.length%4)%4); var s=(b+pad).replace(/-/g,'+').replace(/_/g,'/'); var raw=atob(s); var a=new Uint8Array(raw.length); for(var i=0;i<raw.length;i++)a[i]=raw.charCodeAt(i); return a; }
+async function enablePush(){
+  if(!pushSupported()){ toast("Notifications non supportées sur cet appareil."); return false; }
+  try{
+    var perm=await Notification.requestPermission();
+    if(perm!=='granted'){ toast("Notifications refusées dans les réglages du téléphone."); return false; }
+    var reg=await navigator.serviceWorker.ready;
+    var sub=await reg.pushManager.getSubscription();
+    if(!sub) sub=await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:urlB64ToUint8(VAPID_PUBLIC) });
+    var j=sub.toJSON();
+    var res=await sb.from('push_subscriptions').upsert({ auth_user_id:curUid(), role:'client', endpoint:j.endpoint, p256dh:j.keys.p256dh, auth:j.keys.auth, user_agent:navigator.userAgent }, { onConflict:'endpoint' });
+    if(res.error){ toast("Erreur : "+res.error.message); return false; }
+    lsSet(PUSHKEY,true); toast("Notifications activées ✓"); return true;
+  }catch(e){ toast("Activation impossible : "+((e&&e.message)||e)); return false; }
+}
+async function disablePush(){
+  try{ var reg=await navigator.serviceWorker.ready; var sub=await reg.pushManager.getSubscription(); if(sub){ var ep=sub.endpoint; await sub.unsubscribe(); await sb.from('push_subscriptions').delete().eq('endpoint',ep); } }catch(e){}
+  lsSet(PUSHKEY,false); toast("Notifications désactivées");
+}
+async function togglePush(){ if(pushEnabled()){ await disablePush(); } else { await enablePush(); } render(); }
+async function refreshPush(){
+  if(!pushEnabled()||!pushSupported()) return;
+  try{ var reg=await navigator.serviceWorker.ready; var sub=await reg.pushManager.getSubscription(); if(!sub) return; var j=sub.toJSON();
+    await sb.from('push_subscriptions').upsert({ auth_user_id:curUid(), role:'client', endpoint:j.endpoint, p256dh:j.keys.p256dh, auth:j.keys.auth, user_agent:navigator.userAgent }, { onConflict:'endpoint' });
+  }catch(e){}
+}
+
+/* --- Biométrie (empreinte / Face ID) via WebAuthn --- */
+var BIOKEY='bgb_cli_bio';
+async function bioAvailable(){ try{ return !!window.PublicKeyCredential && await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable(); }catch(e){ return false; } }
+function bioEnrolled(){ var r=lsGet(BIOKEY,null); return !!(r&&r.uid===curUid()&&r.credId); }
+async function enrollBio(){
+  try{
+    if(!(await bioAvailable())) return false;
+    var uid=curUid()||'bgb-user';
+    var cred=await navigator.credentials.create({ publicKey:{
+      challenge: crypto.getRandomValues(new Uint8Array(32)),
+      rp:{ name:'Bouliedou', id:location.hostname },
+      user:{ id:new TextEncoder().encode(uid), name:((ME&&ME.full_name)||uid), displayName:((ME&&ME.full_name)||'Bouliedou') },
+      pubKeyCredParams:[{type:'public-key',alg:-7},{type:'public-key',alg:-257}],
+      authenticatorSelection:{ authenticatorAttachment:'platform', userVerification:'required', residentKey:'discouraged', requireResidentKey:false },
+      timeout:60000, attestation:'none'
+    }});
+    if(!cred) return false;
+    lsSet(BIOKEY,{uid:curUid(), credId:bufToB64(cred.rawId)});
+    return true;
+  }catch(e){ return false; }
+}
+function disableBio(){ try{ localStorage.removeItem(BIOKEY); }catch(e){} }
+async function bioUnlock(){
+  var r=lsGet(BIOKEY,null); if(!(r&&r.uid===curUid()&&r.credId)) return false;
+  try{
+    var a=await navigator.credentials.get({ publicKey:{
+      challenge: crypto.getRandomValues(new Uint8Array(32)),
+      allowCredentials:[{ type:'public-key', id:b64ToBuf(r.credId) }],
+      userVerification:'required', timeout:60000
+    }});
+    return !!a;
+  }catch(e){ return false; }
+}
+async function doBioUnlock(){
+  var ok=await bioUnlock();
+  if(ok){ LOCK.locked=false; document.getElementById('lockscreen').hidden=true; LOCK.last=Date.now(); }
+  else { var er=document.getElementById('lockErr'); if(er){ er.textContent='Biométrie non reconnue. Utilisez votre code PIN.'; er.hidden=false; } }
+}
+async function offerBio(){
+  try{
+    if(!(await bioAvailable()) || bioEnrolled() || lsGet(BIOKEY+'_no',false)) return;
+    openSheet('<h3>Déverrouillage biométrique</h3><p style="color:var(--muted);font-size:14px;margin:0 0 16px">Déverrouiller l\'application avec votre empreinte ou votre visage sur cet appareil ? Votre code PIN reste disponible en secours.</p><div class="sheet-actions"><button class="btn btn-ghost" id="bioLater">Plus tard</button><button class="btn btn-green" id="bioNow">Activer</button></div>');
+    document.getElementById('bioNow').addEventListener('click', async function(){ var ok=await enrollBio(); closeSheet(); toast(ok?'Biométrie activée ✓':'Activation impossible sur cet appareil'); });
+    document.getElementById('bioLater').addEventListener('click', function(){ lsSet(BIOKEY+'_no',true); closeSheet(); });
+  }catch(e){}
+}
+async function toggleBio(){
+  if(bioEnrolled()){ disableBio(); toast('Biométrie désactivée'); render(); return; }
+  if(!(await bioAvailable())){ toast('Biométrie non disponible sur cet appareil.'); return; }
+  var ok=await enrollBio(); lsSet(BIOKEY+'_no',false); toast(ok?'Biométrie activée ✓':'Activation impossible'); render();
+}
+function bumpActivity(){ LOCK.last=Date.now(); }
+function checkIdle(){ if(LOCK.armed && !LOCK.locked && (Date.now()-LOCK.last)>=LOCK.IDLE) lockNow(); }
+function armIdle(){ LOCK.armed=true; LOCK.last=Date.now(); if(!LOCK.timer) LOCK.timer=setInterval(checkIdle, 15000); }
+function disarmIdle(){ LOCK.armed=false; if(LOCK.timer){ clearInterval(LOCK.timer); LOCK.timer=null; } }
+function doLockLogout(){ disarmIdle(); sb.auth.signOut().then(function(){ location.reload(); }).catch(function(){ location.reload(); }); }
+function lockNow(){
+  if(LOCK.locked) return;
+  if(!hasLock()){ if(navigator.onLine) doLockLogout(); else { LOCK.last=Date.now(); } return; }
+  LOCK.locked=true; if(typeof closeSheet==='function') closeSheet();
+  var er=document.getElementById('lockErr'); if(er) er.hidden=true;
+  var inp=document.getElementById('lockInput'); if(inp) inp.value='';
+  document.getElementById('lockscreen').hidden=false;
+  var bb=document.getElementById('bioBtn'); if(bb) bb.hidden=!bioEnrolled();
+  setTimeout(function(){ var i=document.getElementById('lockInput'); if(i) i.focus(); },60);
+}
+['click','keydown','touchstart','mousemove','scroll','input'].forEach(function(ev){ document.addEventListener(ev, bumpActivity, {passive:true}); });
+/* Verrouillage synchronisé : quand l'app passe en arrière-plan (téléphone verrouillé,
+   changement d'appli…), on verrouille dès le retour si l'absence dépasse ~10 s. */
+var BG_GRACE=10000;
+document.addEventListener('visibilitychange', function(){
+  if(document.hidden){ LOCK.hiddenAt=Date.now(); }
+  else { if(LOCK.armed && !LOCK.locked && LOCK.hiddenAt && (Date.now()-LOCK.hiddenAt)>=BG_GRACE) lockNow(); checkIdle(); }
+});
+window.addEventListener('pagehide', function(){ LOCK.hiddenAt=Date.now(); });
+(function(){
+  var lf=document.getElementById('lockForm');
+  if(lf) lf.addEventListener('submit', async function(e){
+    e.preventDefault();
+    var v=document.getElementById('lockInput').value;
+    if(await verifyLock(v)){ LOCK.locked=false; document.getElementById('lockscreen').hidden=true; LOCK.last=Date.now(); }
+    else { var er=document.getElementById('lockErr'); er.textContent='Code PIN incorrect.'; er.hidden=false; }
+  });
+  var ll=document.getElementById('lockLogout'); if(ll) ll.addEventListener('click', doLockLogout);
+  var bb=document.getElementById('bioBtn'); if(bb) bb.addEventListener('click', doBioUnlock);
+})();
+
+function money(n){ n=Number(n)||0; return new Intl.NumberFormat("fr-FR").format(Math.round(n))+" FG"; }
+function esc(s){ return (s==null?"":String(s)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function today(){ return new Date().toISOString().slice(0,10); }
+function fmtDate(d){ if(!d)return""; var p=String(d).slice(0,10).split("-"); return p.length===3?p[2]+"/"+p[1]+"/"+p[0]:d; }
+function sum(arr){ return arr.reduce(function(a,x){return a+(Number(x.amount)||0);},0); }
+function toast(m){ var t=document.getElementById("toast"); t.textContent=m; t.classList.add("show"); clearTimeout(t._t); t._t=setTimeout(function(){t.classList.remove("show");},1900); }
+function normPhone(v){ var d=String(v||"").replace(/\D/g,""); if(d.length>9&&d.indexOf("224")===0) d=d.slice(3); return d; }
+function catById(id){ return S.categories.find(function(x){return x.id===id;}); }
+function prodById(id){ return S.products.find(function(x){return x.id===id;}); }
+function myProductQty(productId){ var y=String(new Date().getFullYear()); return S.credits.filter(function(x){return x.product_id===productId && String(x.date||"").slice(0,4)===y;}).reduce(function(a,x){return a+(Number(x.qty)||0);},0); }
+function myGiftsRemis(ruleId){
+  var y=String(new Date().getFullYear());
+  return S.redemptions.filter(function(x){return x.rule_id===ruleId && String(x.date||"").slice(0,4)===y;})
+    .reduce(function(a,x){return a+(Number(x.qty)||1);},0);
+}
+function rewardsSection(){
+  var rules=S.rules.filter(function(r){return r.active!==false;});
+  if(!rules.length) return '';
+  var ids=(ME&&Array.isArray(ME.category_ids))?ME.category_ids:[];
+  var h='', any=false;
+  rules.forEach(function(r){
+    var p=prodById(r.product_id); if(!p) return; var c=catById(p.category_id), unit=c?c.order_unit:'';
+    var thr=Number(r.threshold_qty)||0; if(thr<=0) return;
+    // le client ne voit que les récompenses des catégories de produits qu'il vend
+    var relevant = !ids.length || (p.category_id && ids.indexOf(p.category_id)>=0);
+    if(!relevant) return;
+    var q=myProductQty(r.product_id);
+    var gagnes=Math.floor(q/thr), remis=myGiftsRemis(r.id), attente=Math.max(0,gagnes-remis);
+    var inCycle=q-gagnes*thr, pct=Math.min(100,Math.round(inCycle/thr*100)), remain=Math.round(Math.max(0,thr-inCycle)*100)/100;
+    any=true;
+    h+='<div style="padding:11px 0;border-bottom:1px solid var(--line)"><div style="display:flex;justify-content:space-between;gap:10px"><span style="font-weight:700">'+esc(p.name)+'</span><span class="tnum" style="font-weight:700">'+(Math.round(q*100)/100)+' / '+(Math.round(thr*100)/100)+' '+esc(unit)+'</span></div>'
+      +'<div class="pbar"><span style="width:'+pct+'%"></span></div>'
+      +'<div style="font-size:12.5px;color:var(--muted);margin-top:5px">🎁 '+esc(r.gift_label)+' — Plus que '+remain+' '+esc(unit)+' pour le prochain</div>';
+    if(gagnes>0){
+      h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:7px">'
+        +'<span style="background:rgba(16,122,70,.12);color:var(--good);padding:3px 9px;border-radius:999px;font-size:12px;font-weight:700">'+attente+' à recevoir</span>'
+        +'<span style="background:rgba(0,0,0,.06);color:var(--muted);padding:3px 9px;border-radius:999px;font-size:12px;font-weight:700">'+remis+' déjà reçu(s)</span>'
+        +'<span style="background:rgba(194,153,63,.15);color:var(--gold-deep,#A87C2E);padding:3px 9px;border-radius:999px;font-size:12px;font-weight:700">'+gagnes+' gagné(s)</span></div>';
+    }
+    h+='</div>';
+  });
+  if(!any) return '';
+  return '<div class="section-h"><h2>Mes récompenses '+String(new Date().getFullYear())+'</h2></div><div class="card">'+h+'</div>';
+}
+function firstName(){ return ((ME&&ME.full_name)||"").trim().split(/\s+/)[0]||"client"; }
+
+/* prix par unité de commande (ex : prix/kg × kg/sac = prix/sac) */
+function unitPrice(p){ var c=(p.content_per_unit?Number(p.content_per_unit):1); return (Number(p.price)||0)*(c||1); }
+function productsForMe(){
+  var ids=(ME&&Array.isArray(ME.category_ids))?ME.category_ids:[];
+  var list=S.products.filter(function(p){return p.active!==false;});
+  if(ids.length) list=list.filter(function(p){return p.category_id && ids.indexOf(p.category_id)>=0;});
+  return list;
+}
+function totals(){ var c=sum(S.credits), p=sum(S.payments); return {credit:c,paye:p,du:Math.max(0,c-p)}; }
+function cartCount(){ var n=0; for(var k in CART){ n+=CART[k]; } return n; }
+function cartTotal(){ var t=0; for(var k in CART){ var p=S.products.find(function(x){return x.id===k;}); if(p) t+=CART[k]*unitPrice(p); } return t; }
+
+/* ===== DATA ===== */
+async function loadAll(){
+  var r = await Promise.all([
+    sb.from('products').select('*').order('name'),
+    sb.from('orders').select('*').order('created_at',{ascending:false}),
+    sb.from('credits').select('*').order('date',{ascending:false}),
+    sb.from('payments').select('*').order('date',{ascending:false}),
+    sb.from('deliveries').select('*').order('date',{ascending:false}),
+    sb.from('categories').select('*').order('created_at'),
+    sb.from('loyalty_rules').select('*').order('created_at'),
+    sb.from('gift_redemptions').select('*').order('date',{ascending:false})
+  ]);
+  var err=r.slice(0,7).find(function(x){return x.error;});
+  if(err){ toast("Erreur de chargement."); console.error(err.error); }
+  S.products=r[0].data||[];
+  S.orders=(r[1].data||[]).filter(function(o){return o.client_id===ME.id;});
+  S.credits=(r[2].data||[]).filter(function(o){return o.client_id===ME.id;});
+  S.payments=(r[3].data||[]).filter(function(o){return o.client_id===ME.id;});
+  S.deliveries=(r[4].data||[]).filter(function(o){return o.client_id===ME.id;});
+  S.categories=r[5].data||[];
+  S.rules=r[6].data||[];
+  S.redemptions=((r[7]&&r[7].data)||[]).filter(function(o){return o.client_id===ME.id;});
+  if(!err){ cacheSnap(); }
+  applyPendingToState();
+}
+
+/* ===== RENDER ===== */
+function render(){
+  document.querySelectorAll(".tab").forEach(function(b){ b.classList.toggle("on", b.dataset.tab===view || ((view==="credits"||view==="payments") && b.dataset.tab==="home")); });
+  var root=document.getElementById("root");
+  root.innerHTML = view==="home"?renderHome() : view==="order"?renderOrder() : view==="orders"?renderOrders() : view==="credits"?renderCreditsFull() : view==="payments"?renderPaymentsFull() : renderAccount();
+}
+
+function renderHome(){
+  var t=totals();
+  var h='<div class="hero"><div class="hi">Bonjour,</div><div class="nm">'+esc(ME.full_name||"Cher client")+'</div>'
+    +'<div class="lab">Solde dû</div><div class="solde'+(t.du>0?'':' ok')+' tnum">'+money(t.du)+'</div></div>';
+  h+='<div class="kpis">'
+    +'<div class="kpi"><div class="lab">Total pris à crédit</div><div class="val tnum">'+money(t.credit)+'</div></div>'
+    +'<div class="kpi"><div class="lab">Total payé</div><div class="val tnum">'+money(t.paye)+'</div></div></div>';
+  h+='<button class="btn btn-gold btn-block" data-go="order" style="margin-top:16px">Passer une commande</button>';
+  h+=rewardsSection();
+  // dernières commandes
+  // --- 3 dernières opérations par rubrique, « Voir tout » pour l'intégralité ---
+  // (L'historique des commandes est dans l'onglet « Commandes ».)
+  h+=secHead("Marchandises prises à crédit", S.credits.length>3?"credits":null);
+  if(S.credits.length===0) h+='<div class="item-empty">Aucune.</div>';
+  else { h+='<div class="card"><div class="items">'; S.credits.slice(0,3).forEach(function(x){ h+=creditRow(x); }); h+='</div></div>'; }
+
+  h+=secHead("Mes paiements", S.payments.length>3?"payments":null);
+  if(S.payments.length===0) h+='<div class="item-empty">Aucun paiement enregistré.</div>';
+  else { h+='<div class="card"><div class="items">'; S.payments.slice(0,3).forEach(function(x){ h+=paymentRow(x); }); h+='</div></div>'; }
+  h+='<div class="section-h"><h2>Besoin d\'aide ?</h2></div>'+contactButtons();
+  return h;
+}
+/* En-tête de rubrique avec lien « Voir tout » (affiché s'il y a plus de 3 lignes). */
+function secHead(title, goView){
+  return '<div class="section-h" style="display:flex;justify-content:space-between;align-items:baseline;gap:10px"><h2>'+esc(title)+'</h2>'
+    +(goView?'<button class="add-link" data-go="'+goView+'">Voir tout ›</button>':'')+'</div>';
+}
+function creditRow(x){
+  return '<div class="item"><div class="body"><div class="top"><span class="lab">'+esc(x.label||"Crédit")+'</span><span class="amt tnum">'+money(x.amount)+'</span></div>'
+    +'<div class="sub">'+subQty(x)+fmtDate(x.date)+'</div></div></div>';
+}
+function paymentRow(x){
+  return '<div class="item"><div class="body"><div class="top"><span class="lab">'+esc(x.note||"Paiement")+'</span><span class="amt tnum" style="color:var(--good)">'+money(x.amount)+'</span></div>'
+    +'<div class="sub">'+fmtDate(x.date)+'</div></div></div>';
+}
+/* Historique complet d'une rubrique (depuis « Voir tout »). */
+function renderCreditsFull(){
+  var h='<button class="add-link" data-go="home" style="margin:2px 0 12px">‹ Accueil</button>';
+  h+='<div class="view-title">Marchandises prises à crédit</div><p class="view-sub">'+S.credits.length+' opération(s).</p>';
+  if(S.credits.length===0) h+='<div class="item-empty">Aucune.</div>';
+  else { h+='<div class="card"><div class="items">'; S.credits.forEach(function(x){ h+=creditRow(x); }); h+='</div></div>'; }
+  return h;
+}
+function renderPaymentsFull(){
+  var h='<button class="add-link" data-go="home" style="margin:2px 0 12px">‹ Accueil</button>';
+  h+='<div class="view-title">Mes paiements</div><p class="view-sub">'+S.payments.length+' paiement(s).</p>';
+  if(S.payments.length===0) h+='<div class="item-empty">Aucun paiement enregistré.</div>';
+  else { h+='<div class="card"><div class="items">'; S.payments.forEach(function(x){ h+=paymentRow(x); }); h+='</div></div>'; }
+  return h;
+}
+
+function renderOrder(){
+  var h='<div class="view-title">Commander</div><p class="view-sub">Choisissez vos produits et les quantités. Les prix affichés sont indicatifs.</p>';
+  var list=productsForMe();
+  if(list.length===0){ h+='<div class="item-empty">Aucun produit disponible pour votre compte pour le moment.</div><div class="card">'+contactButtons()+'</div>'; return h; }
+  // grouper par interface
+  var groups={}, order=[];
+  list.forEach(function(p){ var k=p.category_id||"__none"; if(!groups[k]){groups[k]=[];order.push(k);} groups[k].push(p); });
+  order.forEach(function(k){
+    var cat=k==="__none"?null:catById(k);
+    h+='<div class="cathead">'+(cat?esc(cat.name):"Produits")+'</div>';
+    groups[k].forEach(function(p){
+      var cat2=catById(p.category_id);
+      var ou=cat2?cat2.order_unit:"unité";
+      var q=CART[p.id]||0;
+      h+='<div class="prod"><div class="pm"><div class="pn">'+esc(p.name)+'</div>'
+        +'<div class="pp">'+money(unitPrice(p))+' / '+esc(ou)+'</div></div>'
+        +'<div class="stepper"><button class="step-btn" data-dec="'+p.id+'">–</button>'
+        +'<span class="qty tnum" id="q_'+p.id+'">'+q+'</span>'
+        +'<button class="step-btn" data-inc="'+p.id+'">+</button></div></div>';
+    });
+  });
+  if(cartCount()>0){
+    h+='<div class="cartbar"><div class="inner"><div><div class="ct">'+cartCount()+' article(s)</div><div class="tt tnum">'+money(cartTotal())+'</div></div>'
+      +'<button data-checkout="1">Valider</button></div></div>';
+  }
+  return h;
+}
+
+function renderOrders(){
+  var h='<div class="view-title">Mes commandes</div><p class="view-sub">'+S.orders.length+' commande(s).</p>';
+  if(S.orders.length===0){ h+='<div class="item-empty">Vous n\'avez pas encore passé de commande.</div>'; return h; }
+  h+='<div class="card"><div class="items">'; S.orders.forEach(function(o){ h+=orderRow(o,true); }); h+='</div></div>';
+  return h;
+}
+function orderRow(o,detail){
+  var n=(o.items||[]).length;
+  var lines='';
+  if(detail){ lines=(o.items||[]).map(function(it){ var u=it.order_unit||""; return esc(it.label||"Article")+' ('+(it.qty||1)+(u?(" "+esc(u)):"")+')'; }).join(", "); }
+  var pill=o._pending?'<span class="pill pending">⏳ en attente</span>':'<span class="pill '+esc(o.status)+'">'+esc(o.status)+'</span>';
+  var canCancel=detail && !o._pending && o.status==='nouvelle';
+  return '<div class="item"><div class="body"><div class="top"><span class="lab">'+money(o.total)+'</span>'
+    +pill+'</div>'
+    +'<div class="sub">'+fmtDate(o.created_at)+' · '+n+' article(s)'+(detail&&lines?' · '+lines:'')+'</div>'
+    +(canCancel?'<div style="margin-top:8px"><button class="btn btn-ghost" data-cancelorder="'+o.id+'" style="padding:7px 12px;font-size:12.5px">Annuler la commande</button></div>':'')
+    +'</div></div>';
+}
+async function cancelOrder(id){
+  if(!navigator.onLine){ toast("Une connexion Internet est nécessaire pour annuler."); return; }
+  openSheet('<h3>Annuler la commande ?</h3><p style="color:var(--muted);font-size:14px;margin:0 0 16px">Elle sera marquée comme annulée. C\'est possible tant qu\'elle n\'a pas encore été validée par la gérance.</p><div class="sheet-actions"><button class="btn btn-ghost" data-cancel="1">Non</button><button class="btn" id="confCancelOrder" style="background:#C0392B;color:#fff">Oui, annuler</button></div>');
+  var btn=document.getElementById("confCancelOrder"); if(!btn) return;
+  btn.addEventListener("click",async function(){
+    closeSheet();
+    var res=await sb.from('orders').update({status:'annulée'}).eq('id',id);
+    if(res.error){ toast("Erreur : "+res.error.message); return; }
+    toast("Commande annulée"); await refresh();
+  });
+}
+
+function renderAccount(){
+  var t=totals();
+  var h='<div class="view-title">Mon compte</div><p class="view-sub">'+esc(ME.full_name||"")+(ME.phone?(' · '+esc(ME.phone)):'')+'</p>';
+  h+='<div class="card"><div class="card-h"><h3>Mon solde</h3></div><div class="money-grid">'
+    +'<div class="m"><div class="lab">À crédit</div><div class="v tnum">'+money(t.credit)+'</div></div>'
+    +'<div class="m"><div class="lab">Payé</div><div class="v tnum">'+money(t.paye)+'</div></div>'
+    +'<div class="m due'+(t.du>0?'':' ok')+'"><div class="lab">Solde dû</div><div class="v tnum">'+money(t.du)+'</div></div></div></div>';
+  h+='<div class="hint" style="margin:-2px 0 12px">Votre historique (marchandises à crédit et paiements) est désormais sur l\'accueil.</div>';
+  h+='<button class="btn btn-ghost btn-block" data-statement="1" style="margin-bottom:14px">📄 Télécharger mon relevé (PDF)</button>';
+  // aide & contact
+  h+=contactCard();
+  // notifications
+  h+='<div class="card"><div class="card-h"><h3>Notifications</h3></div>'
+    +'<div class="hint" style="margin:-4px 0 10px">Soyez prévenu(e) quand votre commande est validée ou livrée, et quand un paiement est enregistré.</div>'
+    +'<button class="btn '+(pushEnabled()?'btn-ghost':'btn-green')+' btn-block" data-push="1">'+(pushEnabled()?'Désactiver les notifications':'🔔 Activer les notifications')+'</button></div>';
+  // sécurité
+  h+='<div class="card"><div class="card-h"><h3>Sécurité</h3></div>'
+    +'<div class="info-row"><span class="k">Verrouillage</span><span>Automatique après 5 min d\'inactivité</span></div>'
+    +'<button class="btn btn-ghost btn-block" data-changepin="1" style="margin-top:10px">🔑 Changer mon code PIN</button>'
+    +'<button class="btn btn-ghost btn-block" data-bio="1" style="margin-top:8px">'+(bioEnrolled()?'Désactiver la biométrie':'Activer la biométrie (empreinte / Face ID)')+'</button></div>';
+  return h;
+}
+function subQty(x){
+  var parts=[];
+  if(x.qty!=null&&x.qty!==""&&x.order_unit) parts.push(x.qty+" "+x.order_unit);
+  if(x.content_qty!=null&&x.content_qty!==""&&x.sale_unit) parts.push(x.content_qty+" "+x.sale_unit);
+  return parts.length?esc(parts.join(" · "))+" · ":"";
+}
+
+/* ===== AIDE / CONTACT ===== */
+var ABTN='display:inline-flex;align-items:center;justify-content:center;gap:6px;flex:1;min-width:130px;text-align:center;text-decoration:none';
+function contactButtons(){
+  return '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+    +'<a class="btn btn-green" href="tel:+'+BGB_WA+'" style="'+ABTN+'">📞 Appeler</a>'
+    +'<a class="btn btn-gold" href="https://wa.me/'+BGB_WA+'" target="_blank" rel="noopener" style="'+ABTN+'">💬 WhatsApp</a>'
+    +'</div>';
+}
+function contactCard(){
+  return '<div class="card"><div class="card-h"><h3>Aide &amp; contact</h3></div>'
+    +'<div class="hint" style="margin:-4px 0 10px">Une question sur une commande, un prix ou votre solde ? Joignez Bouliedou directement.</div>'
+    +contactButtons()+'</div>';
+}
+
+/* ===== CHANGER MON CODE PIN (le client lui-même) ===== */
+function changePinSheet(){
+  openSheet('<h3>Changer mon code PIN</h3>'
+    +'<div class="hint" style="margin-bottom:4px">Choisissez un nouveau code à 6 chiffres. Vous l\'utiliserez pour vous connecter la prochaine fois. Notez-le bien.</div>'
+    +'<div class="field"><label for="np1">Nouveau code PIN</label><input id="np1" type="password" inputmode="numeric" maxlength="6" placeholder="••••••"></div>'
+    +'<div class="field"><label for="np2">Confirmer le code</label><input id="np2" type="password" inputmode="numeric" maxlength="6" placeholder="••••••"></div>'
+    +'<div class="sheet-actions"><button class="btn btn-ghost" data-cancel="1">Annuler</button><button class="btn btn-green" id="confNewPin">Enregistrer</button></div>');
+  var b=document.getElementById("confNewPin"); if(b) b.addEventListener("click",saveNewPin);
+}
+async function saveNewPin(){
+  if(!navigator.onLine){ toast("Une connexion Internet est nécessaire pour changer le code."); return; }
+  var a=(V2("np1")).replace(/\D/g,""), b=(V2("np2")).replace(/\D/g,"");
+  if(a.length!==6){ toast("Le code doit avoir exactement 6 chiffres."); return; }
+  if(a!==b){ toast("Les deux codes ne correspondent pas."); return; }
+  var btn=document.getElementById("confNewPin"); if(btn){ btn.disabled=true; btn.textContent="Enregistrement…"; }
+  var res=await sb.auth.updateUser({ password:a });
+  if(res.error){ if(btn){ btn.disabled=false; btn.textContent="Enregistrer"; } toast("Impossible : "+(res.error.message||"réessayez")); return; }
+  try{ await storeLock(a); }catch(e){}
+  LOCK.pendingSecret=null;
+  closeSheet(); toast("Code PIN modifié ✓");
+}
+function V2(id){ var e=document.getElementById(id); return e?e.value:""; }
+
+/* ===== RELEVÉ DE COMPTE (impression / PDF) ===== */
+function accountStatement(){
+  var t=totals(), tdy=fmtDate(new Date().toISOString().slice(0,10));
+  function rows(arr,isCredit){
+    if(!arr.length) return '<tr><td colspan="3" style="color:#6B7A70">Aucune opération.</td></tr>';
+    return arr.slice().sort(function(a,b){return String(b.date||"").localeCompare(String(a.date||""));}).map(function(x){
+      return '<tr><td>'+fmtDate(x.date)+'</td><td>'+esc(isCredit?(x.label||"Crédit"):(x.note||"Paiement"))+'</td><td class="r">'+money(x.amount)+'</td></tr>';
+    }).join('');
+  }
+  var w=window.open('','_blank');
+  if(!w){ toast("Autorisez l'ouverture des fenêtres pour générer le relevé."); return; }
+  var html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+    +'<title>Relevé — '+esc(ME.full_name||"client")+'</title><style>'
+    +'body{font-family:Arial,Helvetica,sans-serif;color:#1B2821;margin:22px;font-size:13px;line-height:1.5}'
+    +'h1{color:#0C4A39;font-size:18px;margin:0;letter-spacing:.3px}.sub{color:#6B7A70;font-size:12px;margin:2px 0 14px}'
+    +'.who{font-size:14px;margin-bottom:12px}table{width:100%;border-collapse:collapse;margin:6px 0 16px}'
+    +'th,td{text-align:left;padding:7px 8px;border-bottom:1px solid #E7E1CF;font-size:12.5px}th{color:#6B7A70}td.r,th.r{text-align:right}'
+    +'h2{font-size:14px;color:#0C4A39;margin:16px 0 2px}'
+    +'.sum{background:#FAF7EE;border:1px solid #E7E1CF;border-radius:10px;padding:12px 14px;margin:10px 0}'
+    +'.sum div{display:flex;justify-content:space-between;padding:3px 0}.due b{color:#C0392B}'
+    +'.foot{color:#6B7A70;font-size:11px;margin-top:18px;border-top:1px solid #E7E1CF;padding-top:8px}'
+    +'.bar{display:flex;gap:8px;margin:16px 0 6px}.bar button{padding:10px 16px;border:0;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px}'
+    +'.print{background:#0C4A39;color:#fff}.close{background:#eee;color:#333}@media print{.bar{display:none}body{margin:12mm}}</style></head><body>'
+    +'<h1>BOULIEDOU GLOBAL BUSINESS</h1><div class="sub">Relevé de compte client · édité le '+tdy+'</div>'
+    +'<div class="who"><b>'+esc(ME.full_name||"")+'</b>'+(ME.phone?(' · '+esc(ME.phone)):'')+'</div>'
+    +'<div class="sum"><div><span>Total pris à crédit</span><b>'+money(t.credit)+'</b></div>'
+    +'<div><span>Total payé</span><b>'+money(t.paye)+'</b></div>'
+    +'<div class="due"><span>Solde dû</span><b>'+money(t.du)+'</b></div></div>'
+    +'<h2>Marchandises prises à crédit</h2><table><tr><th>Date</th><th>Détail</th><th class="r">Montant</th></tr>'+rows(S.credits,true)+'</table>'
+    +'<h2>Paiements</h2><table><tr><th>Date</th><th>Détail</th><th class="r">Montant</th></tr>'+rows(S.payments,false)+'</table>'
+    +'<div class="foot">Enta marché, Conakry · +224 623 01 08 18 · contact@bouliedou.com · www.bouliedou.com<br>Document informatif reflétant les opérations enregistrées à la date d\'édition.</div>'
+    +'<div class="bar"><button class="print" onclick="window.print()">Imprimer / Enregistrer en PDF</button><button class="close" onclick="window.close()">Fermer</button></div>'
+    +'</body></html>';
+  w.document.write(html); w.document.close();
+}
+
+/* ===== SHEETS ===== */
+function closeSheet(){ var s=document.getElementById("scrim"); if(s) s.remove(); }
+function openSheet(html){
+  closeSheet();
+  var sc=document.createElement("div"); sc.className="scrim"; sc.id="scrim";
+  sc.innerHTML='<div class="sheet"><div class="grab"></div>'+html+'</div>';
+  sc.addEventListener("click",function(e){ if(e.target===sc) closeSheet(); });
+  document.body.appendChild(sc);
+}
+function checkoutSheet(){
+  if(cartCount()===0) return;
+  var rows=Object.keys(CART).map(function(id){ var p=S.products.find(function(x){return x.id===id;}); if(!p) return ""; var cat=catById(p.category_id); var ou=cat?cat.order_unit:"unité";
+    return '<div class="item"><div class="body"><div class="top"><span class="lab">'+esc(p.name)+' — '+CART[id]+' '+esc(ou)+'</span><span class="amt tnum">'+money(CART[id]*unitPrice(p))+'</span></div></div></div>';
+  }).join('');
+  openSheet('<h3>Confirmer la commande</h3>'
+    +'<div class="items" style="margin-bottom:12px">'+rows+'</div>'
+    +'<div class="item"><div class="body"><div class="top"><span class="lab" style="font-weight:800">Total indicatif</span><span class="amt tnum" style="font-size:16px">'+money(cartTotal())+'</span></div></div></div>'
+    +'<div style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5">Montant indicatif. Le prix exact (selon le poids réel et le prix du jour) vous sera confirmé par Bouliedou à la livraison.</div>'
+    +'<div class="field" style="margin-top:12px"><label for="o_note">Remarque (facultatif)</label><textarea id="o_note" placeholder="Ex : livraison souhaitée cette semaine"></textarea></div>'
+    +'<div class="sheet-actions"><button class="btn btn-ghost" data-cancel="1">Annuler</button><button class="btn btn-green" id="confOrder">Envoyer la commande</button></div>');
+  document.getElementById("confOrder").addEventListener("click",submitOrder);
+}
+async function submitOrder(){
+  var btn=document.getElementById("confOrder"); if(btn){ btn.disabled=true; btn.textContent="Envoi…"; }
+  var items=[], total=0;
+  Object.keys(CART).forEach(function(id){
+    var p=S.products.find(function(x){return x.id===id;}); if(!p) return;
+    var qty=CART[id]; if(qty<=0) return;
+    var cat=catById(p.category_id);
+    var ou=cat?cat.order_unit:"unité", su=cat?cat.sale_unit:"unité";
+    var up=unitPrice(p), cont=p.content_per_unit?Number(p.content_per_unit):null;
+    total+=qty*up;
+    items.push({product_id:p.id, label:p.name, qty:qty, order_unit:ou, unit_price:up, sale_unit:su, content_qty:cont?cont*qty:null});
+  });
+  if(items.length===0){ closeSheet(); return; }
+  var payload={client_id:ME.id, items:items, total:total, status:'nouvelle', note:(document.getElementById("o_note")||{}).value||null};
+  var r=await saveOp({type:'order', table:'orders', payload:payload});
+  if(r.error){ toast("Erreur : "+r.error); if(btn){ btn.disabled=false; btn.textContent="Envoyer la commande"; } return; }
+  CART={}; closeSheet();
+  toast(r.queued?"Commande enregistrée — envoi au retour du réseau":"Commande envoyée ✓");
+  if(navigator.onLine && !r.queued){ await refresh(); } else { applyPendingToState(); }
+  view="orders"; render(); renderSyncBar();
+}
+
+/* ===== EVENTS ===== */
+document.addEventListener("click",function(e){
+  var el=e.target.closest("[data-tab],[data-go],[data-inc],[data-dec],[data-checkout],[data-cancel],[data-cancelorder],[data-bio],[data-changepin],[data-statement],[data-push]");
+  if(!el) return; var d=el.dataset;
+  if(d.changepin!==undefined){ changePinSheet(); }
+  else if(d.statement!==undefined){ accountStatement(); }
+  else if(d.push!==undefined){ togglePush(); }
+  else if(d.bio!==undefined){ toggleBio(); }
+  else if(d.tab!==undefined){ view=d.tab; window.scrollTo(0,0); render(); }
+  else if(d.go!==undefined){ view=d.go; window.scrollTo(0,0); render(); }
+  else if(d.inc!==undefined){ CART[d.inc]=(CART[d.inc]||0)+1; updateQty(d.inc); }
+  else if(d.dec!==undefined){ CART[d.dec]=Math.max(0,(CART[d.dec]||0)-1); if(CART[d.dec]===0) delete CART[d.dec]; updateQty(d.dec); }
+  else if(d.checkout!==undefined){ checkoutSheet(); }
+  else if(d.cancelorder!==undefined){ cancelOrder(d.cancelorder); }
+  else if(d.cancel!==undefined){ closeSheet(); }
+});
+function updateQty(id){
+  var q=document.getElementById("q_"+id); if(q) q.textContent=CART[id]||0;
+  // mettre à jour la barre panier sans tout recharger
+  var bar=document.querySelector(".cartbar");
+  if(cartCount()>0){
+    var inner='<div class="inner"><div><div class="ct">'+cartCount()+' article(s)</div><div class="tt tnum">'+money(cartTotal())+'</div></div><button data-checkout="1">Valider</button></div>';
+    if(bar) bar.innerHTML=inner;
+    else { var root=document.getElementById("root"); var div=document.createElement("div"); div.className="cartbar"; div.innerHTML=inner; root.appendChild(div); }
+  } else if(bar){ bar.remove(); }
+}
+
+async function refresh(){ await loadAll(); render(); }
+
+/* ===== AUTH / BOOT ===== */
+function showLogin(msg){ document.getElementById("bootView").hidden=true; document.getElementById("appView").hidden=true; document.getElementById("loginView").hidden=false; var e=document.getElementById("loginErr"); if(msg){ e.textContent=msg; e.hidden=false; } }
+async function enterApp(){
+  document.getElementById("loginView").hidden=true;
+  document.getElementById("bootView").hidden=false;
+  var sess=(await sb.auth.getSession()).data.session;
+  NET.uid=sess?sess.user.id:null;
+  var okBoot=false;
+  if(navigator.onLine){
+    try{
+      var u=(await sb.auth.getUser()).data.user;
+      var pr=await sb.from('profiles').select('*').eq('auth_user_id', u.id).maybeSingle();
+      if(pr.error) throw pr.error;
+      if(!pr.data || pr.data.role!=='client'){
+        await sb.auth.signOut(); document.getElementById("bootView").hidden=true; showLogin("Ce compte n'est pas un compte client."); return;
+      }
+      ME=pr.data; cacheMe();
+      await loadAll();
+      okBoot=true;
+    }catch(e){
+      if(NET.uid){ var me=cachedMe(NET.uid); if(me){ ME=me; restoreSnap(NET.uid); applyPendingToState(); okBoot=true; } }
+      if(!okBoot){ document.getElementById("bootView").hidden=true; showLogin("Impossible de charger vos données. Vérifiez votre connexion."); return; }
+    }
+  } else {
+    var me2=NET.uid?cachedMe(NET.uid):null;
+    if(me2){ ME=me2; restoreSnap(NET.uid); applyPendingToState(); okBoot=true; }
+    if(!okBoot){ document.getElementById("bootView").hidden=true; showLogin("Vous êtes hors ligne. Connectez-vous une première fois avec Internet pour activer le mode hors ligne."); return; }
+  }
+  document.getElementById("bootView").hidden=true;
+  document.getElementById("appView").hidden=false;
+  if(LOCK.pendingSecret){ await storeLock(LOCK.pendingSecret); LOCK.pendingSecret=null; }
+  armIdle(); setTimeout(offerBio, 1200); refreshPush();
+  view="home"; render(); renderSyncBar(); syncQueue();
+}
+document.getElementById("loginForm").addEventListener("submit",async function(e){
+  e.preventDefault();
+  var btn=document.getElementById("loginBtn"); btn.disabled=true; btn.textContent="Connexion…";
+  document.getElementById("loginErr").hidden=true;
+  var phone=normPhone(document.getElementById("lp").value);
+  var pin=document.getElementById("lc").value.replace(/\D/g,"");
+  var res=await sb.auth.signInWithPassword({ email: phone+"@"+EMAIL_DOMAIN, password: pin });
+  btn.disabled=false; btn.textContent="Se connecter";
+  if(res.error){ document.getElementById("loginErr").textContent="Numéro ou code PIN incorrect."; document.getElementById("loginErr").hidden=false; return; }
+  LOCK.pendingSecret=pin;
+  enterApp();
+});
+document.getElementById("logoutBtn").addEventListener("click",async function(){ disarmIdle(); await sb.auth.signOut(); location.reload(); });
+
+(async function(){
+  var s=await sb.auth.getSession();
+  if(s.data.session) enterApp(); else showLogin();
+})();
+if('serviceWorker' in navigator){ navigator.serviceWorker.register('/service-worker.js').catch(function(){}); }
+</script>
+</body>
+</html>
