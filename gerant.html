@@ -122,6 +122,13 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .money-grid .m .lab{font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase}
 .money-grid .m .v{font-family:"Montserrat";font-weight:800;font-size:15px;margin-top:4px}
 .money-grid .m.due .v{color:var(--crit)} .money-grid .m.due.ok .v{color:var(--good)}
+.ana-sub{font-size:12px;color:var(--muted);margin:-2px 0 12px;line-height:1.5}
+.ana-leg{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:12px}
+.ana-leg.col{display:flex;flex-direction:column;gap:7px;margin-top:0;min-width:0;flex:1 1 auto}
+.ana-leg-i{display:flex;align-items:flex-start;gap:7px;font-size:12px;color:var(--ink);line-height:1.35;min-width:0}
+.ana-leg-i i{width:11px;height:11px;border-radius:3px;flex:none;margin-top:2px}
+.ana-leg-i b{font-weight:800}
+.ana-donut{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 .items{display:flex;flex-direction:column}
 .item{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
 .item:last-child{border-bottom:0}
@@ -275,7 +282,7 @@ var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 var ME=null, ROLE=null;
 var S={clients:[],products:[],orders:[],deliveries:[],credits:[],payments:[],categories:[],stock:[],expenses:[],rules:[],people:[],backups:[],redemptions:[]};
-var view="home", currentId=null, search="", profitPeriod="month", actFilter="all", homePeriod="month", cashPeriod="month", exYear=String(new Date().getFullYear());
+var view="home", currentId=null, search="", profitPeriod="month", actFilter="all", homePeriod="month", cashPeriod="month", anaPeriod="month", exYear=String(new Date().getFullYear());
 
 /* ===== HORS LIGNE / SYNCHRONISATION ===== */
 var NET={ uid:null, syncing:false, snapAt:null };
@@ -642,14 +649,14 @@ async function loadAll(){
 
 /* ===== RENDER ===== */
 function render(){
-  var activeTab = (["menu","catalog","stock","expenses","profit","backup","rewards","activity","security","prodreport","cash","exercice"].indexOf(view)>=0)?"menu":view;
+  var activeTab = (["menu","catalog","stock","expenses","profit","backup","rewards","activity","security","prodreport","cash","exercice","analyse"].indexOf(view)>=0)?"menu":view;
   document.querySelectorAll(".tab").forEach(function(b){ b.classList.toggle("on", b.dataset.tab===activeTab && !currentId); });
   var root=document.getElementById("root");
   document.body.classList.toggle("role-assistant", !isAdmin());
   updateBell();
   if(currentId){ root.innerHTML=renderClient(currentId); return; }
   root.innerHTML = view==="home"?renderHome() : view==="clients"?renderClients() : view==="orders"?renderOrders()
-    : view==="menu"?renderMenu() : view==="stock"?renderStock() : view==="expenses"?renderExpenses() : view==="profit"?renderProfit() : view==="cash"?renderCash() : view==="exercice"?renderExercice() : view==="backup"?renderBackup() : view==="rewards"?renderRewards() : view==="activity"?renderActivity() : view==="notifs"?renderNotifs() : view==="security"?renderSecurity() : view==="prodreport"?renderProductReport() : renderCatalog();
+    : view==="menu"?renderMenu() : view==="stock"?renderStock() : view==="expenses"?renderExpenses() : view==="profit"?renderProfit() : view==="cash"?renderCash() : view==="exercice"?renderExercice() : view==="backup"?renderBackup() : view==="rewards"?renderRewards() : view==="activity"?renderActivity() : view==="notifs"?renderNotifs() : view==="security"?renderSecurity() : view==="prodreport"?renderProductReport() : view==="analyse"?renderAnalyse() : renderCatalog();
 }
 function renderMenu(){
   var h='<div class="view-title">Gestion</div><p class="view-sub">Catalogue, stock, dépenses et bénéfice.</p><div class="clist">';
@@ -657,6 +664,7 @@ function renderMenu(){
   h+=menuCard("stock","Stock","Entrées, sorties et stock restant");
   h+=menuCard("expenses","Dépenses","Salaires, loyer, électricité…");
   h+=menuCard("profit","Bénéfice","Résultat : ventes − achats − dépenses");
+  if(isAdmin()) h+=menuCard("analyse","Analyse","Graphiques : ventes, clients, dépenses, stock");
   if(isAdmin()) h+=menuCard("cash","Caisse & Banque","Espèces, banque et transferts");
   if(isAdmin()) h+=menuCard("exercice","Exercice annuel","Bilan de l'année + rapport à télécharger");
   h+=menuCard("prodreport","Bilan par produit","Stock, crédit et caisse par produit");
@@ -1279,6 +1287,196 @@ function prodReportCard(pid, r){
     +'<div class="m"><div class="lab">Encaissé</div><div class="v tnum" style="color:var(--good)">'+money(r.cash)+'</div></div></div>';
   if(r.credit>0 || r.cash>0) h+='<div class="info-row" style="margin-top:8px"><span class="k">Reste dû</span><b class="tnum" style="color:'+(due>0?'var(--crit)':'var(--good)')+'">'+money(Math.max(0,due))+'</b></div>';
   return h+'</div>';
+}
+
+/* ===== ANALYSE — graphiques 100% hors-ligne (SVG), lus sur les données existantes ===== */
+/* Palette catégorielle validée (contrastée, lisible) pour le camembert */
+var ANA_CAT=['#2a78d6','#eb6834','#1baf7a','#eda100','#e87ba4','#6250d6','#C0392B','#5B6B7A'];
+function anaEmpty(msg){ return '<div class="item-empty" style="margin-top:2px">'+esc(msg||'Pas encore de données pour cette période.')+'</div>'; }
+function trunc(s,n){ s=String(s==null?'':s); return s.length>n?s.slice(0,n-1)+'…':s; }
+/* Montant compact en FG : 1 234 567 -> « 1,2 M FG » (pour les étiquettes de graphiques) */
+function kFmt(n){ n=Number(n)||0; var neg=n<0?'-':'', a=Math.abs(n);
+  if(a>=1e9) return neg+(a/1e9).toFixed(a>=1e10?0:1).replace('.',',').replace(',0','')+' Md FG';
+  if(a>=1e6) return neg+(a/1e6).toFixed(a>=1e7?0:1).replace('.',',').replace(',0','')+' M FG';
+  if(a>=1e3) return neg+Math.round(a/1e3)+' k FG';
+  return neg+Math.round(a)+' FG'; }
+
+/* Barres horizontales (une série = magnitude ; une seule teinte + étiquette de valeur) */
+function svgBarsH(rows, opt){
+  opt=opt||{}; rows=(rows||[]).filter(function(r){return (Number(r.value)||0)>0;});
+  if(!rows.length) return anaEmpty(opt.empty);
+  var max=Math.max.apply(null,rows.map(function(r){return Number(r.value)||0;}))||1;
+  var barZone=186, gutter=118, w=barZone+gutter, rh=14, nameH=15, gap=16, rowH=nameH+rh+gap;
+  var out='';
+  rows.forEach(function(r,i){
+    var v=Number(r.value)||0, bw=Math.max(3, v/max*barZone), col=r.color||opt.color||'var(--green)';
+    var yy=i*rowH;
+    out+='<text x="0" y="'+(yy+11)+'" style="font:700 12px Manrope;fill:var(--ink)">'+esc(trunc(r.label,30))+'</text>'
+      +'<rect x="0" y="'+(yy+nameH)+'" rx="4" width="'+bw.toFixed(1)+'" height="'+rh+'" fill="'+col+'"></rect>'
+      +'<text x="'+(bw+7).toFixed(1)+'" y="'+(yy+nameH+11)+'" style="font:700 11px Manrope;fill:var(--muted)">'+esc(kFmt(v))+'</text>';
+  });
+  return '<svg viewBox="0 0 '+w+' '+(rows.length*rowH)+'" style="width:100%;height:auto;display:block" role="img" aria-label="Graphique en barres">'+out+'</svg>';
+}
+
+/* Courbes (jusqu'à 2 séries, même échelle FG) + points de fin ; légende HTML à part */
+function svgLine(months, series){
+  var w=320,h=158,pT=10,pB=20,pL=2,pR=6;
+  var all=[]; series.forEach(function(s){ all=all.concat(s.vals); }); all.push(0);
+  var max=Math.max.apply(null,all), min=Math.min.apply(null,all); if(max===min){ max=max+1; }
+  var plotW=w-pL-pR, plotH=h-pT-pB, n=months.length;
+  function X(i){ return pL+(n<=1?plotW/2:(i/(n-1))*plotW); }
+  function Y(v){ return pT+(1-(v-min)/(max-min))*plotH; }
+  var out='';
+  if(min<0){ var zy=Y(0).toFixed(1); out+='<line x1="'+pL+'" y1="'+zy+'" x2="'+(w-pR)+'" y2="'+zy+'" stroke="var(--line)" stroke-width="1"/>'; }
+  months.forEach(function(m,i){ if(n>7 && i%2!==0 && i!==n-1) return;
+    out+='<text x="'+X(i).toFixed(1)+'" y="'+(h-5)+'" text-anchor="middle" style="font:600 9px Manrope;fill:var(--muted)">'+esc(m.label)+'</text>'; });
+  series.forEach(function(s){
+    var d=s.vals.map(function(v,i){return (i?'L':'M')+X(i).toFixed(1)+' '+Y(v).toFixed(1);}).join(' ');
+    out+='<path d="'+d+'" fill="none" stroke="'+s.color+'" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>';
+    var li=s.vals.length-1; out+='<circle cx="'+X(li).toFixed(1)+'" cy="'+Y(s.vals[li]).toFixed(1)+'" r="3.5" fill="'+s.color+'"/>';
+  });
+  return '<svg viewBox="0 0 '+w+' '+h+'" style="width:100%;height:auto;display:block" role="img" aria-label="Courbes d\'évolution">'+out+'</svg>';
+}
+
+/* Camembert (part relative) ; légende HTML avec nom + montant + % */
+function svgDonut(slices){
+  var cx=70,cy=70,r=60,rin=35, ang=-Math.PI/2, out='';
+  var tot=slices.reduce(function(a,s){return a+(Number(s.value)||0);},0);
+  if(tot<=0) return '';
+  slices.forEach(function(s,i){
+    var frac=(Number(s.value)||0)/tot; if(frac<=0) return;
+    var a2=ang+frac*2*Math.PI, large=frac>0.5?1:0;
+    if(frac>=0.9999){ out+='<circle cx="'+cx+'" cy="'+cy+'" r="'+((r+rin)/2)+'" fill="none" stroke="'+(s.color||ANA_CAT[i%ANA_CAT.length])+'" stroke-width="'+(r-rin)+'"/>'; ang=a2; return; }
+    var x1=(cx+r*Math.cos(ang)).toFixed(2), y1=(cy+r*Math.sin(ang)).toFixed(2),
+        x2=(cx+r*Math.cos(a2)).toFixed(2), y2=(cy+r*Math.sin(a2)).toFixed(2),
+        xi1=(cx+rin*Math.cos(a2)).toFixed(2), yi1=(cy+rin*Math.sin(a2)).toFixed(2),
+        xi2=(cx+rin*Math.cos(ang)).toFixed(2), yi2=(cy+rin*Math.sin(ang)).toFixed(2);
+    out+='<path d="M'+x1+' '+y1+' A'+r+' '+r+' 0 '+large+' 1 '+x2+' '+y2+' L'+xi1+' '+yi1+' A'+rin+' '+rin+' 0 '+large+' 0 '+xi2+' '+yi2+' Z" fill="'+(s.color||ANA_CAT[i%ANA_CAT.length])+'" stroke="var(--surface)" stroke-width="2"/>';
+    ang=a2;
+  });
+  return '<svg viewBox="0 0 140 140" style="width:132px;max-width:42%;height:auto;flex:none" role="img" aria-label="Camembert">'+out+'</svg>';
+}
+
+/* Barres empilées horizontales (une seule ligne, segments = répartition) */
+function svgStacked(segs, opt){
+  opt=opt||{}; var tot=segs.reduce(function(a,s){return a+(Number(s.value)||0);},0);
+  if(tot<=0) return anaEmpty(opt.empty);
+  var w=320,hh=26,x=0,out='';
+  segs.forEach(function(s){ var v=Number(s.value)||0; if(v<=0) return; var sw=v/tot*w; out+='<rect x="'+x.toFixed(1)+'" y="0" width="'+Math.max(0,sw-2).toFixed(1)+'" height="'+hh+'" rx="3" fill="'+s.color+'"/>'; x+=sw; });
+  return '<svg viewBox="0 0 '+w+' '+hh+'" style="width:100%;height:auto;display:block" role="img" aria-label="Barre empilée">'+out+'</svg>';
+}
+function legendRow(items){ /* items:[{label,color,value?}] */
+  return '<div class="ana-leg">'+items.map(function(it){
+    return '<div class="ana-leg-i"><i style="background:'+it.color+'"></i><span>'+esc(it.label)+(it.value!=null?' <b class="tnum">'+esc(it.value)+'</b>':'')+'</span></div>';
+  }).join('')+'</div>';
+}
+function anaCard(title,sub,body){
+  return '<div class="card"><div class="card-h"><h3>'+esc(title)+'</h3></div>'
+    +(sub?'<div class="ana-sub">'+esc(sub)+'</div>':'')+body+'</div>';
+}
+
+/* ---- 12 derniers mois (clés AAAA-MM + libellés courts FR) ---- */
+function lastMonths(n){
+  var ML=['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+  var out=[], base=new Date(); base.setDate(1);
+  for(var i=n-1;i>=0;i--){ var d=new Date(base.getFullYear(), base.getMonth()-i, 1);
+    out.push({key:d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'), label:ML[d.getMonth()]}); }
+  return out;
+}
+
+function renderAnalyse(){
+  var h='<button class="add-link" data-go="menu" style="margin:2px 0 12px">‹ Gestion</button>';
+  h+='<div class="view-title">Analyse</div><p class="view-sub">Vos opérations en graphiques. Tout est calculé sur votre téléphone, même sans connexion. Montants en FG.</p>';
+  var per=anaPeriod, pl=perLabel(per).toLowerCase();
+
+  /* ===== 1) Évolution CA & bénéfice — 12 derniers mois (toujours, indépendant de la période) ===== */
+  var months=lastMonths(12);
+  function monthSum(arr,key,filt){ return arr.reduce(function(a,x){ if(filt&&!filt(x)) return a; return a+(String(x.date||'').slice(0,7)===key?(Number(x.amount)||0):0); },0); }
+  var caV=[], benV=[];
+  months.forEach(function(m){
+    var ca=monthSum(S.credits,m.key);
+    var ach=monthSum(S.stock,m.key,function(x){return x.kind==='entree';});
+    var dep=monthSum(realExpenses(),m.key);
+    caV.push(ca); benV.push(ca-ach-dep);
+  });
+  var evoBody=svgLine(months,[{name:'CA',color:'var(--green)',vals:caV},{name:'Bénéfice',color:'var(--gold)',vals:benV}])
+    +legendRow([{label:'Chiffre d\'affaires',color:'var(--green)'},{label:'Bénéfice',color:'var(--gold)'}]);
+  h+=anaCard('Évolution sur 12 mois','Chiffre d\'affaires et bénéfice estimé, mois par mois.',evoBody);
+
+  /* ===== 2) KPI de la période choisie ===== */
+  h+='<div class="hint" style="margin:18px 0 8px;font-weight:700;color:var(--muted)">Analyser la période&nbsp;:</div>'+periodBar(per,'anaper');
+  var caP =S.credits.filter(function(x){return inPer(x.date,per);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
+  var encP=S.payments.filter(function(x){return inPer(x.date,per);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
+  var depP=realExpenses().filter(function(x){return inPer(x.date,per);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
+  var achP=S.stock.filter(function(x){return x.kind==='entree'&&inPer(x.date,per);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
+  var benP=caP-achP-depP;
+  h+='<div class="money-grid" style="margin-top:10px">'
+    +'<div class="m"><div class="lab">CA · '+esc(pl)+'</div><div class="v tnum" style="color:var(--green)">'+kFmt(caP)+'</div></div>'
+    +'<div class="m"><div class="lab">Bénéfice</div><div class="v tnum" style="color:'+(benP>=0?'var(--good)':'var(--crit)')+'">'+kFmt(benP)+'</div></div>'
+    +'<div class="m"><div class="lab">Encaissé</div><div class="v tnum" style="color:var(--good)">'+kFmt(encP)+'</div></div></div>';
+
+  /* ===== 3) Ventes par produit (période) ===== */
+  var vp={}; S.credits.forEach(function(x){ if(!inPer(x.date,per)) return; var k=x.product_id||'__none'; vp[k]=(vp[k]||0)+(Number(x.amount)||0); });
+  var vpRows=Object.keys(vp).map(function(k){ return {label:(k==='__none'?'Non attribué':(prodById(k)?prodById(k).name:'—')), value:vp[k]}; })
+    .sort(function(a,b){return b.value-a.value;});
+  var vpTop=vpRows.slice(0,8); var vpRest=vpRows.slice(8).reduce(function(a,r){return a+r.value;},0);
+  if(vpRest>0) vpTop.push({label:'Autres',value:vpRest,color:'var(--neutral)'});
+  h+=anaCard('Ventes par produit','Marchandises vendues (à crédit) sur la période.',svgBarsH(vpTop,{empty:'Aucune vente sur cette période.'}));
+
+  /* ===== 4) Ventes par catégorie (période) — camembert ===== */
+  var vc={}; S.credits.forEach(function(x){ if(!inPer(x.date,per)) return; var p=x.product_id?prodById(x.product_id):null; var c=p?prodCat(p):null; var key=c?c.id:'__nc'; if(!vc[key]) vc[key]={name:(c?c.name:'Sans catégorie'),value:0}; vc[key].value+=(Number(x.amount)||0); });
+  var vcRows=Object.keys(vc).map(function(k){return vc[k];}).filter(function(r){return r.value>0;}).sort(function(a,b){return b.value-a.value;});
+  var vcTop=vcRows.slice(0,7); var vcRest=vcRows.slice(7).reduce(function(a,r){return a+r.value;},0);
+  if(vcRest>0) vcTop.push({name:'Autres',value:vcRest});
+  var vcTotal=vcTop.reduce(function(a,r){return a+r.value;},0);
+  var catBody;
+  if(vcTotal<=0){ catBody=anaEmpty('Aucune vente sur cette période.'); }
+  else{
+    vcTop.forEach(function(r,i){ r.color=(r.name==='Autres'?'var(--neutral)':ANA_CAT[i%ANA_CAT.length]); });
+    catBody='<div class="ana-donut">'+svgDonut(vcTop.map(function(r){return {value:r.value,color:r.color};}))
+      +'<div class="ana-leg col">'+vcTop.map(function(r){ var pct=Math.round(r.value/vcTotal*100);
+        return '<div class="ana-leg-i"><i style="background:'+r.color+'"></i><span>'+esc(trunc(r.name,22))+' <b class="tnum">'+kFmt(r.value)+' · '+pct+'%</b></span></div>'; }).join('')+'</div></div>';
+  }
+  h+=anaCard('Ventes par catégorie','Répartition du chiffre d\'affaires par interface/catégorie.',catBody);
+
+  /* ===== 5) Meilleurs clients (période, par CA) ===== */
+  var mc={}; S.credits.forEach(function(x){ if(!inPer(x.date,per)) return; if(!x.client_id) return; mc[x.client_id]=(mc[x.client_id]||0)+(Number(x.amount)||0); });
+  var mcRows=Object.keys(mc).map(function(k){return {label:clientName(k),value:mc[k]};}).sort(function(a,b){return b.value-a.value;}).slice(0,7);
+  h+=anaCard('Meilleurs clients','Clients ayant le plus acheté sur la période.',svgBarsH(mcRows,{empty:'Aucune vente sur cette période.'}));
+
+  /* ===== 6) Soldes dus (situation actuelle, tous clients) ===== */
+  var duRows=S.clients.map(function(c){ return {label:c.full_name||'Sans nom', value:totals(c.id).du}; })
+    .filter(function(r){return r.value>0;}).sort(function(a,b){return b.value-a.value;}).slice(0,8);
+  var duTot=S.clients.reduce(function(a,c){return a+totals(c.id).du;},0);
+  h+=anaCard('Soldes dus','Montants restant à encaisser (situation du jour, tous clients). Total : '+money(duTot)+'.',svgBarsH(duRows,{color:'var(--crit)',empty:'Aucun solde dû. Tous les clients sont à jour ✓'}));
+
+  /* ===== 7) Dépenses par poste (période) ===== */
+  var dp={}; realExpenses().forEach(function(x){ if(!inPer(x.date,per)) return; var k=catLabel(x.category); dp[k]=(dp[k]||0)+(Number(x.amount)||0); });
+  var dpRows=Object.keys(dp).map(function(k){return {label:k,value:dp[k]};}).sort(function(a,b){return b.value-a.value;});
+  h+=anaCard('Dépenses par poste','Salaires, loyer, transport… sur la période. Total : '+money(depP)+'.',svgBarsH(dpRows,{color:'var(--warn)',empty:'Aucune dépense sur cette période.'}));
+
+  /* ===== 8) Trésorerie (situation) + encaissé vs crédit (période) ===== */
+  var tz=treasury('all');
+  var tzBody='<div class="money-grid">'
+    +'<div class="m"><div class="lab">Caisse</div><div class="v tnum"'+(tz.caisse<0?' style="color:var(--crit)"':'')+'>'+kFmt(tz.caisse)+'</div></div>'
+    +'<div class="m"><div class="lab">Banque</div><div class="v tnum"'+(tz.banque<0?' style="color:var(--crit)"':'')+'>'+kFmt(tz.banque)+'</div></div>'
+    +'<div class="m"><div class="lab">Total</div><div class="v tnum">'+kFmt(tz.total)+'</div></div></div>';
+  var recouvr = caP>0?Math.round(encP/caP*100):0;
+  tzBody+='<div class="ana-sub" style="margin:14px 0 6px">Sur la période : encaissé vs ventes</div>'
+    +svgBarsH([{label:'Ventes (crédit)',value:caP,color:'var(--gold)'},{label:'Encaissé (payé)',value:encP,color:'var(--good)'}],{empty:'Aucun mouvement sur cette période.'});
+  if(caP>0) tzBody+='<div class="hint" style="margin-top:8px">Taux de recouvrement sur la période : <b>'+recouvr+'%</b> des ventes ont été encaissées.</div>';
+  h+=anaCard('Trésorerie & encaissements','Soldes caisse/banque (situation du jour), puis encaissements de la période.',tzBody);
+
+  /* ===== 9) État du stock (situation) ===== */
+  var lv=stockLevels();
+  var stkBody=svgStacked([{label:'Conakry',value:lv.cky,color:'var(--green)'},{label:'Non acheminé',value:lv.route,color:'var(--gold)'}],{empty:'Aucun stock valorisé pour le moment.'})
+    +legendRow([{label:'À Conakry',color:'var(--green)',value:kFmt(lv.cky)},{label:'Acheté — non acheminé',color:'var(--gold)',value:kFmt(lv.route)}])
+    +'<div class="info-row" style="margin-top:10px"><span class="k">Valeur totale du stock</span><b class="tnum">'+money(lv.total)+'</b></div>';
+  if(lv.triageKg>0) stkBody+='<div class="info-row"><span class="k" style="color:var(--crit)">Manques / triages (sur ventes)</span><b class="tnum" style="color:var(--crit)">'+rnd(lv.triageKg)+' kg · '+money(lv.triageVal)+'</b></div>';
+  h+=anaCard('État du stock','Valeur au prix d\'achat moyen, à Conakry et en route.',stkBody);
+
+  h+='<div class="hint" style="margin-top:14px;line-height:1.6">Ces graphiques se mettent à jour automatiquement à chaque nouvelle saisie (ventes, paiements, dépenses, stock). « CA » = chiffre d\'affaires (ventes à crédit enregistrées). « Bénéfice » = ventes − achats de marchandise − dépenses.</div>';
+  return h;
 }
 
 /* ===== WHATSAPP & REÇUS ===== */
@@ -2054,7 +2252,7 @@ function orderSheet(id){
 
 /* ===== EVENTS ===== */
 document.addEventListener("click",function(e){
-  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin],[data-go],[data-addstock],[data-savestock],[data-receivestock],[data-achemine],[data-saveachemine],[data-triage],[data-savetriage],[data-addexp],[data-saveexp],[data-profper],[data-homeper],[data-wa],[data-receiptpay],[data-wareceipt],[data-export],[data-addrule],[data-editrule],[data-saverule],[data-delrule],[data-pdfreceipt],[data-actfilter],[data-dlbackup],[data-bio],[data-push],[data-cashper],[data-cashxfer],[data-savecashxfer],[data-exyear],[data-exprint],[data-cloture],[data-giftgiven],[data-savegift],[data-resetclient],[data-editcredit],[data-saveeditcredit]");
+  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin],[data-go],[data-addstock],[data-savestock],[data-receivestock],[data-achemine],[data-saveachemine],[data-triage],[data-savetriage],[data-addexp],[data-saveexp],[data-profper],[data-homeper],[data-anaper],[data-wa],[data-receiptpay],[data-wareceipt],[data-export],[data-addrule],[data-editrule],[data-saverule],[data-delrule],[data-pdfreceipt],[data-actfilter],[data-dlbackup],[data-bio],[data-push],[data-cashper],[data-cashxfer],[data-savecashxfer],[data-exyear],[data-exprint],[data-cloture],[data-giftgiven],[data-savegift],[data-resetclient],[data-editcredit],[data-saveeditcredit]");
   if(!el) return; var d=el.dataset;
   if((d.del!==undefined||d.delclient!==undefined||d.delprod!==undefined||d.delcat!==undefined||d.delrule!==undefined)&&!isAdmin()){ toast("Suppression réservée au gérant principal."); return; }
   if(d.bio!==undefined){ toggleBio(); }
@@ -2072,6 +2270,7 @@ document.addEventListener("click",function(e){
   else if(d.saveexp!==undefined){ saveExpense(); }
   else if(d.profper!==undefined){ profitPeriod=d.profper; render(); }
   else if(d.homeper!==undefined){ homePeriod=d.homeper; render(); }
+  else if(d.anaper!==undefined){ anaPeriod=d.anaper; render(); }
   else if(d.wa!==undefined){ waRelance(d.wa); }
   else if(d.receiptpay!==undefined){ var rp=d.receiptpay.split(":"); receiptPay(rp[0],rp[1]); }
   else if(d.wareceipt!==undefined){ var wr=d.wareceipt.split(":"); waReceipt(wr[0],wr[1]); }
