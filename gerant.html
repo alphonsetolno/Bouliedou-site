@@ -68,8 +68,8 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .dc-top{display:flex;align-items:flex-start;justify-content:space-between;gap:6px}
 .dc-lab{font-size:11px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;color:var(--muted);line-height:1.25}
 .dc-chev{color:var(--green);font-size:18px;font-weight:800;flex:none;line-height:1;margin-top:-1px}
-.dc-val{font-family:"Montserrat";font-weight:800;font-size:19px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.dash-card.wide .dc-val{font-size:22px}
+.dc-val{font-family:"Montserrat";font-weight:800;font-size:16px;margin-top:3px;line-height:1.2;white-space:normal;overflow-wrap:normal}
+.dash-card.wide .dc-val{font-size:20px}
 .dc-sub{font-size:10.5px;color:var(--muted);line-height:1.3}
 .hi-card{text-align:left;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--green);border-radius:16px;padding:14px 15px;box-shadow:var(--shadow);cursor:pointer;font:inherit}
 .hi-card .hi-l{font-size:12px;font-weight:700;color:var(--muted)}
@@ -615,8 +615,11 @@ function ownerTotals(){
    est réparti sur les mois couverts, pour un bénéfice mensuel juste. --- */
 function expMonths(x){
   var n=Math.max(1, Math.round(Number(x&&x.prepaid_months)||1));
-  var d=String((x&&x.date)||"").slice(0,10); if(d.length<7) return [];
-  var y=Number(d.slice(0,4)), m=Number(d.slice(5,7)), out=[];
+  /* le coût se répartit à partir du mois de début de couverture s'il est précisé,
+     sinon à partir du mois du paiement. */
+  var startKey=(x&&x.prepaid_start&&String(x.prepaid_start).length>=7)?String(x.prepaid_start).slice(0,7):String((x&&x.date)||"").slice(0,7);
+  if(startKey.length<7) return [];
+  var y=Number(startKey.slice(0,4)), m=Number(startKey.slice(5,7)), out=[];
   for(var i=0;i<n;i++){ var k=m-1+i, yy=y+Math.floor(k/12), mo=(k%12)+1; out.push(yy+'-'+(mo<10?'0':'')+mo); }
   return out;
 }
@@ -860,15 +863,15 @@ function renderHome(){
     h+='<div class="hint" style="margin:-4px 0 8px;font-weight:700;color:var(--muted)">Afficher&nbsp;:</div>'+periodBar(per,"homeper");
     var tz=treasury('all'), dette=supplierDebtTotal();
     h+='<div class="dash-grid">';
-    h+=dashCard("Chiffre d'affaires · "+pl, kFmt(caPer), "var(--green)", "analyse", "ventes enregistrées", "var(--green)");
-    h+=dashCard("Dépenses · "+pl, kFmt(depPer), "var(--crit)", "expenses", "charges de la période", "var(--crit)");
-    h+=dashCard("Solde dû (global)", kFmt(du), "var(--gold)", "clients", "reste à recouvrer", "var(--gold-deep,#A87C2E)");
-    h+=dashCard("Encaissé · "+pl, kFmt(encPer), "var(--good)", "cash", "argent reçu", "var(--good)");
-    h+=dashCard("Manque / Triage (sur vente)", (lv.triageKg>0?kFmt(lv.triageVal):"0 FG"), "var(--crit)", "stock", (lv.triageKg>0?(rnd(lv.triageKg)+" kg perdus"):"aucun"), "var(--crit)");
-    h+=dashCard("Bénéfice · "+pl, kFmt(benefPer), (benefPer>=0?"var(--good)":"var(--crit)"), "profit", "ventes − achats − charges", (benefPer>=0?"var(--good)":"var(--crit)"));
-    h+=dashCard("Stock", kFmt(lv.total), "var(--green)", "stock", "valeur disponible", "var(--ink)");
-    h+=dashCard("Dettes fournisseurs", kFmt(dette), "var(--crit)", "suppliers", "à payer", (dette>0?"var(--crit)":"var(--good)"));
-    h+='<button class="dash-card wide" data-go="cash" style="border-left-color:var(--green)"><div class="dc-top"><span class="dc-lab">Trésorerie</span><span class="dc-chev">›</span></div><div class="dc-val tnum">'+money(tz.total)+'</div><div class="dc-sub">Caisse '+kFmt(tz.caisse)+' · Banque '+kFmt(tz.banque)+'</div></button>';
+    h+=dashCard("Chiffre d'affaires · "+pl, money(caPer), "var(--green)", "analyse", "ventes enregistrées", "var(--green)");
+    h+=dashCard("Dépenses · "+pl, money(depPer), "var(--crit)", "expenses", "charges de la période", "var(--crit)");
+    h+=dashCard("Solde dû (global)", money(du), "var(--gold)", "clients", "reste à recouvrer", "var(--gold-deep,#A87C2E)");
+    h+=dashCard("Encaissé · "+pl, money(encPer), "var(--good)", "cash", "argent reçu", "var(--good)");
+    h+=dashCard("Manque / Triage (sur vente)", money(lv.triageVal), "var(--crit)", "stock", (lv.triageKg>0?(rnd(lv.triageKg)+" kg perdus"):"aucun"), "var(--crit)");
+    h+=dashCard("Bénéfice · "+pl, money(benefPer), (benefPer>=0?"var(--good)":"var(--crit)"), "profit", "ventes − achats − charges", (benefPer>=0?"var(--good)":"var(--crit)"));
+    h+=dashCard("Stock", money(lv.total), "var(--green)", "stock", "valeur disponible", "var(--ink)");
+    h+=dashCard("Dettes fournisseurs", money(dette), "var(--crit)", "suppliers", "à payer", (dette>0?"var(--crit)":"var(--good)"));
+    h+='<button class="dash-card wide" data-go="cash" style="border-left-color:var(--green)"><div class="dc-top"><span class="dc-lab">Trésorerie</span><span class="dc-chev">›</span></div><div class="dc-val tnum">'+money(tz.total)+'</div><div class="dc-sub">Caisse '+money(tz.caisse)+' · Banque '+money(tz.banque)+'</div></button>';
     h+='</div>';
   }
   h+='<div class="kpis">';
@@ -1442,7 +1445,7 @@ function renderExpenses(){
   h+='<div class="card"><div class="items">'; exps.forEach(function(x){
     var pm=Math.max(1,Math.round(Number(x.prepaid_months)||1));
     h+='<div class="item"><div class="body"><div class="top"><span class="lab">'+esc(x.label||catLabel(x.category))+(x._pending?' <span class="pill pending">⏳ en attente</span>':'')+'</span><span class="amt tnum" style="color:var(--crit)">'+money(x.amount)+'</span></div>'
-      +'<div class="sub">'+esc(catLabel(x.category))+' · '+fmtDate(x.date)+(pm>1?' · <span style="color:var(--gold)">payé d\'avance, étalé sur '+pm+' mois</span>':'')+'</div></div>'
+      +'<div class="sub">'+esc(catLabel(x.category))+' · '+fmtDate(x.date)+(pm>1?' · <span style="color:var(--gold)">payé d\'avance, étalé sur '+pm+' mois'+(x.prepaid_start?(' dès '+esc(monthLabel(x.prepaid_start))):'')+'</span>':'')+'</div></div>'
       +(x._pending?'':attachBtns('expense',x.id)+'<button class="del" data-repeatexp="'+x.id+'" title="Répéter cette dépense" style="color:var(--green)">↻</button><button class="del" data-del="expenses:'+x.id+'" aria-label="Supprimer">×</button>')+'</div>';
   }); h+='</div></div>';
   return h;
@@ -1456,8 +1459,11 @@ function expenseForm(pre){
     +fld("Libellé","text","x_label","","Ex : Salaire de septembre")
     +'<div class="field-row">'+fld("Montant (FG)","number","x_amount","","0")+fld("Date","date","x_date",today(),"")+'</div>'
     +methodField("x_method","caisse")
-    +'<div class="field"><label for="x_prepaid">Payé d\'avance — nombre de mois couverts</label><input id="x_prepaid" type="number" inputmode="numeric" min="1" value="1"></div>'
-    +'<div class="hint" style="margin-top:-4px">Laissez <b>1</b> pour un paiement normal. Exemple : loyer de 6 mois payé d\'avance → mettez <b>6</b>. L\'argent sort de la caisse maintenant, mais le coût est réparti sur les 6 mois dans le bénéfice.</div>'
+    +'<div class="field-row">'
+      +'<div class="field"><label for="x_prepaid">Payé d\'avance — mois couverts</label><input id="x_prepaid" type="number" inputmode="numeric" min="1" value="1"></div>'
+      +'<div class="field"><label for="x_prepaid_start">Début de la couverture</label><input id="x_prepaid_start" type="month" value="'+today().slice(0,7)+'"></div>'
+    +'</div>'
+    +'<div class="hint" style="margin-top:-4px">Laissez <b>1</b> pour un paiement normal. Exemple : loyer de 6 mois payé en octobre mais qui couvre janvier à juin → mettez <b>6</b> mois et choisissez <b>janvier</b> comme début. L\'argent sort de la caisse maintenant, mais le coût se répartit sur les mois couverts.</div>'
     +area("Note","x_note","","")
     +'<div class="sheet-actions"><button class="btn btn-ghost" data-cancel="1">Annuler</button><button class="btn btn-green" data-saveexp="1">Enregistrer</button></div>');
   if(pre.category){ var cs=document.getElementById("x_cat"); if(cs) cs.value=pre.category; }
@@ -1473,7 +1479,7 @@ async function saveExpense(){
   var amt=Number(V("x_amount"))||0; if(amt<=0){ toast("Indiquez un montant."); return; }
   var data={category:V("x_cat")||"autre", label:V("x_label")||null, amount:amt, date:V("x_date")||today(), note:V("x_note")||null, method:V("x_method")||'caisse'};
   var pm=Math.max(1, Math.round(Number(V("x_prepaid"))||1));
-  if(pm>1) data.prepaid_months=pm; /* envoyé seulement si > 1 (colonne à ajouter côté Supabase) */
+  if(pm>1){ data.prepaid_months=pm; var ps=V("x_prepaid_start"); if(ps && ps.length>=7) data.prepaid_start=ps; } /* envoyé seulement si > 1 (colonnes à ajouter côté Supabase) */
   var r=await saveOp({type:'expense', table:'expenses', payload:data});
   finishEntry(r);
 }
@@ -2140,7 +2146,7 @@ function exportMonthCSV(){
     if(isSupplierPay(x)) r.push([mo(x.date),"Paiement fournisseur",x.date,x.label||"","",x.note||"",Math.round(Number(x.amount)||0),payMethod(x),""]);
     else if(x.category==='apport') r.push([mo(x.date),"Apport propriétaire",x.date,"","",x.note||"",Math.round(Number(x.amount)||0),payMethod(x),""]);
     else if(x.category==='retrait') r.push([mo(x.date),"Retrait propriétaire",x.date,"","",x.note||"",Math.round(Number(x.amount)||0),payMethod(x),""]);
-    else if(!isCashMove(x)){ var pm=Math.max(1,Math.round(Number(x.prepaid_months)||1)); r.push([mo(x.date),"Dépense",x.date,"",catLabel(x.category),x.label||"",Math.round(Number(x.amount)||0),payMethod(x),(pm>1?("payé d'avance, étalé sur "+pm+" mois"):"")]); }
+    else if(!isCashMove(x)){ var pm=Math.max(1,Math.round(Number(x.prepaid_months)||1)); r.push([mo(x.date),"Dépense",x.date,"",catLabel(x.category),x.label||"",Math.round(Number(x.amount)||0),payMethod(x),(pm>1?("payé d'avance, étalé sur "+pm+" mois"+(x.prepaid_start?(" dès "+x.prepaid_start):"")):"")]); }
   });
   var tot=acctRange(keys), tz=treasury('all');
   var credit=sum(S.credits,'amount')+openingDebtTotal(), du=Math.max(0,credit-sum(S.payments,'amount'));
