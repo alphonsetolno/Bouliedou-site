@@ -292,7 +292,7 @@ function lsSet(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); return true
 function curUid(){ return (ME&&ME.auth_user_id)||NET.uid||null; }
 function cacheMe(){ lsSet(MEKEY,{uid:curUid(), me:ME, role:ROLE}); }
 function cachedMe(uid){ var o=lsGet(MEKEY,null); return (o&&o.uid===uid)?o.me:null; }
-function cacheSnap(){ lsSet(SNAPKEY,{uid:curUid(), at:Date.now(), S:{clients:S.clients,products:S.products,orders:S.orders,deliveries:S.deliveries,credits:S.credits,payments:S.payments,categories:S.categories,stock:S.stock,expenses:S.expenses,rules:S.rules,people:S.people,backups:S.backups,redemptions:S.redemptions}}); }
+function cacheSnap(){ lsSet(SNAPKEY,{uid:curUid(), at:Date.now(), S:{clients:S.clients,products:S.products,orders:S.orders,deliveries:S.deliveries,credits:S.credits,payments:S.payments,categories:S.categories,stock:S.stock,expenses:S.expenses,rules:S.rules,people:S.people,backups:S.backups,redemptions:S.redemptions,attachments:S.attachments}}); }
 function restoreSnap(uid){ var o=lsGet(SNAPKEY,null); if(!o||o.uid!==uid||!o.S) return false; for(var k in o.S){ S[k]=o.S[k]||[]; } NET.snapAt=o.at; return true; }
 function queueGet(){ return lsGet(QKEY,[]); }
 function queueSet(q){ lsSet(QKEY,q); }
@@ -690,7 +690,8 @@ async function loadAll(){
     sb.from('expenses').select('*').order('date',{ascending:false}),
     sb.from('loyalty_rules').select('*').order('created_at'),
     sb.from('backups').select('id,created_at,note').order('created_at',{ascending:false}),
-    sb.from('gift_redemptions').select('*').order('date',{ascending:false})
+    sb.from('gift_redemptions').select('*').order('date',{ascending:false}),
+    sb.from('attachments').select('id,kind,ref_id,name,created_at').order('created_at',{ascending:false})
   ]);
   var err = r.slice(0,11).find(function(x){return x.error;});
   if(err){ toast("Erreur de chargement."); console.error(err.error); }
@@ -708,6 +709,7 @@ async function loadAll(){
   S.rules = r[9].data||[];
   S.backups = (r[10]&&r[10].data)||[];
   S.redemptions = (r[11]&&r[11].data)||[];
+  S.attachments = (r[12]&&r[12].data)||[]; /* métadonnées seulement (sans l'image) : léger */
   if(!err){ cacheSnap(); }
   applyPendingToState();
 }
@@ -1108,7 +1110,7 @@ function renderStock(){
     h+='<div class="item"><div class="body"><div class="top"><span class="lab">'+esc(x.label||"—")+'</span>'+((x.kind==='entree'&&x.amount)?'<span class="amt tnum">'+money(x.amount)+'</span>':'')+'</div>'
       +'<div class="sub">'+tag+' '+mvKg(x)+' · '+fmtDate(x.date)+(x.supplier?(' · '+esc(x.supplier)):'')+((x.kind==='entree'&&x.paid===false)?' · <span style="color:var(--gold)">à crédit</span>':'')+'</div>'
       +((isRoute&&!x._pending)?'<div style="margin-top:8px"><button class="btn btn-ghost" data-achemine="'+esc(x.product_id||'')+'" style="padding:7px 12px;font-size:12.5px">→ Acheminer vers Conakry</button></div>':'')+'</div>'
-      +(x._pending?'':'<button class="del" data-del="stock_entries:'+x.id+'" aria-label="Supprimer">×</button>')+'</div>';
+      +(x._pending?'':(x.kind==='entree'?attachBtns('stock',x.id):'')+'<button class="del" data-del="stock_entries:'+x.id+'" aria-label="Supprimer">×</button>')+'</div>';
   }); h+='</div></div>'; }
   return h;
 }
@@ -1255,6 +1257,64 @@ async function saveTriage(){
 /* ===== DÉPENSES ===== */
 function catLabel(c){ var m={salaire:"Salaire",transport:"Transport",electricite:"Électricité",loyer:"Loyer",communication:"Communication",walike:"Walikè",gardiennage:"Gardiennage",recompense_client:"Récompenses aux clients",assurance:"Assurance",cadeau_equipe:"Cadeaux à l'équipe",autre:"Autre",paiement_fournisseur:"Paiement fournisseur",apport:"Apport du propriétaire",retrait:"Retrait du propriétaire"}; return m[c]||c||"Autre"; }
 
+/* ===== PIÈCES JUSTIFICATIVES (photos de factures / reçus) ===== */
+/* Les images sont compressées dans l'application puis stockées dans la table
+   « attachments ». loadAll ne charge que les métadonnées (léger) ; l'image
+   n'est téléchargée qu'au moment de la consulter. */
+function attachmentsFor(kind, refId){ return (S.attachments||[]).filter(function(a){ return a.kind===kind && String(a.ref_id)===String(refId); }); }
+function compressImage(file, maxDim, quality){
+  return new Promise(function(resolve,reject){
+    var url=URL.createObjectURL(file), img=new Image();
+    img.onload=function(){
+      var w=img.width||1, h=img.height||1, s=Math.min(1, maxDim/Math.max(w,h));
+      var cw=Math.max(1,Math.round(w*s)), ch=Math.max(1,Math.round(h*s));
+      var c=document.createElement('canvas'); c.width=cw; c.height=ch;
+      try{ c.getContext('2d').drawImage(img,0,0,cw,ch); URL.revokeObjectURL(url); resolve(c.toDataURL('image/jpeg', quality)); }
+      catch(e){ URL.revokeObjectURL(url); reject(e); }
+    };
+    img.onerror=function(){ URL.revokeObjectURL(url); reject(new Error('image illisible')); };
+    img.src=url;
+  });
+}
+function attachPhoto(kind, refId){
+  if(needsOnline()) return;
+  var inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.setAttribute('capture','environment');
+  inp.onchange=async function(){
+    var f=inp.files&&inp.files[0]; if(!f) return;
+    toast('Traitement de la photo…');
+    var dataUrl; try{ dataUrl=await compressImage(f, 1400, 0.55); }catch(e){ toast('Photo illisible, réessayez.'); return; }
+    var res=await sb.from('attachments').insert({kind:kind, ref_id:String(refId), data:dataUrl, name:(f.name||'photo.jpg'), created_by:curUid()});
+    if(res.error){ toast('Erreur : '+res.error.message); return; }
+    toast('Pièce jointe ajoutée ✓'); await refresh();
+  };
+  inp.click();
+}
+async function viewAttachments(kind, refId){
+  var meta=attachmentsFor(kind, refId);
+  if(!meta.length){ openSheet('<h3>Pièces jointes</h3><div class="item-empty">Aucune photo pour cette opération.</div><div class="sheet-actions"><button class="btn btn-ghost" data-cancel="1">Fermer</button></div>'); return; }
+  openSheet('<h3>Pièces jointes</h3><div class="item-empty">Chargement…</div>');
+  if(needsOnline()) return;
+  var ids=meta.map(function(a){return a.id;});
+  var res=await sb.from('attachments').select('id,data,name').in('id', ids);
+  var rows=(res.data||[]);
+  var body=rows.length?rows.map(function(a){
+    return '<div style="margin-bottom:12px"><img src="'+a.data+'" style="width:100%;border-radius:12px;border:1px solid var(--line);display:block"><div style="text-align:right;margin-top:6px"><button class="btn btn-danger" data-delattach="'+a.id+'" style="padding:6px 12px;font-size:12.5px">Supprimer</button></div></div>';
+  }).join(''):'<div class="item-empty">Impossible de charger les photos.</div>';
+  openSheet('<h3>Pièces jointes ('+rows.length+')</h3>'+body+'<div class="sheet-actions"><button class="btn btn-ghost" data-cancel="1">Fermer</button></div>');
+}
+async function delAttachment(id){
+  if(needsOnline()) return;
+  var res=await sb.from('attachments').delete().eq('id',id);
+  if(res.error){ toast('Erreur : '+res.error.message); return; }
+  closeSheet(); toast('Pièce supprimée'); await refresh();
+}
+/* petits boutons 📷 (ajouter) / 📎N (voir) pour une opération */
+function attachBtns(kind, refId){
+  var n=attachmentsFor(kind, refId).length;
+  return '<button class="del" data-attach="'+kind+':'+refId+'" title="Ajouter une photo" style="color:var(--green)">📷</button>'
+    +(n>0?'<button class="del" data-viewattach="'+kind+':'+refId+'" title="Voir les pièces jointes" style="color:var(--gold-deep,#A87C2E);font-weight:700">📎'+n+'</button>':'');
+}
+
 /* ===== DETTES FOURNISSEURS ===== */
 function renderSuppliers(){
   var h='<button class="add-link" data-go="menu" style="margin:2px 0 12px">‹ Gestion</button>';
@@ -1344,7 +1404,7 @@ function renderExpenses(){
     var pm=Math.max(1,Math.round(Number(x.prepaid_months)||1));
     h+='<div class="item"><div class="body"><div class="top"><span class="lab">'+esc(x.label||catLabel(x.category))+(x._pending?' <span class="pill pending">⏳ en attente</span>':'')+'</span><span class="amt tnum" style="color:var(--crit)">'+money(x.amount)+'</span></div>'
       +'<div class="sub">'+esc(catLabel(x.category))+' · '+fmtDate(x.date)+(pm>1?' · <span style="color:var(--gold)">payé d\'avance, étalé sur '+pm+' mois</span>':'')+'</div></div>'
-      +(x._pending?'':'<button class="del" data-repeatexp="'+x.id+'" title="Répéter cette dépense" style="color:var(--green)">↻</button><button class="del" data-del="expenses:'+x.id+'" aria-label="Supprimer">×</button>')+'</div>';
+      +(x._pending?'':attachBtns('expense',x.id)+'<button class="del" data-repeatexp="'+x.id+'" title="Répéter cette dépense" style="color:var(--green)">↻</button><button class="del" data-del="expenses:'+x.id+'" aria-label="Supprimer">×</button>')+'</div>';
   }); h+='</div></div>';
   return h;
 }
@@ -2674,7 +2734,7 @@ function orderSheet(id){
 
 /* ===== EVENTS ===== */
 document.addEventListener("click",function(e){
-  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin],[data-go],[data-addstock],[data-savestock],[data-receivestock],[data-achemine],[data-saveachemine],[data-triage],[data-savetriage],[data-addexp],[data-saveexp],[data-profper],[data-homeper],[data-anaper],[data-wa],[data-receiptpay],[data-wareceipt],[data-export],[data-addrule],[data-editrule],[data-saverule],[data-delrule],[data-pdfreceipt],[data-actfilter],[data-dlbackup],[data-bio],[data-push],[data-cashper],[data-cashxfer],[data-savecashxfer],[data-exyear],[data-exprint],[data-cloture],[data-giftgiven],[data-savegift],[data-resetclient],[data-editcredit],[data-saveeditcredit],[data-saveopening],[data-ordersale],[data-repeatexp],[data-supplierpay],[data-savesupplierpay],[data-ownermove],[data-saveownermove],[data-expmonth],[data-exportmonth],[data-exprintacc]");
+  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin],[data-go],[data-addstock],[data-savestock],[data-receivestock],[data-achemine],[data-saveachemine],[data-triage],[data-savetriage],[data-addexp],[data-saveexp],[data-profper],[data-homeper],[data-anaper],[data-wa],[data-receiptpay],[data-wareceipt],[data-export],[data-addrule],[data-editrule],[data-saverule],[data-delrule],[data-pdfreceipt],[data-actfilter],[data-dlbackup],[data-bio],[data-push],[data-cashper],[data-cashxfer],[data-savecashxfer],[data-exyear],[data-exprint],[data-cloture],[data-giftgiven],[data-savegift],[data-resetclient],[data-editcredit],[data-saveeditcredit],[data-saveopening],[data-ordersale],[data-repeatexp],[data-supplierpay],[data-savesupplierpay],[data-ownermove],[data-saveownermove],[data-expmonth],[data-exportmonth],[data-exprintacc],[data-attach],[data-viewattach],[data-delattach]");
   if(!el) return; var d=el.dataset;
   if((d.del!==undefined||d.delclient!==undefined||d.delprod!==undefined||d.delcat!==undefined||d.delrule!==undefined)&&!isAdmin()){ toast("Suppression réservée au gérant principal."); return; }
   if(d.bio!==undefined){ toggleBio(); }
@@ -2733,6 +2793,9 @@ document.addEventListener("click",function(e){
   else if(d.expmonth!==undefined){ expMonth=d.expmonth; render(); }
   else if(d.exportmonth!==undefined){ exportMonthCSV(); }
   else if(d.exprintacc!==undefined){ printAccounting(); }
+  else if(d.attach!==undefined){ var pa=d.attach.split(':'); attachPhoto(pa[0], pa.slice(1).join(':')); }
+  else if(d.viewattach!==undefined){ var pv=d.viewattach.split(':'); viewAttachments(pv[0], pv.slice(1).join(':')); }
+  else if(d.delattach!==undefined){ delAttachment(d.delattach); }
   else if(d.addprod!==undefined){ prodForm(null); }
   else if(d.editprod!==undefined){ prodForm(S.products.find(function(x){return x.id===d.editprod;})); }
   else if(d.cancel!==undefined){ closeSheet(); }
