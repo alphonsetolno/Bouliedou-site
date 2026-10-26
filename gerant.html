@@ -576,6 +576,37 @@ function totals(id){ var sales=sum(by(S.credits,id),'amount'), p=sum(by(S.paymen
 function isCashMove(x){ return x && x.category==='mouvement_cb'; }
 function realExpenses(){ return S.expenses.filter(function(x){ return !isCashMove(x); }); }
 function cashMoves(){ return S.expenses.filter(isCashMove); }
+/* --- Charges étalées : une dépense « payée d'avance » (prepaid_months = N) couvre N mois.
+   La SORTIE DE CAISSE reste au jour du paiement (trésorerie inchangée), mais le COÛT
+   est réparti sur les mois couverts, pour un bénéfice mensuel juste. --- */
+function expMonths(x){
+  var n=Math.max(1, Math.round(Number(x&&x.prepaid_months)||1));
+  var d=String((x&&x.date)||"").slice(0,10); if(d.length<7) return [];
+  var y=Number(d.slice(0,4)), m=Number(d.slice(5,7)), out=[];
+  for(var i=0;i<n;i++){ var k=m-1+i, yy=y+Math.floor(k/12), mo=(k%12)+1; out.push(yy+'-'+(mo<10?'0':'')+mo); }
+  return out;
+}
+function monthInPer(ym, per){
+  if(per==='all'||!per) return true;
+  var t=today(), y=ym.slice(0,4), mo=Number(ym.slice(5,7)), ty=t.slice(0,4), tmo=Number(t.slice(5,7));
+  if(per==='year')     return y===ty;
+  if(per==='semester') return y===ty && (mo<=6)===(tmo<=6);
+  if(per==='quarter')  return y===ty && Math.floor((mo-1)/3)===Math.floor((tmo-1)/3);
+  if(per==='month' || per==='week') return ym===t.slice(0,7); /* semaine ≈ mois courant pour une charge mensuelle */
+  return true;
+}
+/* coût (charge) d'une dépense tombant dans la période (réparti si payé d'avance) */
+function expCharge(x, per){
+  var months=expMonths(x); if(!months.length) return 0;
+  var amt=Number(x.amount)||0;
+  if(per==='all'||!per) return amt;
+  var portion=amt/months.length, c=0;
+  months.forEach(function(ym){ if(monthInPer(ym,per)) c+=portion; });
+  return c;
+}
+function expensesCharge(per){ return realExpenses().reduce(function(a,x){ return a+expCharge(x,per); },0); }
+/* charge d'un mois précis 'AAAA-MM' (pour les courbes d'évolution) */
+function expChargeOfMonth(x, key){ var ms=expMonths(x); return ms.indexOf(key)>=0 ? (Number(x.amount)||0)/ms.length : 0; }
 /* --- trésorerie : flux caisse / banque pour une période (balances = période 'all') --- */
 function payMethod(x){ return (x&&x.method==='banque')?'banque':'caisse'; }
 function treasury(per){
@@ -691,7 +722,7 @@ function stockValueTotal(){
 function benefFor(period){
   function inP(d){ if(period==="all") return true; return String(d||"").slice(0,7)===today().slice(0,7); }
   function s(arr){ return arr.filter(function(x){return inP(x.date);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0); }
-  var ventes=s(S.credits), depenses=s(realExpenses());
+  var ventes=s(S.credits), depenses=expensesCharge(period==='all'?'all':'month');
   var achats=S.stock.filter(function(x){return x.kind==='entree'&&!isOpening(x)&&inP(x.date);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
   return ventes-achats-depenses;
 }
@@ -740,7 +771,7 @@ function renderHome(){
     var per=homePeriod, pl=perLabel(per).toLowerCase();
     var caPer  = S.credits.filter(function(x){return inPer(x.date,per);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
     var encPer = S.payments.filter(function(x){return inPer(x.date,per);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
-    var depPer = realExpenses().filter(function(x){return inPer(x.date,per);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
+    var depPer = expensesCharge(per);
     var achPer = S.stock.filter(function(x){return x.kind==='entree'&&!isOpening(x)&&inPer(x.date,per);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
     var benefPer = caPer - achPer - depPer;
     var lv = stockLevels();
@@ -770,8 +801,8 @@ function renderHome(){
   h+=kpi("Commandes à traiter",nouvelles,"var(--warn)",false);
   if(isAdmin()){
     h+=kpi("Encaissé · "+perLabel(homePeriod).toLowerCase(),money(S.payments.filter(function(x){return inPer(x.date,homePeriod);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0)),"var(--good)",true);
-    h+=kpi("Dépenses · "+perLabel(homePeriod).toLowerCase(),money(realExpenses().filter(function(x){return inPer(x.date,homePeriod);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0)),"var(--crit)",true);
-    h+=kpi("Crédit total",money(credit),"var(--gold)",true);
+    h+=kpi("Dépenses · "+perLabel(homePeriod).toLowerCase(),money(expensesCharge(homePeriod)),"var(--crit)",true);
+    h+=kpi("Chiffre d'affaires (total)",money(sum(S.credits,'amount')),"var(--gold)",true);
     h+=kpi("Solde dû (global)",money(du),"var(--crit)",true);
   }
   h+='</div>';
@@ -1194,19 +1225,21 @@ function renderExpenses(){
   var exps=realExpenses();
   var total=exps.reduce(function(a,x){return a+(Number(x.amount)||0);},0);
   var ym=today().slice(0,7);
-  var mois=exps.filter(function(x){return String(x.date||"").slice(0,7)===ym;}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
+  var mois=expensesCharge('month');
   h+='<div class="kpis"><div class="kpi"><div class="lab"><i style="background:var(--crit)"></i>Ce mois-ci</div><div class="val sm tnum">'+money(mois)+'</div></div>'
     +'<div class="kpi"><div class="lab"><i style="background:var(--muted)"></i>Total enregistré</div><div class="val sm tnum">'+money(total)+'</div></div></div>';
   h+='<button class="btn btn-green btn-block" data-addexp="1" style="margin:14px 0">+ Nouvelle dépense</button>';
   if(exps.length===0){ h+='<div class="item-empty">Aucune dépense enregistrée.</div>'; return h; }
   h+='<div class="card"><div class="items">'; exps.forEach(function(x){
+    var pm=Math.max(1,Math.round(Number(x.prepaid_months)||1));
     h+='<div class="item"><div class="body"><div class="top"><span class="lab">'+esc(x.label||catLabel(x.category))+(x._pending?' <span class="pill pending">⏳ en attente</span>':'')+'</span><span class="amt tnum" style="color:var(--crit)">'+money(x.amount)+'</span></div>'
-      +'<div class="sub">'+esc(catLabel(x.category))+' · '+fmtDate(x.date)+'</div></div>'
-      +(x._pending?'':'<button class="del" data-del="expenses:'+x.id+'" aria-label="Supprimer">×</button>')+'</div>';
+      +'<div class="sub">'+esc(catLabel(x.category))+' · '+fmtDate(x.date)+(pm>1?' · <span style="color:var(--gold)">payé d\'avance, étalé sur '+pm+' mois</span>':'')+'</div></div>'
+      +(x._pending?'':'<button class="del" data-repeatexp="'+x.id+'" title="Répéter cette dépense" style="color:var(--green)">↻</button><button class="del" data-del="expenses:'+x.id+'" aria-label="Supprimer">×</button>')+'</div>';
   }); h+='</div></div>';
   return h;
 }
-function expenseForm(){
+function expenseForm(pre){
+  pre=pre||{};
   var cats=[["salaire","Salaire"],["transport","Transport"],["electricite","Électricité"],["loyer","Loyer"],["communication","Communication"],["walike","Walikè"],["gardiennage","Gardiennage"],["recompense_client","Récompenses aux clients"],["assurance","Assurance"],["cadeau_equipe","Cadeaux à l'équipe"],["autre","Autre"]];
   var opts=cats.map(function(c){return '<option value="'+c[0]+'">'+c[1]+'</option>';}).join('');
   openSheet('<h3>Nouvelle dépense</h3>'
@@ -1214,12 +1247,24 @@ function expenseForm(){
     +fld("Libellé","text","x_label","","Ex : Salaire de septembre")
     +'<div class="field-row">'+fld("Montant (FG)","number","x_amount","","0")+fld("Date","date","x_date",today(),"")+'</div>'
     +methodField("x_method","caisse")
+    +'<div class="field"><label for="x_prepaid">Payé d\'avance — nombre de mois couverts</label><input id="x_prepaid" type="number" inputmode="numeric" min="1" value="1"></div>'
+    +'<div class="hint" style="margin-top:-4px">Laissez <b>1</b> pour un paiement normal. Exemple : loyer de 6 mois payé d\'avance → mettez <b>6</b>. L\'argent sort de la caisse maintenant, mais le coût est réparti sur les 6 mois dans le bénéfice.</div>'
     +area("Note","x_note","","")
     +'<div class="sheet-actions"><button class="btn btn-ghost" data-cancel="1">Annuler</button><button class="btn btn-green" data-saveexp="1">Enregistrer</button></div>');
+  if(pre.category){ var cs=document.getElementById("x_cat"); if(cs) cs.value=pre.category; }
+  if(pre.label!=null){ var ls=document.getElementById("x_label"); if(ls) ls.value=pre.label; }
+  if(pre.amount!=null){ var as=document.getElementById("x_amount"); if(as) as.value=pre.amount; }
+  if(pre.method){ var ms=document.getElementById("x_method"); if(ms) ms.value=pre.method; }
+}
+function repeatExpense(id){
+  var x=S.expenses.find(function(e){return e.id===id;}); if(!x) return;
+  expenseForm({category:x.category, label:x.label, amount:x.amount, method:payMethod(x)});
 }
 async function saveExpense(){
   var amt=Number(V("x_amount"))||0; if(amt<=0){ toast("Indiquez un montant."); return; }
   var data={category:V("x_cat")||"autre", label:V("x_label")||null, amount:amt, date:V("x_date")||today(), note:V("x_note")||null, method:V("x_method")||'caisse'};
+  var pm=Math.max(1, Math.round(Number(V("x_prepaid"))||1));
+  if(pm>1) data.prepaid_months=pm; /* envoyé seulement si > 1 (colonne à ajouter côté Supabase) */
   var r=await saveOp({type:'expense', table:'expenses', payload:data});
   finishEntry(r);
 }
@@ -1239,7 +1284,7 @@ function renderProfit(){
   var ventes=sumP(S.credits);
   var encaisse=sumP(S.payments);
   var achats=S.stock.filter(function(x){return x.kind==='entree'&&!isOpening(x)&&inProfitPeriod(x.date);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
-  var depenses=sumP(realExpenses());
+  var depenses=expensesCharge(profitPeriod==='all'?'all':'month');
   var benef=ventes-achats-depenses;
   h+='<div class="d-head" style="margin-top:4px"><div class="t" style="color:var(--gold-soft)">Bénéfice estimé</div>'
     +'<h2 style="font-size:27px;margin-top:4px">'+money(benef)+'</h2>'
@@ -1516,7 +1561,7 @@ function renderAnalyse(){
   months.forEach(function(m){
     var ca=monthSum(S.credits,m.key);
     var ach=monthSum(S.stock,m.key,function(x){return x.kind==='entree'&&!isOpening(x);});
-    var dep=monthSum(realExpenses(),m.key);
+    var dep=realExpenses().reduce(function(a,x){return a+expChargeOfMonth(x,m.key);},0);
     caV.push(ca); benV.push(ca-ach-dep);
   });
   var evoBody=svgLine(months,[{name:'CA',color:'var(--green)',vals:caV},{name:'Bénéfice',color:'var(--gold)',vals:benV}])
@@ -1527,7 +1572,7 @@ function renderAnalyse(){
   h+='<div class="hint" style="margin:18px 0 8px;font-weight:700;color:var(--muted)">Analyser la période&nbsp;:</div>'+periodBar(per,'anaper');
   var caP =S.credits.filter(function(x){return inPer(x.date,per);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
   var encP=S.payments.filter(function(x){return inPer(x.date,per);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
-  var depP=realExpenses().filter(function(x){return inPer(x.date,per);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
+  var depP=expensesCharge(per);
   var achP=S.stock.filter(function(x){return x.kind==='entree'&&!isOpening(x)&&inPer(x.date,per);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
   var benP=caP-achP-depP;
   h+='<div class="money-grid" style="margin-top:10px">'
@@ -1571,7 +1616,7 @@ function renderAnalyse(){
   h+=anaCard('Soldes dus','Montants restant à encaisser (situation du jour, tous clients). Total : '+money(duTot)+'.',svgBarsH(duRows,{color:'var(--crit)',empty:'Aucun solde dû. Tous les clients sont à jour ✓'}));
 
   /* ===== 7) Dépenses par poste (période) ===== */
-  var dp={}; realExpenses().forEach(function(x){ if(!inPer(x.date,per)) return; var k=catLabel(x.category); dp[k]=(dp[k]||0)+(Number(x.amount)||0); });
+  var dp={}; realExpenses().forEach(function(x){ var c=expCharge(x,per); if(c<=0) return; var k=catLabel(x.category); dp[k]=(dp[k]||0)+c; });
   var dpRows=Object.keys(dp).map(function(k){return {label:k,value:dp[k]};}).sort(function(a,b){return b.value-a.value;});
   h+=anaCard('Dépenses par poste','Salaires, loyer, transport… sur la période. Total : '+money(depP)+'.',svgBarsH(dpRows,{color:'var(--warn)',empty:'Aucune dépense sur cette période.'}));
 
@@ -2373,7 +2418,7 @@ function orderSheet(id){
 
 /* ===== EVENTS ===== */
 document.addEventListener("click",function(e){
-  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin],[data-go],[data-addstock],[data-savestock],[data-receivestock],[data-achemine],[data-saveachemine],[data-triage],[data-savetriage],[data-addexp],[data-saveexp],[data-profper],[data-homeper],[data-anaper],[data-wa],[data-receiptpay],[data-wareceipt],[data-export],[data-addrule],[data-editrule],[data-saverule],[data-delrule],[data-pdfreceipt],[data-actfilter],[data-dlbackup],[data-bio],[data-push],[data-cashper],[data-cashxfer],[data-savecashxfer],[data-exyear],[data-exprint],[data-cloture],[data-giftgiven],[data-savegift],[data-resetclient],[data-editcredit],[data-saveeditcredit],[data-saveopening],[data-ordersale]");
+  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin],[data-go],[data-addstock],[data-savestock],[data-receivestock],[data-achemine],[data-saveachemine],[data-triage],[data-savetriage],[data-addexp],[data-saveexp],[data-profper],[data-homeper],[data-anaper],[data-wa],[data-receiptpay],[data-wareceipt],[data-export],[data-addrule],[data-editrule],[data-saverule],[data-delrule],[data-pdfreceipt],[data-actfilter],[data-dlbackup],[data-bio],[data-push],[data-cashper],[data-cashxfer],[data-savecashxfer],[data-exyear],[data-exprint],[data-cloture],[data-giftgiven],[data-savegift],[data-resetclient],[data-editcredit],[data-saveeditcredit],[data-saveopening],[data-ordersale],[data-repeatexp]");
   if(!el) return; var d=el.dataset;
   if((d.del!==undefined||d.delclient!==undefined||d.delprod!==undefined||d.delcat!==undefined||d.delrule!==undefined)&&!isAdmin()){ toast("Suppression réservée au gérant principal."); return; }
   if(d.bio!==undefined){ toggleBio(); }
@@ -2424,6 +2469,7 @@ document.addEventListener("click",function(e){
   else if(d.order!==undefined){ orderSheet(d.order); }
   else if(d.ordersale!==undefined){ orderToSaleSheet(d.ordersale); }
   else if(d.saveopening!==undefined){ saveOpening(); }
+  else if(d.repeatexp!==undefined){ repeatExpense(d.repeatexp); }
   else if(d.addprod!==undefined){ prodForm(null); }
   else if(d.editprod!==undefined){ prodForm(S.products.find(function(x){return x.id===d.editprod;})); }
   else if(d.cancel!==undefined){ closeSheet(); }
