@@ -292,7 +292,7 @@ function lsSet(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); return true
 function curUid(){ return (ME&&ME.auth_user_id)||NET.uid||null; }
 function cacheMe(){ lsSet(MEKEY,{uid:curUid(), me:ME, role:ROLE}); }
 function cachedMe(uid){ var o=lsGet(MEKEY,null); return (o&&o.uid===uid)?o.me:null; }
-function cacheSnap(){ lsSet(SNAPKEY,{uid:curUid(), at:Date.now(), S:{clients:S.clients,products:S.products,orders:S.orders,deliveries:S.deliveries,credits:S.credits,payments:S.payments,categories:S.categories,stock:S.stock,expenses:S.expenses,rules:S.rules,people:S.people,backups:S.backups,redemptions:S.redemptions,attachments:S.attachments}}); }
+function cacheSnap(){ lsSet(SNAPKEY,{uid:curUid(), at:Date.now(), S:{clients:S.clients,products:S.products,orders:S.orders,deliveries:S.deliveries,credits:S.credits,payments:S.payments,categories:S.categories,stock:S.stock,expenses:S.expenses,rules:S.rules,people:S.people,backups:S.backups,redemptions:S.redemptions,attachments:S.attachments,assets:S.assets}}); }
 function restoreSnap(uid){ var o=lsGet(SNAPKEY,null); if(!o||o.uid!==uid||!o.S) return false; for(var k in o.S){ S[k]=o.S[k]||[]; } NET.snapAt=o.at; return true; }
 function queueGet(){ return lsGet(QKEY,[]); }
 function queueSet(q){ lsSet(QKEY,q); }
@@ -631,11 +631,40 @@ function expCharge(x, per){
 function expensesCharge(per){ return realExpenses().reduce(function(a,x){ return a+expCharge(x,per); },0); }
 /* charge d'un mois précis 'AAAA-MM' (pour les courbes d'évolution) */
 function expChargeOfMonth(x, key){ var ms=expMonths(x); return ms.indexOf(key)>=0 ? (Number(x.amount)||0)/ms.length : 0; }
+
+/* --- IMMOBILISATIONS & AMORTISSEMENTS ---
+   L'achat d'une immobilisation SORT de la caisse à l'achat (comme un achat),
+   mais ce n'est PAS une charge : seul l'AMORTISSEMENT (coût / durée) est une
+   charge, réparti mois par mois sur la durée de vie du bien. */
+function assetMonthlyAmort(a){ var cost=Number(a&&a.cost)||0, yrs=Math.max(1,Number(a&&a.years)||1); return cost/(yrs*12); }
+function assetMonths(a){ /* mois 'AAAA-MM' sur lesquels le bien s'amortit */
+  var yrs=Math.max(1,Number(a&&a.years)||1), n=yrs*12, d=String((a&&a.date)||'').slice(0,7);
+  if(d.length<7) return [];
+  var y=Number(d.slice(0,4)), m=Number(d.slice(5,7)), out=[];
+  for(var i=0;i<n;i++){ var k=m-1+i, yy=y+Math.floor(k/12), mo=(k%12)+1; out.push(yy+'-'+(mo<10?'0':'')+mo); }
+  return out;
+}
+function assetAccumAmort(a){ /* cumul d'amortissement à ce jour */
+  var tc=today().slice(0,7), mth=assetMonthlyAmort(a), c=0;
+  assetMonths(a).forEach(function(ym){ if(ym<=tc) c+=mth; });
+  return Math.min(Number(a&&a.cost)||0, c);
+}
+function assetNet(a){ return Math.max(0, (Number(a&&a.cost)||0) - assetAccumAmort(a)); }
+function amortOfMonth(key){ return (S.assets||[]).reduce(function(acc,a){ return acc + (assetMonths(a).indexOf(key)>=0 ? assetMonthlyAmort(a) : 0); },0); }
+function amortCharge(per){
+  var tc=today().slice(0,7), c=0;
+  (S.assets||[]).forEach(function(a){ var mth=assetMonthlyAmort(a); assetMonths(a).forEach(function(ym){ if(ym>tc) return; if(per==='all'||!per||monthInPer(ym,per)) c+=mth; }); });
+  return c;
+}
+function assetsTotals(){
+  var brut=0,cumul=0; (S.assets||[]).forEach(function(a){ brut+=Number(a.cost)||0; cumul+=assetAccumAmort(a); });
+  return {brut:brut, cumul:cumul, net:brut-cumul};
+}
 /* --- trésorerie : flux caisse / banque pour une période (balances = période 'all') --- */
 function payMethod(x){ return (x&&x.method==='banque')?'banque':'caisse'; }
 function treasury(per){
   function inp(d){ return (per==='all'||!per)?true:inPer(d,per); }
-  var t={ckIn:0,bkIn:0,ckOutDep:0,bkOutDep:0,ckOutAch:0,bkOutAch:0,ck2bk:0,bk2ck:0,ckOutFour:0,bkOutFour:0,ckInOwner:0,bkInOwner:0,ckOutOwner:0,bkOutOwner:0};
+  var t={ckIn:0,bkIn:0,ckOutDep:0,bkOutDep:0,ckOutAch:0,bkOutAch:0,ck2bk:0,bk2ck:0,ckOutFour:0,bkOutFour:0,ckInOwner:0,bkInOwner:0,ckOutOwner:0,bkOutOwner:0,ckOutAsset:0,bkOutAsset:0};
   S.payments.forEach(function(x){ if(!inp(x.date))return; var a=Number(x.amount)||0; if(payMethod(x)==='banque') t.bkIn+=a; else t.ckIn+=a; });
   realExpenses().forEach(function(x){ if(!inp(x.date))return; var a=Number(x.amount)||0; if(payMethod(x)==='banque') t.bkOutDep+=a; else t.ckOutDep+=a; });
   /* achats réglés comptant seulement (un achat à crédit ne sort pas de caisse tant qu'il n'est pas payé) */
@@ -647,11 +676,13 @@ function treasury(per){
     else if(x.category==='apport'){ if(payMethod(x)==='banque') t.bkInOwner+=a; else t.ckInOwner+=a; }
     else if(x.category==='retrait'){ if(payMethod(x)==='banque') t.bkOutOwner+=a; else t.ckOutOwner+=a; }
   });
-  t.caisse = t.ckIn - t.ckOutDep - t.ckOutAch - t.ckOutFour - t.ck2bk + t.bk2ck + t.ckInOwner - t.ckOutOwner;
-  t.banque = t.bkIn - t.bkOutDep - t.bkOutAch - t.bkOutFour - t.bk2ck + t.ck2bk + t.bkInOwner - t.bkOutOwner;
+  /* achat d'immobilisations : sortie de caisse au moment de l'achat (pas une charge) */
+  (S.assets||[]).forEach(function(a){ if(!inp(a.date))return; var v=Number(a.cost)||0; if(payMethod(a)==='banque') t.bkOutAsset+=v; else t.ckOutAsset+=v; });
+  t.caisse = t.ckIn - t.ckOutDep - t.ckOutAch - t.ckOutFour - t.ckOutAsset - t.ck2bk + t.bk2ck + t.ckInOwner - t.ckOutOwner;
+  t.banque = t.bkIn - t.bkOutDep - t.bkOutAch - t.bkOutFour - t.bkOutAsset - t.bk2ck + t.ck2bk + t.bkInOwner - t.bkOutOwner;
   t.total  = t.caisse + t.banque;
   t.inflow = t.ckIn + t.bkIn + t.ckInOwner + t.bkInOwner;
-  t.outflow= t.ckOutDep + t.bkOutDep + t.ckOutAch + t.bkOutAch + t.ckOutFour + t.bkOutFour + t.ckOutOwner + t.bkOutOwner;
+  t.outflow= t.ckOutDep + t.bkOutDep + t.ckOutAch + t.bkOutAch + t.ckOutFour + t.bkOutFour + t.ckOutOwner + t.bkOutOwner + t.ckOutAsset + t.bkOutAsset;
   t.net    = t.inflow - t.outflow;
   return t;
 }
@@ -691,7 +722,8 @@ async function loadAll(){
     sb.from('loyalty_rules').select('*').order('created_at'),
     sb.from('backups').select('id,created_at,note').order('created_at',{ascending:false}),
     sb.from('gift_redemptions').select('*').order('date',{ascending:false}),
-    sb.from('attachments').select('id,kind,ref_id,name,created_at').order('created_at',{ascending:false})
+    sb.from('attachments').select('id,kind,ref_id,name,created_at').order('created_at',{ascending:false}),
+    sb.from('assets').select('*').order('date',{ascending:false})
   ]);
   var err = r.slice(0,11).find(function(x){return x.error;});
   if(err){ toast("Erreur de chargement."); console.error(err.error); }
@@ -710,20 +742,21 @@ async function loadAll(){
   S.backups = (r[10]&&r[10].data)||[];
   S.redemptions = (r[11]&&r[11].data)||[];
   S.attachments = (r[12]&&r[12].data)||[]; /* métadonnées seulement (sans l'image) : léger */
+  S.assets = (r[13]&&r[13].data)||[];
   if(!err){ cacheSnap(); }
   applyPendingToState();
 }
 
 /* ===== RENDER ===== */
 function render(){
-  var activeTab = (["menu","catalog","stock","expenses","profit","backup","rewards","activity","security","prodreport","cash","exercice","analyse","opening","suppliers","owner","export"].indexOf(view)>=0)?"menu":view;
+  var activeTab = (["menu","catalog","stock","expenses","profit","backup","rewards","activity","security","prodreport","cash","exercice","analyse","opening","suppliers","owner","export","assets"].indexOf(view)>=0)?"menu":view;
   document.querySelectorAll(".tab").forEach(function(b){ b.classList.toggle("on", b.dataset.tab===activeTab && !currentId); });
   var root=document.getElementById("root");
   document.body.classList.toggle("role-assistant", !isAdmin());
   updateBell();
   if(currentId){ root.innerHTML=renderClient(currentId); return; }
   root.innerHTML = view==="home"?renderHome() : view==="clients"?renderClients() : view==="orders"?renderOrders()
-    : view==="menu"?renderMenu() : view==="stock"?renderStock() : view==="expenses"?renderExpenses() : view==="profit"?renderProfit() : view==="cash"?renderCash() : view==="exercice"?renderExercice() : view==="backup"?renderBackup() : view==="rewards"?renderRewards() : view==="activity"?renderActivity() : view==="notifs"?renderNotifs() : view==="security"?renderSecurity() : view==="prodreport"?renderProductReport() : view==="analyse"?renderAnalyse() : view==="opening"?renderOpening() : view==="suppliers"?renderSuppliers() : view==="owner"?renderOwner() : view==="export"?renderAccountingExport() : renderCatalog();
+    : view==="menu"?renderMenu() : view==="stock"?renderStock() : view==="expenses"?renderExpenses() : view==="profit"?renderProfit() : view==="cash"?renderCash() : view==="exercice"?renderExercice() : view==="backup"?renderBackup() : view==="rewards"?renderRewards() : view==="activity"?renderActivity() : view==="notifs"?renderNotifs() : view==="security"?renderSecurity() : view==="prodreport"?renderProductReport() : view==="analyse"?renderAnalyse() : view==="opening"?renderOpening() : view==="suppliers"?renderSuppliers() : view==="owner"?renderOwner() : view==="export"?renderAccountingExport() : view==="assets"?renderAssets() : renderCatalog();
 }
 function renderMenu(){
   var h='<div class="view-title">Gestion</div><p class="view-sub">Catalogue, stock, dépenses et bénéfice.</p><div class="clist">';
@@ -736,6 +769,7 @@ function renderMenu(){
   if(isAdmin()) h+=menuCard("cash","Caisse & Banque","Espèces, banque et transferts");
   if(isAdmin()) h+=menuCard("suppliers","Dettes fournisseurs","Ce que vous devez à vos fournisseurs");
   if(isAdmin()) h+=menuCard("owner","Apports & retraits","Argent que vous mettez ou retirez");
+  if(isAdmin()) h+=menuCard("assets","Immobilisations","Matériel, véhicule, local (amortis dans le temps)");
   if(isAdmin()) h+=menuCard("export","Export comptable","Synthèse du mois + fichier pour la comptabilité");
   if(isAdmin()) h+=menuCard("exercice","Exercice annuel","Bilan de l'année + rapport à télécharger");
   h+=menuCard("prodreport","Bilan par produit","Stock, crédit et caisse par produit");
@@ -758,7 +792,8 @@ function stockValueTotal(){
 function benefFor(period){
   function inP(d){ if(period==="all") return true; return String(d||"").slice(0,7)===today().slice(0,7); }
   function s(arr){ return arr.filter(function(x){return inP(x.date);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0); }
-  var ventes=s(S.credits), depenses=expensesCharge(period==='all'?'all':'month');
+  var pp=(period==='all'?'all':'month');
+  var ventes=s(S.credits), depenses=expensesCharge(pp)+amortCharge(pp);
   var achats=S.stock.filter(function(x){return x.kind==='entree'&&!isOpening(x)&&inP(x.date);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
   return ventes-achats-depenses;
 }
@@ -809,7 +844,8 @@ function renderHome(){
     var encPer = S.payments.filter(function(x){return inPer(x.date,per);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
     var depPer = expensesCharge(per);
     var achPer = S.stock.filter(function(x){return x.kind==='entree'&&!isOpening(x)&&inPer(x.date,per);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
-    var benefPer = caPer - achPer - depPer;
+    var amPer = amortCharge(per);
+    var benefPer = caPer - achPer - depPer - amPer;
     var lv = stockLevels();
     h+='<div class="hint" style="margin:-4px 0 8px;font-weight:700;color:var(--muted)">Afficher&nbsp;:</div>'+periodBar(per,"homeper");
     h+='<div class="home-hi">'
@@ -1455,7 +1491,8 @@ function renderProfit(){
   var encaisse=sumP(S.payments);
   var achats=S.stock.filter(function(x){return x.kind==='entree'&&!isOpening(x)&&inProfitPeriod(x.date);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
   var depenses=expensesCharge(profitPeriod==='all'?'all':'month');
-  var benef=ventes-achats-depenses;
+  var amort=amortCharge(profitPeriod==='all'?'all':'month');
+  var benef=ventes-achats-depenses-amort;
   h+='<div class="d-head" style="margin-top:4px"><div class="t" style="color:var(--gold-soft)">Bénéfice estimé</div>'
     +'<h2 style="font-size:27px;margin-top:4px">'+money(benef)+'</h2>'
     +'<div class="t" style="margin-top:6px">Ventes − Achats de marchandises − Dépenses</div></div>';
@@ -1463,6 +1500,7 @@ function renderProfit(){
     +pline("Ventes (marchandises vendues)", ventes, "var(--good)")
     +pline("Achats de marchandises (stock)", -achats, "var(--crit)")
     +pline("Dépenses de fonctionnement", -depenses, "var(--crit)")
+    +(amort>0?pline("Amortissements (usure du matériel)", -amort, "var(--crit)"):'')
     +'<div class="item"><div class="body"><div class="top"><span class="lab" style="font-weight:800">Bénéfice estimé</span><span class="amt tnum" style="color:'+(benef>=0?'var(--good)':'var(--crit)')+'">'+money(benef)+'</span></div></div></div>'
     +'</div></div>';
   h+='<div class="card"><div class="card-h"><h3>Trésorerie (argent reçu)</h3></div>'
@@ -1731,7 +1769,7 @@ function renderAnalyse(){
   months.forEach(function(m){
     var ca=monthSum(S.credits,m.key);
     var ach=monthSum(S.stock,m.key,function(x){return x.kind==='entree'&&!isOpening(x);});
-    var dep=realExpenses().reduce(function(a,x){return a+expChargeOfMonth(x,m.key);},0);
+    var dep=realExpenses().reduce(function(a,x){return a+expChargeOfMonth(x,m.key);},0)+amortOfMonth(m.key);
     caV.push(ca); benV.push(ca-ach-dep);
   });
   var evoBody=svgLine(months,[{name:'CA',color:'var(--green)',vals:caV},{name:'Bénéfice',color:'var(--gold)',vals:benV}])
@@ -1744,7 +1782,7 @@ function renderAnalyse(){
   var encP=S.payments.filter(function(x){return inPer(x.date,per);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
   var depP=expensesCharge(per);
   var achP=S.stock.filter(function(x){return x.kind==='entree'&&!isOpening(x)&&inPer(x.date,per);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
-  var benP=caP-achP-depP;
+  var benP=caP-achP-depP-amortCharge(per);
   h+='<div class="money-grid" style="margin-top:10px">'
     +'<div class="m"><div class="lab">CA · '+esc(pl)+'</div><div class="v tnum" style="color:var(--green)">'+kFmt(caP)+'</div></div>'
     +'<div class="m"><div class="lab">Bénéfice</div><div class="v tnum" style="color:'+(benP>=0?'var(--good)':'var(--crit)')+'">'+kFmt(benP)+'</div></div>'
@@ -1955,6 +1993,55 @@ async function downloadBackup(id){
   document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },500);
   toast("Sauvegarde téléchargée ✓");
 }
+/* ===== IMMOBILISATIONS & AMORTISSEMENTS ===== */
+function catLabelAsset(c){ var m={materiel:"Matériel / équipement",vehicule:"Véhicule",local:"Local / aménagement",mobilier:"Mobilier",autre:"Autre"}; return m[c]||c||"Autre"; }
+function renderAssets(){
+  var h='<button class="add-link" data-go="menu" style="margin:2px 0 12px">‹ Gestion</button>';
+  h+='<div class="view-title">Immobilisations</div><p class="view-sub">Vos biens durables (matériel, véhicule, local, mobilier). Leur coût ne passe pas en charge d\'un coup : il s\'use (s\'amortit) sur plusieurs années.</p>';
+  var tt=assetsTotals(), mkey=today().slice(0,7);
+  var monthly=(S.assets||[]).reduce(function(acc,a){ return acc + (assetMonths(a).indexOf(mkey)>=0?assetMonthlyAmort(a):0); },0);
+  h+='<div class="money-grid"><div class="m"><div class="lab">Valeur d\'achat</div><div class="v tnum">'+kFmt(tt.brut)+'</div></div>'
+    +'<div class="m"><div class="lab">Déjà amorti</div><div class="v tnum" style="color:var(--crit)">'+kFmt(tt.cumul)+'</div></div>'
+    +'<div class="m"><div class="lab">Valeur nette</div><div class="v tnum" style="color:var(--green)">'+kFmt(tt.net)+'</div></div></div>';
+  if(monthly>0) h+='<div class="hint" style="margin-top:8px">Amortissement de ce mois-ci : <b>'+money(Math.round(monthly))+'</b> (compté automatiquement dans le bénéfice).</div>';
+  h+='<button class="btn btn-green btn-block" data-addasset="1" style="margin:14px 0">+ Nouvelle immobilisation</button>';
+  var list=(S.assets||[]);
+  if(!list.length){ h+='<div class="item-empty">Aucune immobilisation enregistrée. Ajoutez votre matériel, véhicule ou local durable.</div>'; return h; }
+  h+='<div class="card"><div class="items">';
+  list.forEach(function(a){
+    var net=assetNet(a), cumul=assetAccumAmort(a), cost=Number(a.cost)||0, pct=cost>0?Math.round(cumul/cost*100):0, mth=assetMonthlyAmort(a);
+    h+='<div class="item"><div class="body"><div class="top"><span class="lab">'+esc(a.name||catLabelAsset(a.category))+'</span><span class="amt tnum">'+money(net)+'</span></div>'
+      +'<div class="sub">'+esc(catLabelAsset(a.category))+' · acheté '+fmtDate(a.date)+' · '+esc(a.years)+' an(s) · amorti '+pct+'%</div>'
+      +'<div class="sub">Coût '+money(cost)+' · '+money(Math.round(mth))+'/mois'+((a._pending)?' <span class="pill pending">⏳ en attente</span>':'')+'</div></div>'
+      +(a._pending?'':'<button class="del" data-del="assets:'+a.id+'" aria-label="Supprimer">×</button>')+'</div>';
+  });
+  h+='</div></div>';
+  h+='<div class="hint" style="margin-top:12px;line-height:1.6">L\'achat sort de votre caisse le jour de l\'acquisition. Ensuite, chaque mois, une part (coût ÷ durée) passe en « amortissement » dans le bénéfice — c\'est l\'usure du bien. La « valeur nette » est ce qu\'il vaut encore aujourd\'hui.</div>';
+  return h;
+}
+function assetForm(){
+  var cats=[["materiel","Matériel / équipement"],["vehicule","Véhicule"],["local","Local / aménagement"],["mobilier","Mobilier"],["autre","Autre"]];
+  var opts=cats.map(function(c){return '<option value="'+c[0]+'">'+c[1]+'</option>';}).join('');
+  openSheet('<h3>Nouvelle immobilisation</h3>'
+    +fld("Désignation","text","as_name","","Ex : Moto de livraison")
+    +'<div class="field"><label for="as_cat">Type</label><select id="as_cat">'+opts+'</select></div>'
+    +'<div class="field-row">'+fld("Valeur d\'achat (FG)","number","as_cost","","0")+fld("Durée (années)","number","as_years","5","5")+'</div>'
+    +fld("Date d\'achat","date","as_date",today(),"")
+    +methodField("as_method","caisse")
+    +'<div class="hint" style="margin-top:-2px">La durée = le nombre d\'années d\'utilisation prévues (ex : moto 5 ans, matériel 3 ans, local 10 ans). Le coût sera réparti dessus, mois par mois.</div>'
+    +area("Note","as_note","","")
+    +'<div class="sheet-actions"><button class="btn btn-ghost" data-cancel="1">Annuler</button><button class="btn btn-green" data-saveasset="1">Enregistrer</button></div>');
+}
+async function saveAsset(){
+  if(needsOnline()) return;
+  var cost=Number(V("as_cost"))||0; if(cost<=0){ toast("Indiquez la valeur d\'achat."); return; }
+  var yrs=Math.max(1,Math.round(Number(V("as_years"))||1));
+  var data={name:V("as_name")||null, category:V("as_cat")||"materiel", cost:cost, years:yrs, date:V("as_date")||today(), method:V("as_method")||'caisse', note:V("as_note")||null, created_by:curUid()};
+  var res=await sb.from('assets').insert(data);
+  if(res.error){ toast("Erreur : "+res.error.message); return; }
+  closeSheet(); toast("Immobilisation enregistrée ✓"); await refresh();
+}
+
 /* ===== EXPORT COMPTABLE MENSUEL ===== */
 var MOISFR=['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
 function monthLabel(key){ var p=String(key||"").split('-'); return p.length===2?(MOISFR[Number(p[1])-1]+' '+p[0]):key; }
@@ -1970,7 +2057,8 @@ function acctMonth(key){
   var payFour  = S_(S.expenses, function(x){return isSupplierPay(x)&&inM(x.date);});
   var apport   = S_(S.expenses, function(x){return x.category==='apport'&&inM(x.date);});
   var retrait  = S_(S.expenses, function(x){return x.category==='retrait'&&inM(x.date);});
-  return {ventes:ventes, encaisse:encaisse, achats:achats, achatsCr:achatsCr, charges:charges, payFour:payFour, apport:apport, retrait:retrait, benef:ventes-achats-charges};
+  var amort    = amortOfMonth(key);
+  return {ventes:ventes, encaisse:encaisse, achats:achats, achatsCr:achatsCr, charges:charges, amort:amort, payFour:payFour, apport:apport, retrait:retrait, benef:ventes-achats-charges-amort};
 }
 /* Ensemble de mois 'AAAA-MM' couverts par la sélection (mois précis, trimestre, année, ou tout) */
 function expMonthSet(){
@@ -1986,7 +2074,7 @@ function expMonthSet(){
   return [expMonth];
 }
 function acctRange(keys){
-  var tot={ventes:0,encaisse:0,achats:0,achatsCr:0,charges:0,payFour:0,apport:0,retrait:0,benef:0};
+  var tot={ventes:0,encaisse:0,achats:0,achatsCr:0,charges:0,amort:0,payFour:0,apport:0,retrait:0,benef:0};
   keys.forEach(function(k){ var a=acctMonth(k); for(var p in tot){ tot[p]+=a[p]; } });
   return tot;
 }
@@ -2015,6 +2103,7 @@ function renderAccountingExport(){
     +pline("Ventes (marchandises vendues)", a.ventes, "var(--good)")
     +pline("Achats de marchandises", -a.achats, "var(--crit)")
     +pline("Dépenses de fonctionnement", -a.charges, "var(--crit)")
+    +((a.amort>0)?pline("Amortissements (usure du matériel)", -a.amort, "var(--crit)"):'')
     +'<div class="item"><div class="body"><div class="top"><span class="lab" style="font-weight:800">Bénéfice ('+esc(expLabel())+')</span><span class="amt tnum" style="color:'+(a.benef>=0?'var(--good)':'var(--crit)')+'">'+money(a.benef)+'</span></div></div></div>'
     +'</div></div>';
   h+='<div class="card"><div class="card-h"><h3>Mouvements d\'argent — '+esc(expLabel())+'</h3></div>'
@@ -2028,6 +2117,7 @@ function renderAccountingExport(){
     +'<div class="info-row"><span class="k">Banque</span><b class="tnum"'+(tz.banque<0?' style="color:var(--crit)"':'')+'>'+money(tz.banque)+'</b></div>'
     +'<div class="info-row"><span class="k">Créances clients (ce qu\'on vous doit)</span><b class="tnum" style="color:var(--gold)">'+money(du)+'</b></div>'
     +'<div class="info-row"><span class="k">Dettes fournisseurs (ce que vous devez)</span><b class="tnum" style="color:var(--crit)">'+money(dette)+'</b></div>'
+    +'<div class="info-row"><span class="k">Immobilisations (valeur nette)</span><b class="tnum">'+money(assetsTotals().net)+'</b></div>'
     +'</div>';
   h+='<div style="margin:16px 0 4px;display:flex;flex-direction:column;gap:8px">'
     +'<button class="btn btn-green btn-block" data-exprintacc="1">📄 Imprimer / PDF (synthèse de la période)</button>'
@@ -2053,15 +2143,16 @@ function exportMonthCSV(){
   var credit=sum(S.credits,'amount')+openingDebtTotal(), du=Math.max(0,credit-sum(S.payments,'amount'));
   r.push([]);
   r.push(["RÉSUMÉ PAR MOIS — "+expLabel()]);
-  r.push(["Mois","Ventes","Achats march.","Charges","Bénéfice","Encaissé","Payé fourn.","Apports","Retraits"]);
-  keys.forEach(function(k){ var a=acctMonth(k); r.push([k,Math.round(a.ventes),Math.round(a.achats),Math.round(a.charges),Math.round(a.benef),Math.round(a.encaisse),Math.round(a.payFour),Math.round(a.apport),Math.round(a.retrait)]); });
-  r.push(["TOTAL",Math.round(tot.ventes),Math.round(tot.achats),Math.round(tot.charges),Math.round(tot.benef),Math.round(tot.encaisse),Math.round(tot.payFour),Math.round(tot.apport),Math.round(tot.retrait)]);
+  r.push(["Mois","Ventes","Achats march.","Charges","Amortissements","Bénéfice","Encaissé","Payé fourn.","Apports","Retraits"]);
+  keys.forEach(function(k){ var a=acctMonth(k); r.push([k,Math.round(a.ventes),Math.round(a.achats),Math.round(a.charges),Math.round(a.amort),Math.round(a.benef),Math.round(a.encaisse),Math.round(a.payFour),Math.round(a.apport),Math.round(a.retrait)]); });
+  r.push(["TOTAL",Math.round(tot.ventes),Math.round(tot.achats),Math.round(tot.charges),Math.round(tot.amort),Math.round(tot.benef),Math.round(tot.encaisse),Math.round(tot.payFour),Math.round(tot.apport),Math.round(tot.retrait)]);
   r.push([]);
   r.push(["SOLDES À CE JOUR"]);
   r.push(["Caisse","","","","",Math.round(tz.caisse)]);
   r.push(["Banque","","","","",Math.round(tz.banque)]);
   r.push(["Créances clients (dû par les clients)","","","","",Math.round(du)]);
   r.push(["Dettes fournisseurs (dû aux fournisseurs)","","","","",Math.round(supplierDebtTotal())]);
+  r.push(["Immobilisations (valeur nette)","","","","",Math.round(assetsTotals().net)]);
   csvDownload("bouliedou-comptable-"+expSlug()+".csv", r);
   toast("Détail — "+expLabel()+" téléchargé ✓");
 }
@@ -2087,6 +2178,7 @@ function printAccounting(){
     +row("Ventes (marchandises vendues)",a.ventes)
     +row("Achats de marchandises",-a.achats,true)
     +row("Dépenses de fonctionnement",-a.charges,true)
+    +(a.amort>0?row("Amortissements (usure du matériel)",-a.amort,true):'')
     +'<div class="r tot"><span>Bénéfice de la période</span><b'+(a.benef<0?' class="neg"':'')+'>'+money(a.benef)+'</b></div>'
     +perMois
     +'<h2>Mouvements d\'argent — '+expLabel()+'</h2>'
@@ -2095,6 +2187,7 @@ function printAccounting(){
     +'<h2>Soldes à ce jour</h2>'
     +row("Caisse (espèces)",tz.caisse)+row("Banque",tz.banque)
     +row("Créances clients (on vous doit)",du)+row("Dettes fournisseurs (vous devez)",dette,true)
+    +row("Immobilisations (valeur nette)",assetsTotals().net)
     +'<div class="foot">Enta marché, Conakry · +224 623 01 08 18 · contact@bouliedou.com · www.bouliedou.com<br>Document de gestion interne, établi à partir des opérations enregistrées dans l\'application.</div>'
     +'<div class="bar"><button class="print" onclick="window.print()">Imprimer / Enregistrer en PDF</button><button class="close" onclick="window.close()">Fermer</button></div>'
     +'</body></html>';
@@ -2734,7 +2827,7 @@ function orderSheet(id){
 
 /* ===== EVENTS ===== */
 document.addEventListener("click",function(e){
-  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin],[data-go],[data-addstock],[data-savestock],[data-receivestock],[data-achemine],[data-saveachemine],[data-triage],[data-savetriage],[data-addexp],[data-saveexp],[data-profper],[data-homeper],[data-anaper],[data-wa],[data-receiptpay],[data-wareceipt],[data-export],[data-addrule],[data-editrule],[data-saverule],[data-delrule],[data-pdfreceipt],[data-actfilter],[data-dlbackup],[data-bio],[data-push],[data-cashper],[data-cashxfer],[data-savecashxfer],[data-exyear],[data-exprint],[data-cloture],[data-giftgiven],[data-savegift],[data-resetclient],[data-editcredit],[data-saveeditcredit],[data-saveopening],[data-ordersale],[data-repeatexp],[data-supplierpay],[data-savesupplierpay],[data-ownermove],[data-saveownermove],[data-expmonth],[data-exportmonth],[data-exprintacc],[data-attach],[data-viewattach],[data-delattach]");
+  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin],[data-go],[data-addstock],[data-savestock],[data-receivestock],[data-achemine],[data-saveachemine],[data-triage],[data-savetriage],[data-addexp],[data-saveexp],[data-profper],[data-homeper],[data-anaper],[data-wa],[data-receiptpay],[data-wareceipt],[data-export],[data-addrule],[data-editrule],[data-saverule],[data-delrule],[data-pdfreceipt],[data-actfilter],[data-dlbackup],[data-bio],[data-push],[data-cashper],[data-cashxfer],[data-savecashxfer],[data-exyear],[data-exprint],[data-cloture],[data-giftgiven],[data-savegift],[data-resetclient],[data-editcredit],[data-saveeditcredit],[data-saveopening],[data-ordersale],[data-repeatexp],[data-supplierpay],[data-savesupplierpay],[data-ownermove],[data-saveownermove],[data-expmonth],[data-exportmonth],[data-exprintacc],[data-attach],[data-viewattach],[data-delattach],[data-addasset],[data-saveasset]");
   if(!el) return; var d=el.dataset;
   if((d.del!==undefined||d.delclient!==undefined||d.delprod!==undefined||d.delcat!==undefined||d.delrule!==undefined)&&!isAdmin()){ toast("Suppression réservée au gérant principal."); return; }
   if(d.bio!==undefined){ toggleBio(); }
@@ -2796,6 +2889,8 @@ document.addEventListener("click",function(e){
   else if(d.attach!==undefined){ var pa=d.attach.split(':'); attachPhoto(pa[0], pa.slice(1).join(':')); }
   else if(d.viewattach!==undefined){ var pv=d.viewattach.split(':'); viewAttachments(pv[0], pv.slice(1).join(':')); }
   else if(d.delattach!==undefined){ delAttachment(d.delattach); }
+  else if(d.addasset!==undefined){ assetForm(); }
+  else if(d.saveasset!==undefined){ saveAsset(); }
   else if(d.addprod!==undefined){ prodForm(null); }
   else if(d.editprod!==undefined){ prodForm(S.products.find(function(x){return x.id===d.editprod;})); }
   else if(d.cancel!==undefined){ closeSheet(); }
