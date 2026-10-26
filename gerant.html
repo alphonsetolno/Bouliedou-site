@@ -574,8 +574,32 @@ function openingDebtTotal(){ return S.clients.reduce(function(a,c){ return a+cli
 function totals(id){ var sales=sum(by(S.credits,id),'amount'), p=sum(by(S.payments,id),'amount'); var cl=S.clients.find(function(x){return x.id===id;}); var op=clientOpening(cl); var credit=op+sales; return {credit:credit,paye:p,du:Math.max(0,credit-p),opening:op,sales:sales}; }
 /* --- dépenses réelles vs mouvements caisse↔banque --- */
 function isCashMove(x){ return x && x.category==='mouvement_cb'; }
-function realExpenses(){ return S.expenses.filter(function(x){ return !isCashMove(x); }); }
+/* Paiement à un fournisseur (règle une dette) — sortie de caisse, mais PAS une charge d'exploitation */
+function isSupplierPay(x){ return x && x.category==='paiement_fournisseur'; }
+/* Apport (argent du propriétaire vers l'entreprise) / Retrait (de l'entreprise vers le propriétaire) */
+function isOwnerMove(x){ return x && (x.category==='apport'||x.category==='retrait'); }
+/* Les « dépenses » (charges) excluent les transferts caisse↔banque, les paiements fournisseurs et les apports/retraits */
+function realExpenses(){ return S.expenses.filter(function(x){ return !isCashMove(x) && !isSupplierPay(x) && !isOwnerMove(x); }); }
 function cashMoves(){ return S.expenses.filter(isCashMove); }
+/* --- Dettes fournisseurs : achats à crédit (paid=false) moins paiements fournisseurs --- */
+function supplierDebtTotal(){
+  var buys=S.stock.filter(function(x){return x.kind==='entree' && x.paid===false;}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
+  var pays=S.expenses.filter(isSupplierPay).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
+  return Math.max(0, buys-pays);
+}
+function supplierLedger(){
+  var m={};
+  function ens(n){ n=(n&&String(n).trim())||'Fournisseur'; if(!m[n]) m[n]={name:n,buys:0,pays:0}; return m[n]; }
+  S.stock.forEach(function(x){ if(x.kind==='entree' && x.paid===false){ ens(x.supplier).buys+=Number(x.amount)||0; } });
+  S.expenses.forEach(function(x){ if(isSupplierPay(x)){ ens(x.label).pays+=Number(x.amount)||0; } });
+  return m;
+}
+/* --- Apports / retraits du propriétaire : net injecté dans l'entreprise --- */
+function ownerTotals(){
+  var apport=0, retrait=0;
+  S.expenses.forEach(function(x){ var a=Number(x.amount)||0; if(x.category==='apport') apport+=a; else if(x.category==='retrait') retrait+=a; });
+  return {apport:apport, retrait:retrait, net:apport-retrait};
+}
 /* --- Charges étalées : une dépense « payée d'avance » (prepaid_months = N) couvre N mois.
    La SORTIE DE CAISSE reste au jour du paiement (trésorerie inchangée), mais le COÛT
    est réparti sur les mois couverts, pour un bénéfice mensuel juste. --- */
@@ -611,16 +635,23 @@ function expChargeOfMonth(x, key){ var ms=expMonths(x); return ms.indexOf(key)>=
 function payMethod(x){ return (x&&x.method==='banque')?'banque':'caisse'; }
 function treasury(per){
   function inp(d){ return (per==='all'||!per)?true:inPer(d,per); }
-  var t={ckIn:0,bkIn:0,ckOutDep:0,bkOutDep:0,ckOutAch:0,bkOutAch:0,ck2bk:0,bk2ck:0};
+  var t={ckIn:0,bkIn:0,ckOutDep:0,bkOutDep:0,ckOutAch:0,bkOutAch:0,ck2bk:0,bk2ck:0,ckOutFour:0,bkOutFour:0,ckInOwner:0,bkInOwner:0,ckOutOwner:0,bkOutOwner:0};
   S.payments.forEach(function(x){ if(!inp(x.date))return; var a=Number(x.amount)||0; if(payMethod(x)==='banque') t.bkIn+=a; else t.ckIn+=a; });
   realExpenses().forEach(function(x){ if(!inp(x.date))return; var a=Number(x.amount)||0; if(payMethod(x)==='banque') t.bkOutDep+=a; else t.ckOutDep+=a; });
-  S.stock.forEach(function(x){ if(x.kind!=='entree'||isOpening(x)||!inp(x.date))return; var a=Number(x.amount)||0; if(payMethod(x)==='banque') t.bkOutAch+=a; else t.ckOutAch+=a; });
+  /* achats réglés comptant seulement (un achat à crédit ne sort pas de caisse tant qu'il n'est pas payé) */
+  S.stock.forEach(function(x){ if(x.kind!=='entree'||isOpening(x)||x.paid===false||!inp(x.date))return; var a=Number(x.amount)||0; if(payMethod(x)==='banque') t.bkOutAch+=a; else t.ckOutAch+=a; });
   cashMoves().forEach(function(x){ if(!inp(x.date))return; var a=Number(x.amount)||0; if(payMethod(x)==='caisse') t.ck2bk+=a; else t.bk2ck+=a; });
-  t.caisse = t.ckIn - t.ckOutDep - t.ckOutAch - t.ck2bk + t.bk2ck;
-  t.banque = t.bkIn - t.bkOutDep - t.bkOutAch - t.bk2ck + t.ck2bk;
+  /* paiements fournisseurs + apports/retraits du propriétaire */
+  S.expenses.forEach(function(x){ if(!inp(x.date))return; var a=Number(x.amount)||0;
+    if(isSupplierPay(x)){ if(payMethod(x)==='banque') t.bkOutFour+=a; else t.ckOutFour+=a; }
+    else if(x.category==='apport'){ if(payMethod(x)==='banque') t.bkInOwner+=a; else t.ckInOwner+=a; }
+    else if(x.category==='retrait'){ if(payMethod(x)==='banque') t.bkOutOwner+=a; else t.ckOutOwner+=a; }
+  });
+  t.caisse = t.ckIn - t.ckOutDep - t.ckOutAch - t.ckOutFour - t.ck2bk + t.bk2ck + t.ckInOwner - t.ckOutOwner;
+  t.banque = t.bkIn - t.bkOutDep - t.bkOutAch - t.bkOutFour - t.bk2ck + t.ck2bk + t.bkInOwner - t.bkOutOwner;
   t.total  = t.caisse + t.banque;
-  t.inflow = t.ckIn + t.bkIn;
-  t.outflow= t.ckOutDep + t.bkOutDep + t.ckOutAch + t.bkOutAch;
+  t.inflow = t.ckIn + t.bkIn + t.ckInOwner + t.bkInOwner;
+  t.outflow= t.ckOutDep + t.bkOutDep + t.ckOutAch + t.bkOutAch + t.ckOutFour + t.bkOutFour + t.ckOutOwner + t.bkOutOwner;
   t.net    = t.inflow - t.outflow;
   return t;
 }
@@ -683,14 +714,14 @@ async function loadAll(){
 
 /* ===== RENDER ===== */
 function render(){
-  var activeTab = (["menu","catalog","stock","expenses","profit","backup","rewards","activity","security","prodreport","cash","exercice","analyse","opening"].indexOf(view)>=0)?"menu":view;
+  var activeTab = (["menu","catalog","stock","expenses","profit","backup","rewards","activity","security","prodreport","cash","exercice","analyse","opening","suppliers","owner"].indexOf(view)>=0)?"menu":view;
   document.querySelectorAll(".tab").forEach(function(b){ b.classList.toggle("on", b.dataset.tab===activeTab && !currentId); });
   var root=document.getElementById("root");
   document.body.classList.toggle("role-assistant", !isAdmin());
   updateBell();
   if(currentId){ root.innerHTML=renderClient(currentId); return; }
   root.innerHTML = view==="home"?renderHome() : view==="clients"?renderClients() : view==="orders"?renderOrders()
-    : view==="menu"?renderMenu() : view==="stock"?renderStock() : view==="expenses"?renderExpenses() : view==="profit"?renderProfit() : view==="cash"?renderCash() : view==="exercice"?renderExercice() : view==="backup"?renderBackup() : view==="rewards"?renderRewards() : view==="activity"?renderActivity() : view==="notifs"?renderNotifs() : view==="security"?renderSecurity() : view==="prodreport"?renderProductReport() : view==="analyse"?renderAnalyse() : view==="opening"?renderOpening() : renderCatalog();
+    : view==="menu"?renderMenu() : view==="stock"?renderStock() : view==="expenses"?renderExpenses() : view==="profit"?renderProfit() : view==="cash"?renderCash() : view==="exercice"?renderExercice() : view==="backup"?renderBackup() : view==="rewards"?renderRewards() : view==="activity"?renderActivity() : view==="notifs"?renderNotifs() : view==="security"?renderSecurity() : view==="prodreport"?renderProductReport() : view==="analyse"?renderAnalyse() : view==="opening"?renderOpening() : view==="suppliers"?renderSuppliers() : view==="owner"?renderOwner() : renderCatalog();
 }
 function renderMenu(){
   var h='<div class="view-title">Gestion</div><p class="view-sub">Catalogue, stock, dépenses et bénéfice.</p><div class="clist">';
@@ -701,6 +732,8 @@ function renderMenu(){
   h+=menuCard("profit","Bénéfice","Résultat : ventes − achats − dépenses");
   if(isAdmin()) h+=menuCard("analyse","Analyse","Graphiques : ventes, clients, dépenses, stock");
   if(isAdmin()) h+=menuCard("cash","Caisse & Banque","Espèces, banque et transferts");
+  if(isAdmin()) h+=menuCard("suppliers","Dettes fournisseurs","Ce que vous devez à vos fournisseurs");
+  if(isAdmin()) h+=menuCard("owner","Apports & retraits","Argent que vous mettez ou retirez");
   if(isAdmin()) h+=menuCard("exercice","Exercice annuel","Bilan de l'année + rapport à télécharger");
   h+=menuCard("prodreport","Bilan par produit","Stock, crédit et caisse par produit");
   h+=menuCard("rewards","Récompenses","Cadeaux de fidélité par produit");
@@ -1072,7 +1105,7 @@ function renderStock(){
     else tag=isRoute?'<span class="pill nouvelle">en route</span>':'<span class="pill livrée">entrée · Conakry</span>';
     if(x._pending) tag+=' <span class="pill pending">⏳ en attente</span>';
     h+='<div class="item"><div class="body"><div class="top"><span class="lab">'+esc(x.label||"—")+'</span>'+((x.kind==='entree'&&x.amount)?'<span class="amt tnum">'+money(x.amount)+'</span>':'')+'</div>'
-      +'<div class="sub">'+tag+' '+mvKg(x)+' · '+fmtDate(x.date)+(x.supplier?(' · '+esc(x.supplier)):'')+'</div>'
+      +'<div class="sub">'+tag+' '+mvKg(x)+' · '+fmtDate(x.date)+(x.supplier?(' · '+esc(x.supplier)):'')+((x.kind==='entree'&&x.paid===false)?' · <span style="color:var(--gold)">à crédit</span>':'')+'</div>'
       +((isRoute&&!x._pending)?'<div style="margin-top:8px"><button class="btn btn-ghost" data-achemine="'+esc(x.product_id||'')+'" style="padding:7px 12px;font-size:12.5px">→ Acheminer vers Conakry</button></div>':'')+'</div>'
       +(x._pending?'':'<button class="del" data-del="stock_entries:'+x.id+'" aria-label="Supprimer">×</button>')+'</div>';
   }); h+='</div></div>'; }
@@ -1093,6 +1126,7 @@ function stockForm(kind){
     h+=fld("Coût total (FG)","number","s_amount","","0");
     h+='<div class="hint" id="s_preview" style="margin:-4px 0 12px"></div>';
     h+=fld("Fournisseur","text","s_supplier","","(facultatif)");
+    h+='<div class="field"><label for="s_paid">Règlement</label><select id="s_paid"><option value="paye">Payé comptant (sort de la caisse / banque)</option><option value="credit">À crédit — je paierai le fournisseur plus tard</option></select></div>';
     h+=methodField("s_method","caisse");
   }
   h+=fld("Date","date","s_date",today(),"");
@@ -1130,7 +1164,7 @@ async function saveStock(kind){
   var qty=numOrNull("s_qty"); if(!qty||qty<=0){ toast("Indiquez la quantité."); return; }
   var data={kind:kind, product_id:pid, label:V("s_label")||(p?p.name:(kind==='entree'?"Entrée":"Sortie")), qty:qty, unit:c?c.order_unit:null, date:V("s_date")||today()};
   var contFor;
-  if(kind==='entree'){ data.amount=Number(V("s_amount"))||0; data.supplier=V("s_supplier")||null; data.content_per_unit=numOrNull("s_content"); data.unit_price=numOrNull("s_price"); data.location=V("s_location")||'conakry'; data.method=V("s_method")||'caisse'; contFor=data.content_per_unit||(p&&p.content_per_unit)||1; }
+  if(kind==='entree'){ data.amount=Number(V("s_amount"))||0; data.supplier=V("s_supplier")||null; data.content_per_unit=numOrNull("s_content"); data.unit_price=numOrNull("s_price"); data.location=V("s_location")||'conakry'; data.method=V("s_method")||'caisse'; if(V("s_paid")==='credit') data.paid=false; contFor=data.content_per_unit||(p&&p.content_per_unit)||1; }
   else { contFor=(p&&p.content_per_unit)||(c&&c.content_per_unit)||1; }
   data.qty_kg=Math.round(qty*contFor*1000)/1000;
   var r=await saveOp({type:'stock', table:'stock_entries', payload:data});
@@ -1218,7 +1252,82 @@ async function saveTriage(){
 }
 
 /* ===== DÉPENSES ===== */
-function catLabel(c){ var m={salaire:"Salaire",transport:"Transport",electricite:"Électricité",loyer:"Loyer",communication:"Communication",walike:"Walikè",gardiennage:"Gardiennage",recompense_client:"Récompenses aux clients",assurance:"Assurance",cadeau_equipe:"Cadeaux à l'équipe",autre:"Autre"}; return m[c]||c||"Autre"; }
+function catLabel(c){ var m={salaire:"Salaire",transport:"Transport",electricite:"Électricité",loyer:"Loyer",communication:"Communication",walike:"Walikè",gardiennage:"Gardiennage",recompense_client:"Récompenses aux clients",assurance:"Assurance",cadeau_equipe:"Cadeaux à l'équipe",autre:"Autre",paiement_fournisseur:"Paiement fournisseur",apport:"Apport du propriétaire",retrait:"Retrait du propriétaire"}; return m[c]||c||"Autre"; }
+
+/* ===== DETTES FOURNISSEURS ===== */
+function renderSuppliers(){
+  var h='<button class="add-link" data-go="menu" style="margin:2px 0 12px">‹ Gestion</button>';
+  h+='<div class="view-title">Dettes fournisseurs</div><p class="view-sub">Ce que vous devez à vos fournisseurs. Un achat marqué « à crédit » (dans Stock) crée une dette ; enregistrez ici vos paiements.</p>';
+  var dette=supplierDebtTotal();
+  var led=supplierLedger();
+  var names=Object.keys(led);
+  h+='<div class="kpis"><div class="kpi"><div class="lab"><i style="background:var(--crit)"></i>Dette totale</div><div class="val sm tnum" style="color:var(--crit)">'+money(dette)+'</div></div>'
+    +'<div class="kpi"><div class="lab"><i style="background:var(--muted)"></i>Fournisseurs concernés</div><div class="val sm tnum">'+names.filter(function(n){return Math.max(0,led[n].buys-led[n].pays)>0;}).length+'</div></div></div>';
+  h+='<button class="btn btn-green btn-block" data-supplierpay="1" style="margin:14px 0">+ Enregistrer un paiement fournisseur</button>';
+  if(!names.length){ h+='<div class="item-empty">Aucune dette. Les achats marqués « à crédit » apparaîtront ici.</div>'; return h; }
+  h+='<div class="card"><div class="card-h"><h3>Par fournisseur</h3></div><div class="items">';
+  names.sort(function(a,b){return (led[b].buys-led[b].pays)-(led[a].buys-led[a].pays);}).forEach(function(n){
+    var r=led[n], reste=Math.max(0, r.buys-r.pays);
+    h+='<div class="item"><div class="body"><div class="top"><span class="lab">'+esc(n)+'</span><span class="amt tnum" style="color:'+(reste>0?'var(--crit)':'var(--good)')+'">'+(reste>0?money(reste):'à jour ✓')+'</span></div>'
+      +'<div class="sub">Achats à crédit : '+money(r.buys)+' · Payé : '+money(r.pays)+'</div></div></div>';
+  });
+  h+='</div></div>';
+  h+='<div class="hint" style="margin-top:12px;line-height:1.6">Un achat « à crédit » ne sort pas de votre caisse au moment de l\'achat. L\'argent sort le jour où vous enregistrez le paiement du fournisseur.</div>';
+  return h;
+}
+function supplierPayForm(){
+  var names={}; S.stock.forEach(function(x){ if(x.kind==='entree'&&x.supplier) names[String(x.supplier).trim()]=1; });
+  var list=Object.keys(names);
+  openSheet('<h3>Paiement fournisseur</h3>'
+    +'<div class="field"><label for="sp_name">Fournisseur</label><input id="sp_name" list="sp_names" placeholder="Nom du fournisseur"><datalist id="sp_names">'+list.map(function(n){return '<option value="'+esc(n)+'">';}).join('')+'</datalist></div>'
+    +'<div class="field-row">'+fld("Montant payé (FG)","number","sp_amount","","0")+fld("Date","date","sp_date",today(),"")+'</div>'
+    +methodField("sp_method","caisse")
+    +area("Note","sp_note","","")
+    +'<div class="sheet-actions"><button class="btn btn-ghost" data-cancel="1">Annuler</button><button class="btn btn-green" data-savesupplierpay="1">Enregistrer</button></div>');
+}
+async function saveSupplierPay(){
+  var amt=Number(V("sp_amount"))||0; if(amt<=0){ toast("Indiquez un montant."); return; }
+  var name=(V("sp_name")||"").trim()||"Fournisseur";
+  var data={category:'paiement_fournisseur', label:name, amount:amt, date:V("sp_date")||today(), note:V("sp_note")||null, method:V("sp_method")||'caisse'};
+  var r=await saveOp({type:'expense', table:'expenses', payload:data});
+  finishEntry(r);
+}
+
+/* ===== APPORTS & RETRAITS DU PROPRIÉTAIRE ===== */
+function renderOwner(){
+  var h='<button class="add-link" data-go="menu" style="margin:2px 0 12px">‹ Gestion</button>';
+  h+='<div class="view-title">Apports &amp; retraits</div><p class="view-sub">L\'argent que vous (le propriétaire) mettez dans l\'entreprise ou en retirez. Ce ne sont ni des ventes ni des dépenses : ça ajuste seulement la caisse.</p>';
+  var o=ownerTotals();
+  h+='<div class="money-grid"><div class="m"><div class="lab">Apports</div><div class="v tnum" style="color:var(--good)">'+kFmt(o.apport)+'</div></div>'
+    +'<div class="m"><div class="lab">Retraits</div><div class="v tnum" style="color:var(--crit)">'+kFmt(o.retrait)+'</div></div>'
+    +'<div class="m"><div class="lab">Net investi</div><div class="v tnum">'+kFmt(o.net)+'</div></div></div>';
+  h+='<div class="d-actions" style="margin:14px 0"><button class="btn btn-green" data-ownermove="apport">+ Apport (j\'ajoute)</button><button class="btn btn-gold" data-ownermove="retrait">− Retrait (je retire)</button></div>';
+  var mv=S.expenses.filter(isOwnerMove).slice().sort(function(a,b){return String(b.date||"").localeCompare(String(a.date||""));});
+  if(!mv.length){ h+='<div class="item-empty">Aucun apport ni retrait enregistré.</div>'; return h; }
+  h+='<div class="card"><div class="items">';
+  mv.forEach(function(x){ var isAp=x.category==='apport';
+    h+='<div class="item"><div class="body"><div class="top"><span class="lab">'+(isAp?'Apport':'Retrait')+(x.note?(' — '+esc(x.note)):'')+'</span><span class="amt tnum" style="color:'+(isAp?'var(--good)':'var(--crit)')+'">'+(isAp?'+':'−')+money(x.amount)+'</span></div>'
+      +'<div class="sub">'+(payMethod(x)==='banque'?'Banque':'Caisse')+' · '+fmtDate(x.date)+'</div></div>'
+      +(x._pending?'':'<button class="del" data-del="expenses:'+x.id+'" aria-label="Supprimer">×</button>')+'</div>';
+  });
+  h+='</div></div>';
+  return h;
+}
+function ownerMoveForm(kind){
+  var ap=kind==='apport';
+  openSheet('<h3>'+(ap?"Apport — j'ajoute de l'argent":"Retrait — je retire de l'argent")+'</h3>'
+    +'<div class="hint" style="margin-bottom:6px">'+(ap?"Argent que vous injectez dans l'entreprise (la caisse augmente).":"Argent que vous sortez de l'entreprise pour vous (la caisse diminue).")+'</div>'
+    +'<div class="field-row">'+fld("Montant (FG)","number","ow_amount","","0")+fld("Date","date","ow_date",today(),"")+'</div>'
+    +methodField("ow_method","caisse")
+    +area("Note (motif)","ow_note","","")
+    +'<div class="sheet-actions"><button class="btn btn-ghost" data-cancel="1">Annuler</button><button class="btn '+(ap?'btn-green':'btn-gold')+'" data-saveownermove="'+kind+'">Enregistrer</button></div>');
+}
+async function saveOwnerMove(kind){
+  var amt=Number(V("ow_amount"))||0; if(amt<=0){ toast("Indiquez un montant."); return; }
+  var data={category:(kind==='retrait'?'retrait':'apport'), label:(kind==='retrait'?'Retrait propriétaire':'Apport propriétaire'), amount:amt, date:V("ow_date")||today(), note:V("ow_note")||null, method:V("ow_method")||'caisse'};
+  var r=await saveOp({type:'expense', table:'expenses', payload:data});
+  finishEntry(r);
+}
 function renderExpenses(){
   var h='<button class="add-link" data-go="menu" style="margin:2px 0 12px">‹ Gestion</button>';
   h+='<div class="view-title">Dépenses</div><p class="view-sub">Dépenses de fonctionnement.</p>';
@@ -2418,7 +2527,7 @@ function orderSheet(id){
 
 /* ===== EVENTS ===== */
 document.addEventListener("click",function(e){
-  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin],[data-go],[data-addstock],[data-savestock],[data-receivestock],[data-achemine],[data-saveachemine],[data-triage],[data-savetriage],[data-addexp],[data-saveexp],[data-profper],[data-homeper],[data-anaper],[data-wa],[data-receiptpay],[data-wareceipt],[data-export],[data-addrule],[data-editrule],[data-saverule],[data-delrule],[data-pdfreceipt],[data-actfilter],[data-dlbackup],[data-bio],[data-push],[data-cashper],[data-cashxfer],[data-savecashxfer],[data-exyear],[data-exprint],[data-cloture],[data-giftgiven],[data-savegift],[data-resetclient],[data-editcredit],[data-saveeditcredit],[data-saveopening],[data-ordersale],[data-repeatexp]");
+  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin],[data-go],[data-addstock],[data-savestock],[data-receivestock],[data-achemine],[data-saveachemine],[data-triage],[data-savetriage],[data-addexp],[data-saveexp],[data-profper],[data-homeper],[data-anaper],[data-wa],[data-receiptpay],[data-wareceipt],[data-export],[data-addrule],[data-editrule],[data-saverule],[data-delrule],[data-pdfreceipt],[data-actfilter],[data-dlbackup],[data-bio],[data-push],[data-cashper],[data-cashxfer],[data-savecashxfer],[data-exyear],[data-exprint],[data-cloture],[data-giftgiven],[data-savegift],[data-resetclient],[data-editcredit],[data-saveeditcredit],[data-saveopening],[data-ordersale],[data-repeatexp],[data-supplierpay],[data-savesupplierpay],[data-ownermove],[data-saveownermove]");
   if(!el) return; var d=el.dataset;
   if((d.del!==undefined||d.delclient!==undefined||d.delprod!==undefined||d.delcat!==undefined||d.delrule!==undefined)&&!isAdmin()){ toast("Suppression réservée au gérant principal."); return; }
   if(d.bio!==undefined){ toggleBio(); }
@@ -2470,6 +2579,10 @@ document.addEventListener("click",function(e){
   else if(d.ordersale!==undefined){ orderToSaleSheet(d.ordersale); }
   else if(d.saveopening!==undefined){ saveOpening(); }
   else if(d.repeatexp!==undefined){ repeatExpense(d.repeatexp); }
+  else if(d.supplierpay!==undefined){ supplierPayForm(); }
+  else if(d.savesupplierpay!==undefined){ saveSupplierPay(); }
+  else if(d.ownermove!==undefined){ ownerMoveForm(d.ownermove); }
+  else if(d.saveownermove!==undefined){ saveOwnerMove(d.saveownermove); }
   else if(d.addprod!==undefined){ prodForm(null); }
   else if(d.editprod!==undefined){ prodForm(S.products.find(function(x){return x.id===d.editprod;})); }
   else if(d.cancel!==undefined){ closeSheet(); }
