@@ -1912,21 +1912,52 @@ function acctMonth(key){
   var retrait  = S_(S.expenses, function(x){return x.category==='retrait'&&inM(x.date);});
   return {ventes:ventes, encaisse:encaisse, achats:achats, achatsCr:achatsCr, charges:charges, payFour:payFour, apport:apport, retrait:retrait, benef:ventes-achats-charges};
 }
+/* Ensemble de mois 'AAAA-MM' couverts par la sélection (mois précis, trimestre, année, ou tout) */
+function expMonthSet(){
+  var t=today(), y=t.slice(0,4), m=Number(t.slice(5,7));
+  if(expMonth==='all'){
+    var set={}; function add(d){ var k=String(d||'').slice(0,7); if(k.length===7) set[k]=1; }
+    S.credits.forEach(function(x){add(x.date);}); S.payments.forEach(function(x){add(x.date);});
+    S.stock.forEach(function(x){add(x.date);}); S.expenses.forEach(function(x){add(x.date);});
+    var ks=Object.keys(set).sort(); return ks.length?ks:[t.slice(0,7)];
+  }
+  if(expMonth==='year'){ var o=[]; for(var i=1;i<=m;i++) o.push(y+'-'+String(i).padStart(2,'0')); return o; }
+  if(expMonth==='quarter'){ var q0=Math.floor((m-1)/3)*3+1, o2=[]; for(var j=q0;j<=m;j++) o2.push(y+'-'+String(j).padStart(2,'0')); return o2; }
+  return [expMonth];
+}
+function acctRange(keys){
+  var tot={ventes:0,encaisse:0,achats:0,achatsCr:0,charges:0,payFour:0,apport:0,retrait:0,benef:0};
+  keys.forEach(function(k){ var a=acctMonth(k); for(var p in tot){ tot[p]+=a[p]; } });
+  return tot;
+}
+function expLabel(){
+  if(expMonth==='all') return "tout l'historique";
+  if(expMonth==='year') return "année "+today().slice(0,4);
+  if(expMonth==='quarter') return "trimestre en cours";
+  return monthLabel(expMonth);
+}
+function expSlug(){ if(expMonth==='all')return 'tout'; if(expMonth==='year')return today().slice(0,4); if(expMonth==='quarter')return today().slice(0,4)+'-T'+(Math.floor((Number(today().slice(5,7))-1)/3)+1); return expMonth; }
 function renderAccountingExport(){
   if(!expMonth) expMonth=today().slice(0,7);
   var h='<button class="add-link" data-go="menu" style="margin:2px 0 12px">‹ Gestion</button>';
-  h+='<div class="view-title">Export comptable</div><p class="view-sub">La synthèse du mois (compte de résultat + soldes), à imprimer, et le détail à télécharger puis à me transmettre pour préparer vos états.</p>';
+  h+='<div class="view-title">Export comptable</div><p class="view-sub">La synthèse d\'une période (compte de résultat + soldes), à imprimer, et le détail à télécharger puis à me transmettre pour préparer vos états.</p>';
+  h+='<div class="hint" style="margin:-4px 0 6px;font-weight:700;color:var(--muted)">Période groupée&nbsp;:</div>';
+  h+='<div class="perbar" style="margin-bottom:6px">'
+    +'<button class="perchip'+(expMonth==='quarter'?' on':'')+'" data-expmonth="quarter">Trimestre</button>'
+    +'<button class="perchip'+(expMonth==='year'?' on':'')+'" data-expmonth="year">Année</button>'
+    +'<button class="perchip'+(expMonth==='all'?' on':'')+'" data-expmonth="all">Tout</button></div>';
+  h+='<div class="hint" style="margin:6px 0 6px;font-weight:700;color:var(--muted)">… ou un mois précis&nbsp;:</div>';
   h+='<div class="perbar">'+recentMonths(6).map(function(k){return '<button class="perchip'+(k===expMonth?' on':'')+'" data-expmonth="'+k+'">'+esc(monthLabel(k))+'</button>';}).join('')+'</div>';
-  var a=acctMonth(expMonth);
+  var keys=expMonthSet(), a=acctRange(keys);
   var credit=sum(S.credits,'amount')+openingDebtTotal(), paye=sum(S.payments,'amount'), du=Math.max(0,credit-paye);
   var tz=treasury('all'), dette=supplierDebtTotal();
-  h+='<div class="card"><div class="card-h"><h3>Compte de résultat — '+esc(monthLabel(expMonth))+'</h3></div><div class="items">'
+  h+='<div class="card"><div class="card-h"><h3>Compte de résultat — '+esc(expLabel())+'</h3></div><div class="items">'
     +pline("Ventes (marchandises vendues)", a.ventes, "var(--good)")
     +pline("Achats de marchandises", -a.achats, "var(--crit)")
     +pline("Dépenses de fonctionnement", -a.charges, "var(--crit)")
-    +'<div class="item"><div class="body"><div class="top"><span class="lab" style="font-weight:800">Bénéfice du mois</span><span class="amt tnum" style="color:'+(a.benef>=0?'var(--good)':'var(--crit)')+'">'+money(a.benef)+'</span></div></div></div>'
+    +'<div class="item"><div class="body"><div class="top"><span class="lab" style="font-weight:800">Bénéfice ('+esc(expLabel())+')</span><span class="amt tnum" style="color:'+(a.benef>=0?'var(--good)':'var(--crit)')+'">'+money(a.benef)+'</span></div></div></div>'
     +'</div></div>';
-  h+='<div class="card"><div class="card-h"><h3>Mouvements d\'argent du mois</h3></div>'
+  h+='<div class="card"><div class="card-h"><h3>Mouvements d\'argent — '+esc(expLabel())+'</h3></div>'
     +'<div class="info-row"><span class="k">Encaissé des clients</span><b class="tnum" style="color:var(--good)">'+money(a.encaisse)+'</b></div>'
     +'<div class="info-row"><span class="k">Payé aux fournisseurs</span><b class="tnum" style="color:var(--crit)">'+money(a.payFour)+'</b></div>'
     +(a.apport>0?'<div class="info-row"><span class="k">Apports du propriétaire</span><b class="tnum" style="color:var(--good)">'+money(a.apport)+'</b></div>':'')
@@ -1939,62 +1970,66 @@ function renderAccountingExport(){
     +'<div class="info-row"><span class="k">Dettes fournisseurs (ce que vous devez)</span><b class="tnum" style="color:var(--crit)">'+money(dette)+'</b></div>'
     +'</div>';
   h+='<div style="margin:16px 0 4px;display:flex;flex-direction:column;gap:8px">'
-    +'<button class="btn btn-green btn-block" data-exprintacc="1">📄 Imprimer / PDF (synthèse du mois)</button>'
+    +'<button class="btn btn-green btn-block" data-exprintacc="1">📄 Imprimer / PDF (synthèse de la période)</button>'
     +'<button class="btn btn-gold btn-block" data-exportmonth="1">⬇️ Télécharger le détail (CSV) à m\'envoyer</button></div>';
-  h+='<div class="hint" style="margin-top:10px;line-height:1.6">« Soldes à ce jour » = situation actuelle (caisse, banque, créances, dettes). Le compte de résultat et les mouvements concernent le mois choisi. Envoyez-moi le fichier CSV et je vous prépare le compte de résultat et le bilan.</div>';
+  h+='<div class="hint" style="margin-top:10px;line-height:1.6">« Soldes à ce jour » = situation actuelle (caisse, banque, créances, dettes). Le compte de résultat et les mouvements concernent la période choisie (mois, trimestre, année ou tout). Envoyez-moi le fichier CSV et je vous prépare le compte de résultat et le bilan.</div>';
   return h;
 }
 function exportMonthCSV(){
-  var key=expMonth||today().slice(0,7);
-  function inM(d){ return String(d||"").slice(0,7)===key; }
-  var r=[["Type","Date","Tiers","Catégorie","Désignation","Montant (FG)","Règlement","Info"]];
-  S.credits.forEach(function(x){ if(inM(x.date)) r.push(["Vente à crédit",x.date,clientName(x.client_id),"",x.label,Math.round(Number(x.amount)||0),"",(x.content_qty!=null?(x.content_qty+" "+(x.sale_unit||"")):"")]); });
-  S.payments.forEach(function(x){ if(inM(x.date)) r.push(["Encaissement client",x.date,clientName(x.client_id),"",x.note||"Paiement",Math.round(Number(x.amount)||0),payMethod(x),""]); });
-  S.stock.forEach(function(x){ if(x.kind==='entree'&&!isOpening(x)&&inM(x.date)) r.push(["Achat marchandise",x.date,x.supplier||"",x.label||"","", Math.round(Number(x.amount)||0),(x.paid===false?"":payMethod(x)),(x.paid===false?"à crédit (non payé)":"payé comptant")]); });
-  S.expenses.forEach(function(x){ if(!inM(x.date))return;
-    if(isSupplierPay(x)) r.push(["Paiement fournisseur",x.date,x.label||"","",x.note||"",Math.round(Number(x.amount)||0),payMethod(x),""]);
-    else if(x.category==='apport') r.push(["Apport propriétaire",x.date,"","",x.note||"",Math.round(Number(x.amount)||0),payMethod(x),""]);
-    else if(x.category==='retrait') r.push(["Retrait propriétaire",x.date,"","",x.note||"",Math.round(Number(x.amount)||0),payMethod(x),""]);
-    else if(!isCashMove(x)){ var pm=Math.max(1,Math.round(Number(x.prepaid_months)||1)); r.push(["Dépense",x.date,"",catLabel(x.category),x.label||"",Math.round(Number(x.amount)||0),payMethod(x),(pm>1?("payé d'avance, étalé sur "+pm+" mois"):"")]); }
+  var keys=expMonthSet(), kset={}; keys.forEach(function(k){kset[k]=1;});
+  function inSel(d){ return kset[String(d||"").slice(0,7)]===1; }
+  function mo(d){ return String(d||"").slice(0,7); }
+  var r=[["Mois","Type","Date","Tiers","Catégorie","Désignation","Montant (FG)","Règlement","Info"]];
+  S.credits.forEach(function(x){ if(inSel(x.date)) r.push([mo(x.date),"Vente à crédit",x.date,clientName(x.client_id),"",x.label,Math.round(Number(x.amount)||0),"",(x.content_qty!=null?(x.content_qty+" "+(x.sale_unit||"")):"")]); });
+  S.payments.forEach(function(x){ if(inSel(x.date)) r.push([mo(x.date),"Encaissement client",x.date,clientName(x.client_id),"",x.note||"Paiement",Math.round(Number(x.amount)||0),payMethod(x),""]); });
+  S.stock.forEach(function(x){ if(x.kind==='entree'&&!isOpening(x)&&inSel(x.date)) r.push([mo(x.date),"Achat marchandise",x.date,x.supplier||"",x.label||"","", Math.round(Number(x.amount)||0),(x.paid===false?"":payMethod(x)),(x.paid===false?"à crédit (non payé)":"payé comptant")]); });
+  S.expenses.forEach(function(x){ if(!inSel(x.date))return;
+    if(isSupplierPay(x)) r.push([mo(x.date),"Paiement fournisseur",x.date,x.label||"","",x.note||"",Math.round(Number(x.amount)||0),payMethod(x),""]);
+    else if(x.category==='apport') r.push([mo(x.date),"Apport propriétaire",x.date,"","",x.note||"",Math.round(Number(x.amount)||0),payMethod(x),""]);
+    else if(x.category==='retrait') r.push([mo(x.date),"Retrait propriétaire",x.date,"","",x.note||"",Math.round(Number(x.amount)||0),payMethod(x),""]);
+    else if(!isCashMove(x)){ var pm=Math.max(1,Math.round(Number(x.prepaid_months)||1)); r.push([mo(x.date),"Dépense",x.date,"",catLabel(x.category),x.label||"",Math.round(Number(x.amount)||0),payMethod(x),(pm>1?("payé d'avance, étalé sur "+pm+" mois"):"")]); }
   });
-  var a=acctMonth(key), tz=treasury('all');
+  var tot=acctRange(keys), tz=treasury('all');
   var credit=sum(S.credits,'amount')+openingDebtTotal(), du=Math.max(0,credit-sum(S.payments,'amount'));
   r.push([]);
-  r.push(["RÉSUMÉ DU MOIS "+key]);
-  r.push(["Ventes du mois","","","","",Math.round(a.ventes)]);
-  r.push(["Achats de marchandises","","","","",Math.round(a.achats)]);
-  r.push(["Dépenses (charges, étalées)","","","","",Math.round(a.charges)]);
-  r.push(["Bénéfice du mois","","","","",Math.round(a.benef)]);
-  r.push(["Encaissé clients","","","","",Math.round(a.encaisse)]);
-  r.push(["Payé fournisseurs","","","","",Math.round(a.payFour)]);
-  r.push(["Apports propriétaire","","","","",Math.round(a.apport)]);
-  r.push(["Retraits propriétaire","","","","",Math.round(a.retrait)]);
+  r.push(["RÉSUMÉ PAR MOIS — "+expLabel()]);
+  r.push(["Mois","Ventes","Achats march.","Charges","Bénéfice","Encaissé","Payé fourn.","Apports","Retraits"]);
+  keys.forEach(function(k){ var a=acctMonth(k); r.push([k,Math.round(a.ventes),Math.round(a.achats),Math.round(a.charges),Math.round(a.benef),Math.round(a.encaisse),Math.round(a.payFour),Math.round(a.apport),Math.round(a.retrait)]); });
+  r.push(["TOTAL",Math.round(tot.ventes),Math.round(tot.achats),Math.round(tot.charges),Math.round(tot.benef),Math.round(tot.encaisse),Math.round(tot.payFour),Math.round(tot.apport),Math.round(tot.retrait)]);
+  r.push([]);
   r.push(["SOLDES À CE JOUR"]);
   r.push(["Caisse","","","","",Math.round(tz.caisse)]);
   r.push(["Banque","","","","",Math.round(tz.banque)]);
   r.push(["Créances clients (dû par les clients)","","","","",Math.round(du)]);
   r.push(["Dettes fournisseurs (dû aux fournisseurs)","","","","",Math.round(supplierDebtTotal())]);
-  csvDownload("bouliedou-comptable-"+key+".csv", r);
-  toast("Détail de "+monthLabel(key)+" téléchargé ✓");
+  csvDownload("bouliedou-comptable-"+expSlug()+".csv", r);
+  toast("Détail — "+expLabel()+" téléchargé ✓");
 }
 function printAccounting(){
-  var key=expMonth||today().slice(0,7), a=acctMonth(key), tz=treasury('all');
+  var keys=expMonthSet(), a=acctRange(keys), tz=treasury('all');
   var credit=sum(S.credits,'amount')+openingDebtTotal(), du=Math.max(0,credit-sum(S.payments,'amount')), dette=supplierDebtTotal();
+  var perMois='';
+  if(keys.length>1){
+    perMois='<h2>Détail par mois</h2><table style="width:100%;border-collapse:collapse;font-size:12px"><tr style="color:#6B7A70"><th style="text-align:left;padding:5px 6px;border-bottom:1px solid #E7E1CF">Mois</th><th style="text-align:right;padding:5px 6px;border-bottom:1px solid #E7E1CF">Ventes</th><th style="text-align:right;padding:5px 6px;border-bottom:1px solid #E7E1CF">Achats</th><th style="text-align:right;padding:5px 6px;border-bottom:1px solid #E7E1CF">Charges</th><th style="text-align:right;padding:5px 6px;border-bottom:1px solid #E7E1CF">Bénéfice</th></tr>'
+      +keys.map(function(k){ var m=acctMonth(k); return '<tr><td style="padding:5px 6px;border-bottom:1px solid #F0ECE0">'+monthLabel(k)+'</td><td style="text-align:right;padding:5px 6px;border-bottom:1px solid #F0ECE0">'+money(m.ventes)+'</td><td style="text-align:right;padding:5px 6px;border-bottom:1px solid #F0ECE0">'+money(m.achats)+'</td><td style="text-align:right;padding:5px 6px;border-bottom:1px solid #F0ECE0">'+money(m.charges)+'</td><td style="text-align:right;padding:5px 6px;border-bottom:1px solid #F0ECE0;color:'+(m.benef<0?'#C0392B':'#1B2821')+'">'+money(m.benef)+'</td></tr>'; }).join('')
+      +'</table>';
+  }
   var w=window.open('','_blank'); if(!w){ toast("Autorisez l'ouverture des fenêtres."); return; }
   function row(l,v,neg){ return '<div class="r"><span>'+l+'</span><b'+(neg?' class="neg"':'')+'>'+money(v)+'</b></div>'; }
-  var html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Synthèse comptable '+key+'</title><style>'
+  var html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Synthèse comptable '+expSlug()+'</title><style>'
     +'body{font-family:Arial,Helvetica,sans-serif;color:#1B2821;margin:22px;font-size:13px;line-height:1.5}h1{color:#0C4A39;font-size:18px;margin:0}'
     +'.sub{color:#6B7A70;font-size:12px;margin:2px 0 16px}h2{font-size:14px;color:#0C4A39;margin:18px 0 6px;border-bottom:1px solid #E7E1CF;padding-bottom:4px}'
     +'.r{display:flex;justify-content:space-between;padding:4px 0}.r b{font-weight:700}.r .neg{color:#C0392B}.tot{border-top:2px solid #0C4A39;margin-top:6px;padding-top:6px;font-size:15px}'
     +'.foot{color:#6B7A70;font-size:11px;margin-top:20px;border-top:1px solid #E7E1CF;padding-top:8px}'
     +'.bar{display:flex;gap:8px;margin:18px 0 6px}.bar button{padding:10px 16px;border:0;border-radius:8px;font-weight:700;cursor:pointer}.print{background:#0C4A39;color:#fff}.close{background:#eee}@media print{.bar{display:none}body{margin:12mm}}</style></head><body>'
-    +'<h1>BOULIEDOU GLOBAL BUSINESS</h1><div class="sub">Synthèse comptable — '+monthLabel(key)+' · éditée le '+fmtDate(today())+'</div>'
+    +'<h1>BOULIEDOU GLOBAL BUSINESS</h1><div class="sub">Synthèse comptable — '+expLabel()+' · éditée le '+fmtDate(today())+'</div>'
     +'<h2>Compte de résultat</h2>'
     +row("Ventes (marchandises vendues)",a.ventes)
     +row("Achats de marchandises",-a.achats,true)
     +row("Dépenses de fonctionnement",-a.charges,true)
-    +'<div class="r tot"><span>Bénéfice du mois</span><b'+(a.benef<0?' class="neg"':'')+'>'+money(a.benef)+'</b></div>'
-    +'<h2>Mouvements d\'argent du mois</h2>'
+    +'<div class="r tot"><span>Bénéfice de la période</span><b'+(a.benef<0?' class="neg"':'')+'>'+money(a.benef)+'</b></div>'
+    +perMois
+    +'<h2>Mouvements d\'argent — '+expLabel()+'</h2>'
     +row("Encaissé des clients",a.encaisse)+row("Payé aux fournisseurs",a.payFour,true)
     +(a.apport>0?row("Apports du propriétaire",a.apport):'')+(a.retrait>0?row("Retraits du propriétaire",a.retrait,true):'')
     +'<h2>Soldes à ce jour</h2>'
