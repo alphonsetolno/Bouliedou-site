@@ -282,7 +282,7 @@ var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 var ME=null, ROLE=null;
 var S={clients:[],products:[],orders:[],deliveries:[],credits:[],payments:[],categories:[],stock:[],expenses:[],rules:[],people:[],backups:[],redemptions:[]};
-var view="home", currentId=null, search="", profitPeriod="month", actFilter="all", homePeriod="month", cashPeriod="month", anaPeriod="month", exYear=String(new Date().getFullYear());
+var view="home", currentId=null, search="", profitPeriod="month", actFilter="all", homePeriod="month", cashPeriod="month", anaPeriod="month", expMonth=null, exYear=String(new Date().getFullYear());
 
 /* ===== HORS LIGNE / SYNCHRONISATION ===== */
 var NET={ uid:null, syncing:false, snapAt:null };
@@ -714,14 +714,14 @@ async function loadAll(){
 
 /* ===== RENDER ===== */
 function render(){
-  var activeTab = (["menu","catalog","stock","expenses","profit","backup","rewards","activity","security","prodreport","cash","exercice","analyse","opening","suppliers","owner"].indexOf(view)>=0)?"menu":view;
+  var activeTab = (["menu","catalog","stock","expenses","profit","backup","rewards","activity","security","prodreport","cash","exercice","analyse","opening","suppliers","owner","export"].indexOf(view)>=0)?"menu":view;
   document.querySelectorAll(".tab").forEach(function(b){ b.classList.toggle("on", b.dataset.tab===activeTab && !currentId); });
   var root=document.getElementById("root");
   document.body.classList.toggle("role-assistant", !isAdmin());
   updateBell();
   if(currentId){ root.innerHTML=renderClient(currentId); return; }
   root.innerHTML = view==="home"?renderHome() : view==="clients"?renderClients() : view==="orders"?renderOrders()
-    : view==="menu"?renderMenu() : view==="stock"?renderStock() : view==="expenses"?renderExpenses() : view==="profit"?renderProfit() : view==="cash"?renderCash() : view==="exercice"?renderExercice() : view==="backup"?renderBackup() : view==="rewards"?renderRewards() : view==="activity"?renderActivity() : view==="notifs"?renderNotifs() : view==="security"?renderSecurity() : view==="prodreport"?renderProductReport() : view==="analyse"?renderAnalyse() : view==="opening"?renderOpening() : view==="suppliers"?renderSuppliers() : view==="owner"?renderOwner() : renderCatalog();
+    : view==="menu"?renderMenu() : view==="stock"?renderStock() : view==="expenses"?renderExpenses() : view==="profit"?renderProfit() : view==="cash"?renderCash() : view==="exercice"?renderExercice() : view==="backup"?renderBackup() : view==="rewards"?renderRewards() : view==="activity"?renderActivity() : view==="notifs"?renderNotifs() : view==="security"?renderSecurity() : view==="prodreport"?renderProductReport() : view==="analyse"?renderAnalyse() : view==="opening"?renderOpening() : view==="suppliers"?renderSuppliers() : view==="owner"?renderOwner() : view==="export"?renderAccountingExport() : renderCatalog();
 }
 function renderMenu(){
   var h='<div class="view-title">Gestion</div><p class="view-sub">Catalogue, stock, dépenses et bénéfice.</p><div class="clist">';
@@ -734,6 +734,7 @@ function renderMenu(){
   if(isAdmin()) h+=menuCard("cash","Caisse & Banque","Espèces, banque et transferts");
   if(isAdmin()) h+=menuCard("suppliers","Dettes fournisseurs","Ce que vous devez à vos fournisseurs");
   if(isAdmin()) h+=menuCard("owner","Apports & retraits","Argent que vous mettez ou retirez");
+  if(isAdmin()) h+=menuCard("export","Export comptable","Synthèse du mois + fichier pour la comptabilité");
   if(isAdmin()) h+=menuCard("exercice","Exercice annuel","Bilan de l'année + rapport à télécharger");
   h+=menuCard("prodreport","Bilan par produit","Stock, crédit et caisse par produit");
   h+=menuCard("rewards","Récompenses","Cadeaux de fidélité par produit");
@@ -1894,6 +1895,117 @@ async function downloadBackup(id){
   document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },500);
   toast("Sauvegarde téléchargée ✓");
 }
+/* ===== EXPORT COMPTABLE MENSUEL ===== */
+var MOISFR=['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+function monthLabel(key){ var p=String(key||"").split('-'); return p.length===2?(MOISFR[Number(p[1])-1]+' '+p[0]):key; }
+function recentMonths(n){ var out=[], d=new Date(); d.setDate(1); for(var i=0;i<n;i++){ var dd=new Date(d.getFullYear(), d.getMonth()-i, 1); out.push(dd.getFullYear()+'-'+String(dd.getMonth()+1).padStart(2,'0')); } return out; }
+function acctMonth(key){
+  function inM(d){ return String(d||"").slice(0,7)===key; }
+  function S_(arr,f){ return arr.filter(f).reduce(function(a,x){return a+(Number(x.amount)||0);},0); }
+  var ventes   = S_(S.credits, function(x){return inM(x.date);});
+  var encaisse = S_(S.payments, function(x){return inM(x.date);});
+  var achats   = S_(S.stock, function(x){return x.kind==='entree'&&!isOpening(x)&&inM(x.date);});
+  var achatsCr = S_(S.stock, function(x){return x.kind==='entree'&&!isOpening(x)&&x.paid===false&&inM(x.date);});
+  var charges  = realExpenses().reduce(function(a,x){return a+expChargeOfMonth(x,key);},0);
+  var payFour  = S_(S.expenses, function(x){return isSupplierPay(x)&&inM(x.date);});
+  var apport   = S_(S.expenses, function(x){return x.category==='apport'&&inM(x.date);});
+  var retrait  = S_(S.expenses, function(x){return x.category==='retrait'&&inM(x.date);});
+  return {ventes:ventes, encaisse:encaisse, achats:achats, achatsCr:achatsCr, charges:charges, payFour:payFour, apport:apport, retrait:retrait, benef:ventes-achats-charges};
+}
+function renderAccountingExport(){
+  if(!expMonth) expMonth=today().slice(0,7);
+  var h='<button class="add-link" data-go="menu" style="margin:2px 0 12px">‹ Gestion</button>';
+  h+='<div class="view-title">Export comptable</div><p class="view-sub">La synthèse du mois (compte de résultat + soldes), à imprimer, et le détail à télécharger puis à me transmettre pour préparer vos états.</p>';
+  h+='<div class="perbar">'+recentMonths(6).map(function(k){return '<button class="perchip'+(k===expMonth?' on':'')+'" data-expmonth="'+k+'">'+esc(monthLabel(k))+'</button>';}).join('')+'</div>';
+  var a=acctMonth(expMonth);
+  var credit=sum(S.credits,'amount')+openingDebtTotal(), paye=sum(S.payments,'amount'), du=Math.max(0,credit-paye);
+  var tz=treasury('all'), dette=supplierDebtTotal();
+  h+='<div class="card"><div class="card-h"><h3>Compte de résultat — '+esc(monthLabel(expMonth))+'</h3></div><div class="items">'
+    +pline("Ventes (marchandises vendues)", a.ventes, "var(--good)")
+    +pline("Achats de marchandises", -a.achats, "var(--crit)")
+    +pline("Dépenses de fonctionnement", -a.charges, "var(--crit)")
+    +'<div class="item"><div class="body"><div class="top"><span class="lab" style="font-weight:800">Bénéfice du mois</span><span class="amt tnum" style="color:'+(a.benef>=0?'var(--good)':'var(--crit)')+'">'+money(a.benef)+'</span></div></div></div>'
+    +'</div></div>';
+  h+='<div class="card"><div class="card-h"><h3>Mouvements d\'argent du mois</h3></div>'
+    +'<div class="info-row"><span class="k">Encaissé des clients</span><b class="tnum" style="color:var(--good)">'+money(a.encaisse)+'</b></div>'
+    +'<div class="info-row"><span class="k">Payé aux fournisseurs</span><b class="tnum" style="color:var(--crit)">'+money(a.payFour)+'</b></div>'
+    +(a.apport>0?'<div class="info-row"><span class="k">Apports du propriétaire</span><b class="tnum" style="color:var(--good)">'+money(a.apport)+'</b></div>':'')
+    +(a.retrait>0?'<div class="info-row"><span class="k">Retraits du propriétaire</span><b class="tnum" style="color:var(--crit)">'+money(a.retrait)+'</b></div>':'')
+    +'</div>';
+  h+='<div class="card"><div class="card-h"><h3>Soldes à ce jour</h3></div>'
+    +'<div class="info-row"><span class="k">Caisse (espèces)</span><b class="tnum"'+(tz.caisse<0?' style="color:var(--crit)"':'')+'>'+money(tz.caisse)+'</b></div>'
+    +'<div class="info-row"><span class="k">Banque</span><b class="tnum"'+(tz.banque<0?' style="color:var(--crit)"':'')+'>'+money(tz.banque)+'</b></div>'
+    +'<div class="info-row"><span class="k">Créances clients (ce qu\'on vous doit)</span><b class="tnum" style="color:var(--gold)">'+money(du)+'</b></div>'
+    +'<div class="info-row"><span class="k">Dettes fournisseurs (ce que vous devez)</span><b class="tnum" style="color:var(--crit)">'+money(dette)+'</b></div>'
+    +'</div>';
+  h+='<div style="margin:16px 0 4px;display:flex;flex-direction:column;gap:8px">'
+    +'<button class="btn btn-green btn-block" data-exprintacc="1">📄 Imprimer / PDF (synthèse du mois)</button>'
+    +'<button class="btn btn-gold btn-block" data-exportmonth="1">⬇️ Télécharger le détail (CSV) à m\'envoyer</button></div>';
+  h+='<div class="hint" style="margin-top:10px;line-height:1.6">« Soldes à ce jour » = situation actuelle (caisse, banque, créances, dettes). Le compte de résultat et les mouvements concernent le mois choisi. Envoyez-moi le fichier CSV et je vous prépare le compte de résultat et le bilan.</div>';
+  return h;
+}
+function exportMonthCSV(){
+  var key=expMonth||today().slice(0,7);
+  function inM(d){ return String(d||"").slice(0,7)===key; }
+  var r=[["Type","Date","Tiers","Catégorie","Désignation","Montant (FG)","Règlement","Info"]];
+  S.credits.forEach(function(x){ if(inM(x.date)) r.push(["Vente à crédit",x.date,clientName(x.client_id),"",x.label,Math.round(Number(x.amount)||0),"",(x.content_qty!=null?(x.content_qty+" "+(x.sale_unit||"")):"")]); });
+  S.payments.forEach(function(x){ if(inM(x.date)) r.push(["Encaissement client",x.date,clientName(x.client_id),"",x.note||"Paiement",Math.round(Number(x.amount)||0),payMethod(x),""]); });
+  S.stock.forEach(function(x){ if(x.kind==='entree'&&!isOpening(x)&&inM(x.date)) r.push(["Achat marchandise",x.date,x.supplier||"",x.label||"","", Math.round(Number(x.amount)||0),(x.paid===false?"":payMethod(x)),(x.paid===false?"à crédit (non payé)":"payé comptant")]); });
+  S.expenses.forEach(function(x){ if(!inM(x.date))return;
+    if(isSupplierPay(x)) r.push(["Paiement fournisseur",x.date,x.label||"","",x.note||"",Math.round(Number(x.amount)||0),payMethod(x),""]);
+    else if(x.category==='apport') r.push(["Apport propriétaire",x.date,"","",x.note||"",Math.round(Number(x.amount)||0),payMethod(x),""]);
+    else if(x.category==='retrait') r.push(["Retrait propriétaire",x.date,"","",x.note||"",Math.round(Number(x.amount)||0),payMethod(x),""]);
+    else if(!isCashMove(x)){ var pm=Math.max(1,Math.round(Number(x.prepaid_months)||1)); r.push(["Dépense",x.date,"",catLabel(x.category),x.label||"",Math.round(Number(x.amount)||0),payMethod(x),(pm>1?("payé d'avance, étalé sur "+pm+" mois"):"")]); }
+  });
+  var a=acctMonth(key), tz=treasury('all');
+  var credit=sum(S.credits,'amount')+openingDebtTotal(), du=Math.max(0,credit-sum(S.payments,'amount'));
+  r.push([]);
+  r.push(["RÉSUMÉ DU MOIS "+key]);
+  r.push(["Ventes du mois","","","","",Math.round(a.ventes)]);
+  r.push(["Achats de marchandises","","","","",Math.round(a.achats)]);
+  r.push(["Dépenses (charges, étalées)","","","","",Math.round(a.charges)]);
+  r.push(["Bénéfice du mois","","","","",Math.round(a.benef)]);
+  r.push(["Encaissé clients","","","","",Math.round(a.encaisse)]);
+  r.push(["Payé fournisseurs","","","","",Math.round(a.payFour)]);
+  r.push(["Apports propriétaire","","","","",Math.round(a.apport)]);
+  r.push(["Retraits propriétaire","","","","",Math.round(a.retrait)]);
+  r.push(["SOLDES À CE JOUR"]);
+  r.push(["Caisse","","","","",Math.round(tz.caisse)]);
+  r.push(["Banque","","","","",Math.round(tz.banque)]);
+  r.push(["Créances clients (dû par les clients)","","","","",Math.round(du)]);
+  r.push(["Dettes fournisseurs (dû aux fournisseurs)","","","","",Math.round(supplierDebtTotal())]);
+  csvDownload("bouliedou-comptable-"+key+".csv", r);
+  toast("Détail de "+monthLabel(key)+" téléchargé ✓");
+}
+function printAccounting(){
+  var key=expMonth||today().slice(0,7), a=acctMonth(key), tz=treasury('all');
+  var credit=sum(S.credits,'amount')+openingDebtTotal(), du=Math.max(0,credit-sum(S.payments,'amount')), dette=supplierDebtTotal();
+  var w=window.open('','_blank'); if(!w){ toast("Autorisez l'ouverture des fenêtres."); return; }
+  function row(l,v,neg){ return '<div class="r"><span>'+l+'</span><b'+(neg?' class="neg"':'')+'>'+money(v)+'</b></div>'; }
+  var html='<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Synthèse comptable '+key+'</title><style>'
+    +'body{font-family:Arial,Helvetica,sans-serif;color:#1B2821;margin:22px;font-size:13px;line-height:1.5}h1{color:#0C4A39;font-size:18px;margin:0}'
+    +'.sub{color:#6B7A70;font-size:12px;margin:2px 0 16px}h2{font-size:14px;color:#0C4A39;margin:18px 0 6px;border-bottom:1px solid #E7E1CF;padding-bottom:4px}'
+    +'.r{display:flex;justify-content:space-between;padding:4px 0}.r b{font-weight:700}.r .neg{color:#C0392B}.tot{border-top:2px solid #0C4A39;margin-top:6px;padding-top:6px;font-size:15px}'
+    +'.foot{color:#6B7A70;font-size:11px;margin-top:20px;border-top:1px solid #E7E1CF;padding-top:8px}'
+    +'.bar{display:flex;gap:8px;margin:18px 0 6px}.bar button{padding:10px 16px;border:0;border-radius:8px;font-weight:700;cursor:pointer}.print{background:#0C4A39;color:#fff}.close{background:#eee}@media print{.bar{display:none}body{margin:12mm}}</style></head><body>'
+    +'<h1>BOULIEDOU GLOBAL BUSINESS</h1><div class="sub">Synthèse comptable — '+monthLabel(key)+' · éditée le '+fmtDate(today())+'</div>'
+    +'<h2>Compte de résultat</h2>'
+    +row("Ventes (marchandises vendues)",a.ventes)
+    +row("Achats de marchandises",-a.achats,true)
+    +row("Dépenses de fonctionnement",-a.charges,true)
+    +'<div class="r tot"><span>Bénéfice du mois</span><b'+(a.benef<0?' class="neg"':'')+'>'+money(a.benef)+'</b></div>'
+    +'<h2>Mouvements d\'argent du mois</h2>'
+    +row("Encaissé des clients",a.encaisse)+row("Payé aux fournisseurs",a.payFour,true)
+    +(a.apport>0?row("Apports du propriétaire",a.apport):'')+(a.retrait>0?row("Retraits du propriétaire",a.retrait,true):'')
+    +'<h2>Soldes à ce jour</h2>'
+    +row("Caisse (espèces)",tz.caisse)+row("Banque",tz.banque)
+    +row("Créances clients (on vous doit)",du)+row("Dettes fournisseurs (vous devez)",dette,true)
+    +'<div class="foot">Enta marché, Conakry · +224 623 01 08 18 · contact@bouliedou.com · www.bouliedou.com<br>Document de gestion interne, établi à partir des opérations enregistrées dans l\'application.</div>'
+    +'<div class="bar"><button class="print" onclick="window.print()">Imprimer / Enregistrer en PDF</button><button class="close" onclick="window.close()">Fermer</button></div>'
+    +'</body></html>';
+  w.document.write(html); w.document.close();
+}
+
 function renderBackup(){
   var h='<button class="add-link" data-go="menu" style="margin:2px 0 12px">‹ Gestion</button>';
   h+='<div class="view-title">Sauvegarde</div><p class="view-sub">Copies de secours de toutes vos données.</p>';
@@ -2527,7 +2639,7 @@ function orderSheet(id){
 
 /* ===== EVENTS ===== */
 document.addEventListener("click",function(e){
-  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin],[data-go],[data-addstock],[data-savestock],[data-receivestock],[data-achemine],[data-saveachemine],[data-triage],[data-savetriage],[data-addexp],[data-saveexp],[data-profper],[data-homeper],[data-anaper],[data-wa],[data-receiptpay],[data-wareceipt],[data-export],[data-addrule],[data-editrule],[data-saverule],[data-delrule],[data-pdfreceipt],[data-actfilter],[data-dlbackup],[data-bio],[data-push],[data-cashper],[data-cashxfer],[data-savecashxfer],[data-exyear],[data-exprint],[data-cloture],[data-giftgiven],[data-savegift],[data-resetclient],[data-editcredit],[data-saveeditcredit],[data-saveopening],[data-ordersale],[data-repeatexp],[data-supplierpay],[data-savesupplierpay],[data-ownermove],[data-saveownermove]");
+  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin],[data-go],[data-addstock],[data-savestock],[data-receivestock],[data-achemine],[data-saveachemine],[data-triage],[data-savetriage],[data-addexp],[data-saveexp],[data-profper],[data-homeper],[data-anaper],[data-wa],[data-receiptpay],[data-wareceipt],[data-export],[data-addrule],[data-editrule],[data-saverule],[data-delrule],[data-pdfreceipt],[data-actfilter],[data-dlbackup],[data-bio],[data-push],[data-cashper],[data-cashxfer],[data-savecashxfer],[data-exyear],[data-exprint],[data-cloture],[data-giftgiven],[data-savegift],[data-resetclient],[data-editcredit],[data-saveeditcredit],[data-saveopening],[data-ordersale],[data-repeatexp],[data-supplierpay],[data-savesupplierpay],[data-ownermove],[data-saveownermove],[data-expmonth],[data-exportmonth],[data-exprintacc]");
   if(!el) return; var d=el.dataset;
   if((d.del!==undefined||d.delclient!==undefined||d.delprod!==undefined||d.delcat!==undefined||d.delrule!==undefined)&&!isAdmin()){ toast("Suppression réservée au gérant principal."); return; }
   if(d.bio!==undefined){ toggleBio(); }
@@ -2583,6 +2695,9 @@ document.addEventListener("click",function(e){
   else if(d.savesupplierpay!==undefined){ saveSupplierPay(); }
   else if(d.ownermove!==undefined){ ownerMoveForm(d.ownermove); }
   else if(d.saveownermove!==undefined){ saveOwnerMove(d.saveownermove); }
+  else if(d.expmonth!==undefined){ expMonth=d.expmonth; render(); }
+  else if(d.exportmonth!==undefined){ exportMonthCSV(); }
+  else if(d.exprintacc!==undefined){ printAccounting(); }
   else if(d.addprod!==undefined){ prodForm(null); }
   else if(d.editprod!==undefined){ prodForm(S.products.find(function(x){return x.id===d.editprod;})); }
   else if(d.cancel!==undefined){ closeSheet(); }
