@@ -302,7 +302,7 @@ function lsSet(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); return true
 function curUid(){ return (ME&&ME.auth_user_id)||NET.uid||null; }
 function cacheMe(){ lsSet(MEKEY,{uid:curUid(), me:ME, role:ROLE}); }
 function cachedMe(uid){ var o=lsGet(MEKEY,null); return (o&&o.uid===uid)?o.me:null; }
-function cacheSnap(){ lsSet(SNAPKEY,{uid:curUid(), at:Date.now(), S:{clients:S.clients,products:S.products,orders:S.orders,deliveries:S.deliveries,credits:S.credits,payments:S.payments,categories:S.categories,stock:S.stock,expenses:S.expenses,rules:S.rules,people:S.people,backups:S.backups,redemptions:S.redemptions,attachments:S.attachments,assets:S.assets}}); }
+function cacheSnap(){ lsSet(SNAPKEY,{uid:curUid(), at:Date.now(), S:{clients:S.clients,products:S.products,orders:S.orders,deliveries:S.deliveries,credits:S.credits,payments:S.payments,categories:S.categories,stock:S.stock,expenses:S.expenses,rules:S.rules,people:S.people,backups:S.backups,redemptions:S.redemptions,attachments:S.attachments,assets:S.assets,loans:S.loans,loanPayments:S.loanPayments}}); }
 function restoreSnap(uid){ var o=lsGet(SNAPKEY,null); if(!o||o.uid!==uid||!o.S) return false; for(var k in o.S){ S[k]=o.S[k]||[]; } NET.snapAt=o.at; return true; }
 function queueGet(){ return lsGet(QKEY,[]); }
 function queueSet(q){ lsSet(QKEY,q); }
@@ -673,6 +673,35 @@ function assetsTotals(){
   var brut=0,cumul=0; (S.assets||[]).forEach(function(a){ brut+=Number(a.cost)||0; cumul+=assetAccumAmort(a); });
   return {brut:brut, cumul:cumul, net:brut-cumul};
 }
+
+/* ===== EMPRUNTS (prêts reçus par l'entreprise) ===== */
+function loanSchedule(l){
+  var P=Number(l.principal)||0, r=Number(l.rate)||0, yrs=Math.max(1,Math.round(Number(l.years)||1)), type=l.rtype||'infine';
+  var start=String(l.start_date||today()).slice(0,10);
+  function addM(k){ var d=new Date(start+'T00:00:00'); if(isNaN(d)) d=new Date(); d.setMonth(d.getMonth()+k); return d.toISOString().slice(0,10); }
+  var out=[];
+  if(type==='annuity_month'){
+    var i=r/12, n=yrs*12, M=i>0?P*i/(1-Math.pow(1+i,-n)):P/n, bal=P;
+    for(var k=1;k<=n;k++){ var it=bal*i, cap=M-it; if(k===n) cap=bal; bal-=cap; out.push({date:addM(k),interest:it,capital:cap}); }
+  } else if(type==='annuity_year'){
+    var A=r>0?P*r/(1-Math.pow(1+r,-yrs)):P/yrs, b=P;
+    for(var y=1;y<=yrs;y++){ var iy=b*r, cy=A-iy; if(y===yrs) cy=b; b-=cy; out.push({date:addM(y*12),interest:iy,capital:cy}); }
+  } else if(type==='constant_principal'){
+    var cpp=P/yrs, bb=P;
+    for(var z=1;z<=yrs;z++){ var ic=bb*r; bb-=cpp; out.push({date:addM(z*12),interest:ic,capital:cpp}); }
+  } else { /* in fine */
+    for(var w=1;w<=yrs;w++){ out.push({date:addM(w*12),interest:P*r,capital:(w===yrs?P:0)}); }
+  }
+  return out;
+}
+function loanTypeLabel(t){ var m={infine:"In fine (intérêts annuels, capital à la fin)",annuity_month:"Mensualités constantes",annuity_year:"Annuités constantes",constant_principal:"Amortissement constant"}; return m[t]||m.infine; }
+function loanCapitalPaid(lid){ return (S.loanPayments||[]).filter(function(x){return x.loan_id===lid;}).reduce(function(a,x){return a+(Number(x.capital)||0);},0); }
+function loanInterestPaidTotal(lid){ return (S.loanPayments||[]).filter(function(x){return x.loan_id===lid;}).reduce(function(a,x){return a+(Number(x.interest)||0);},0); }
+function loanBalance(l){ return Math.max(0,(Number(l.principal)||0)-loanCapitalPaid(l.id)); }
+function loansTotals(){ var e=0,rest=0,ip=0; (S.loans||[]).forEach(function(l){ e+=Number(l.principal)||0; rest+=loanBalance(l); ip+=loanInterestPaidTotal(l.id); }); return {emprunte:e, restant:rest, interets:ip}; }
+function loanNextDue(l){ var s=loanSchedule(l), paid=(S.loanPayments||[]).filter(function(x){return x.loan_id===l.id;}).length; return s[paid]||null; }
+function loanInterestCharge(per){ return (S.loanPayments||[]).reduce(function(a,x){ return a+((per==='all'||!per||inPer(x.date,per))?(Number(x.interest)||0):0); },0); }
+function loanInterestOfMonth(key){ return (S.loanPayments||[]).reduce(function(a,x){ return a+((String(x.date||'').slice(0,7)===key)?(Number(x.interest)||0):0); },0); }
 /* --- trésorerie : flux caisse / banque pour une période (balances = période 'all') --- */
 function payMethod(x){ return (x&&x.method==='banque')?'banque':'caisse'; }
 function treasury(per){
@@ -691,11 +720,15 @@ function treasury(per){
   });
   /* achat d'immobilisations : sortie de caisse au moment de l'achat (pas une charge) */
   (S.assets||[]).forEach(function(a){ if(!inp(a.date))return; var v=Number(a.cost)||0; if(payMethod(a)==='banque') t.bkOutAsset+=v; else t.ckOutAsset+=v; });
-  t.caisse = t.ckIn - t.ckOutDep - t.ckOutAch - t.ckOutFour - t.ckOutAsset - t.ck2bk + t.bk2ck + t.ckInOwner - t.ckOutOwner;
-  t.banque = t.bkIn - t.bkOutDep - t.bkOutAch - t.bkOutFour - t.bkOutAsset - t.bk2ck + t.ck2bk + t.bkInOwner - t.bkOutOwner;
+  /* emprunts : argent reçu à la date de déblocage (entrée) ; remboursements (sortie) */
+  var ckLoanIn=0,bkLoanIn=0,ckLoanOut=0,bkLoanOut=0;
+  (S.loans||[]).forEach(function(l){ if(!inp(l.start_date))return; var v=Number(l.principal)||0; if(payMethod(l)==='banque') bkLoanIn+=v; else ckLoanIn+=v; });
+  (S.loanPayments||[]).forEach(function(x){ if(!inp(x.date))return; var v=(Number(x.interest)||0)+(Number(x.capital)||0); if(payMethod(x)==='banque') bkLoanOut+=v; else ckLoanOut+=v; });
+  t.caisse = t.ckIn - t.ckOutDep - t.ckOutAch - t.ckOutFour - t.ckOutAsset - t.ck2bk + t.bk2ck + t.ckInOwner - t.ckOutOwner + ckLoanIn - ckLoanOut;
+  t.banque = t.bkIn - t.bkOutDep - t.bkOutAch - t.bkOutFour - t.bkOutAsset - t.bk2ck + t.ck2bk + t.bkInOwner - t.bkOutOwner + bkLoanIn - bkLoanOut;
   t.total  = t.caisse + t.banque;
-  t.inflow = t.ckIn + t.bkIn + t.ckInOwner + t.bkInOwner;
-  t.outflow= t.ckOutDep + t.bkOutDep + t.ckOutAch + t.bkOutAch + t.ckOutFour + t.bkOutFour + t.ckOutOwner + t.bkOutOwner + t.ckOutAsset + t.bkOutAsset;
+  t.inflow = t.ckIn + t.bkIn + t.ckInOwner + t.bkInOwner + ckLoanIn + bkLoanIn;
+  t.outflow= t.ckOutDep + t.bkOutDep + t.ckOutAch + t.bkOutAch + t.ckOutFour + t.bkOutFour + t.ckOutOwner + t.bkOutOwner + t.ckOutAsset + t.bkOutAsset + ckLoanOut + bkLoanOut;
   t.net    = t.inflow - t.outflow;
   return t;
 }
@@ -736,7 +769,9 @@ async function loadAll(){
     sb.from('backups').select('id,created_at,note').order('created_at',{ascending:false}),
     sb.from('gift_redemptions').select('*').order('date',{ascending:false}),
     sb.from('attachments').select('id,kind,ref_id,name,created_at').order('created_at',{ascending:false}),
-    sb.from('assets').select('*').order('date',{ascending:false})
+    sb.from('assets').select('*').order('date',{ascending:false}),
+    sb.from('loans').select('*').order('start_date',{ascending:false}),
+    sb.from('loan_payments').select('*').order('date',{ascending:false})
   ]);
   var err = r.slice(0,11).find(function(x){return x.error;});
   if(err){ toast("Erreur de chargement."); console.error(err.error); }
@@ -756,20 +791,22 @@ async function loadAll(){
   S.redemptions = (r[11]&&r[11].data)||[];
   S.attachments = (r[12]&&r[12].data)||[]; /* métadonnées seulement (sans l'image) : léger */
   S.assets = (r[13]&&r[13].data)||[];
+  S.loans = (r[14]&&r[14].data)||[];
+  S.loanPayments = (r[15]&&r[15].data)||[];
   if(!err){ cacheSnap(); }
   applyPendingToState();
 }
 
 /* ===== RENDER ===== */
 function render(){
-  var activeTab = (["menu","catalog","stock","expenses","profit","backup","rewards","activity","security","prodreport","cash","exercice","analyse","opening","suppliers","owner","export","assets"].indexOf(view)>=0)?"menu":view;
+  var activeTab = (["menu","catalog","stock","expenses","profit","backup","rewards","activity","security","prodreport","cash","exercice","analyse","opening","suppliers","owner","export","assets","recouvrement","restock","loans"].indexOf(view)>=0)?"menu":view;
   document.querySelectorAll(".tab").forEach(function(b){ b.classList.toggle("on", b.dataset.tab===activeTab && !currentId); });
   var root=document.getElementById("root");
   document.body.classList.toggle("role-assistant", !isAdmin());
   updateBell();
   if(currentId){ root.innerHTML=renderClient(currentId); return; }
   root.innerHTML = view==="home"?renderHome() : view==="clients"?renderClients() : view==="orders"?renderOrders()
-    : view==="menu"?renderMenu() : view==="stock"?renderStock() : view==="expenses"?renderExpenses() : view==="profit"?renderProfit() : view==="cash"?renderCash() : view==="exercice"?renderExercice() : view==="backup"?renderBackup() : view==="rewards"?renderRewards() : view==="activity"?renderActivity() : view==="notifs"?renderNotifs() : view==="security"?renderSecurity() : view==="prodreport"?renderProductReport() : view==="analyse"?renderAnalyse() : view==="opening"?renderOpening() : view==="suppliers"?renderSuppliers() : view==="owner"?renderOwner() : view==="export"?renderAccountingExport() : view==="assets"?renderAssets() : renderCatalog();
+    : view==="menu"?renderMenu() : view==="stock"?renderStock() : view==="expenses"?renderExpenses() : view==="profit"?renderProfit() : view==="cash"?renderCash() : view==="exercice"?renderExercice() : view==="backup"?renderBackup() : view==="rewards"?renderRewards() : view==="activity"?renderActivity() : view==="notifs"?renderNotifs() : view==="security"?renderSecurity() : view==="prodreport"?renderProductReport() : view==="analyse"?renderAnalyse() : view==="opening"?renderOpening() : view==="suppliers"?renderSuppliers() : view==="owner"?renderOwner() : view==="export"?renderAccountingExport() : view==="assets"?renderAssets() : view==="recouvrement"?renderRecouvrement() : view==="restock"?renderRestock() : view==="loans"?renderLoans() : renderCatalog();
 }
 function renderMenu(){
   var h='<div class="view-title">Gestion</div><p class="view-sub">Catalogue, stock, dépenses et bénéfice.</p><div class="clist">';
@@ -780,9 +817,12 @@ function renderMenu(){
   h+=menuCard("profit","Bénéfice","Résultat : ventes − achats − dépenses");
   if(isAdmin()) h+=menuCard("analyse","Analyse","Graphiques : ventes, clients, dépenses, stock");
   if(isAdmin()) h+=menuCard("cash","Caisse & Banque","Espèces, banque et transferts");
+  if(isAdmin()) h+=menuCard("recouvrement","Recouvrement","Clients à relancer, par ancienneté de dette");
+  if(isAdmin()) h+=menuCard("restock","Réapprovisionnement","Jours de stock restants et quantités à racheter");
   if(isAdmin()) h+=menuCard("suppliers","Dettes fournisseurs","Ce que vous devez à vos fournisseurs");
   if(isAdmin()) h+=menuCard("owner","Apports & retraits","Argent que vous mettez ou retirez");
   if(isAdmin()) h+=menuCard("assets","Immobilisations","Matériel, véhicule, local (amortis dans le temps)");
+  if(isAdmin()) h+=menuCard("loans","Emprunts","Prêts reçus : échéancier, intérêts, capital restant");
   if(isAdmin()) h+=menuCard("export","Export comptable","Synthèse du mois + fichier pour la comptabilité");
   if(isAdmin()) h+=menuCard("exercice","Exercice annuel","Bilan de l'année + rapport à télécharger");
   h+=menuCard("prodreport","Bilan par produit","Stock, crédit et caisse par produit");
@@ -806,7 +846,7 @@ function benefFor(period){
   function inP(d){ if(period==="all") return true; return String(d||"").slice(0,7)===today().slice(0,7); }
   function s(arr){ return arr.filter(function(x){return inP(x.date);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0); }
   var pp=(period==='all'?'all':'month');
-  var ventes=s(S.credits), depenses=expensesCharge(pp)+amortCharge(pp);
+  var ventes=s(S.credits), depenses=expensesCharge(pp)+amortCharge(pp)+loanInterestCharge(pp);
   var achats=S.stock.filter(function(x){return x.kind==='entree'&&!isOpening(x)&&inP(x.date);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
   return ventes-achats-depenses;
 }
@@ -857,15 +897,15 @@ function renderHome(){
     var encPer = S.payments.filter(function(x){return inPer(x.date,per);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
     var depPer = expensesCharge(per);
     var achPer = S.stock.filter(function(x){return x.kind==='entree'&&!isOpening(x)&&inPer(x.date,per);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
-    var amPer = amortCharge(per);
-    var benefPer = caPer - achPer - depPer - amPer;
+    var amPer = amortCharge(per), loanIntPer = loanInterestCharge(per);
+    var benefPer = caPer - achPer - depPer - amPer - loanIntPer;
     var lv = stockLevels();
     h+='<div class="hint" style="margin:-4px 0 8px;font-weight:700;color:var(--muted)">Afficher&nbsp;:</div>'+periodBar(per,"homeper");
     var tz=treasury('all'), dette=supplierDebtTotal();
     h+='<div class="dash-grid">';
     h+=dashCard("Chiffre d'affaires · "+pl, money(caPer), "var(--green)", "analyse", "ventes enregistrées", "var(--green)");
     h+=dashCard("Dépenses · "+pl, money(depPer), "var(--crit)", "expenses", "charges de la période", "var(--crit)");
-    h+=dashCard("Solde dû (global)", money(du), "var(--gold)", "clients", "reste à recouvrer", "var(--gold-deep,#A87C2E)");
+    h+=dashCard("Solde dû (global)", money(du), "var(--gold)", "recouvrement", "reste à recouvrer", "var(--gold-deep,#A87C2E)");
     h+=dashCard("Encaissé · "+pl, money(encPer), "var(--good)", "cash", "argent reçu", "var(--good)");
     h+=dashCard("Manque / Triage (sur vente)", money(lv.triageVal), "var(--crit)", "stock", (lv.triageKg>0?(rnd(lv.triageKg)+" kg perdus"):"aucun"), "var(--crit)");
     h+=dashCard("Bénéfice · "+pl, money(benefPer), (benefPer>=0?"var(--good)":"var(--crit)"), "profit", "ventes − achats − charges", (benefPer>=0?"var(--good)":"var(--crit)"));
@@ -1501,7 +1541,8 @@ function renderProfit(){
   var achats=S.stock.filter(function(x){return x.kind==='entree'&&!isOpening(x)&&inProfitPeriod(x.date);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
   var depenses=expensesCharge(profitPeriod==='all'?'all':'month');
   var amort=amortCharge(profitPeriod==='all'?'all':'month');
-  var benef=ventes-achats-depenses-amort;
+  var loanInt=loanInterestCharge(profitPeriod==='all'?'all':'month');
+  var benef=ventes-achats-depenses-amort-loanInt;
   h+='<div class="d-head" style="margin-top:4px"><div class="t" style="color:var(--gold-soft)">Bénéfice estimé</div>'
     +'<h2 style="font-size:27px;margin-top:4px">'+money(benef)+'</h2>'
     +'<div class="t" style="margin-top:6px">Ventes − Achats de marchandises − Dépenses</div></div>';
@@ -1510,6 +1551,7 @@ function renderProfit(){
     +pline("Achats de marchandises (stock)", -achats, "var(--crit)")
     +pline("Dépenses de fonctionnement", -depenses, "var(--crit)")
     +(amort>0?pline("Amortissements (usure du matériel)", -amort, "var(--crit)"):'')
+    +(loanInt>0?pline("Intérêts d'emprunt", -loanInt, "var(--crit)"):'')
     +'<div class="item"><div class="body"><div class="top"><span class="lab" style="font-weight:800">Bénéfice estimé</span><span class="amt tnum" style="color:'+(benef>=0?'var(--good)':'var(--crit)')+'">'+money(benef)+'</span></div></div></div>'
     +'</div></div>';
   h+='<div class="card"><div class="card-h"><h3>Trésorerie (argent reçu)</h3></div>'
@@ -1778,7 +1820,7 @@ function renderAnalyse(){
   months.forEach(function(m){
     var ca=monthSum(S.credits,m.key);
     var ach=monthSum(S.stock,m.key,function(x){return x.kind==='entree'&&!isOpening(x);});
-    var dep=realExpenses().reduce(function(a,x){return a+expChargeOfMonth(x,m.key);},0)+amortOfMonth(m.key);
+    var dep=realExpenses().reduce(function(a,x){return a+expChargeOfMonth(x,m.key);},0)+amortOfMonth(m.key)+loanInterestOfMonth(m.key);
     caV.push(ca); benV.push(ca-ach-dep);
   });
   var evoBody=svgLine(months,[{name:'CA',color:'var(--green)',vals:caV},{name:'Bénéfice',color:'var(--gold)',vals:benV}])
@@ -1791,7 +1833,7 @@ function renderAnalyse(){
   var encP=S.payments.filter(function(x){return inPer(x.date,per);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
   var depP=expensesCharge(per);
   var achP=S.stock.filter(function(x){return x.kind==='entree'&&!isOpening(x)&&inPer(x.date,per);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
-  var benP=caP-achP-depP-amortCharge(per);
+  var benP=caP-achP-depP-amortCharge(per)-loanInterestCharge(per);
   h+='<div class="money-grid" style="margin-top:10px">'
     +'<div class="m"><div class="lab">CA · '+esc(pl)+'</div><div class="v tnum" style="color:var(--green)">'+kFmt(caP)+'</div></div>'
     +'<div class="m"><div class="lab">Bénéfice</div><div class="v tnum" style="color:'+(benP>=0?'var(--good)':'var(--crit)')+'">'+kFmt(benP)+'</div></div>'
@@ -2051,6 +2093,152 @@ async function saveAsset(){
   closeSheet(); toast("Immobilisation enregistrée ✓"); await refresh();
 }
 
+/* ===== RECOUVREMENT (créances clients, par ancienneté) ===== */
+function daysSince(dateStr){ var d=new Date(String(dateStr||'').slice(0,10)+'T00:00:00'), t=new Date(today()+'T00:00:00'); if(isNaN(d)) return 0; return Math.max(0, Math.round((t-d)/86400000)); }
+/* date de la plus ancienne créance non encore couverte (FIFO : paiements imputés aux plus anciennes) */
+function oldestUnpaid(cid){
+  var cl=S.clients.find(function(x){return x.id===cid;});
+  var opening=clientOpening(cl), remain=sum(by(S.payments,cid),'amount');
+  if(opening>0){ if(remain>=opening){ remain-=opening; } else { return {date:null, opening:true}; } }
+  var creds=by(S.credits,cid).slice().sort(function(a,b){return String(a.date||'').localeCompare(String(b.date||''));});
+  for(var i=0;i<creds.length;i++){ var a=Number(creds[i].amount)||0; if(remain>=a){ remain-=a; } else { return {date:creds[i].date, opening:false}; } }
+  return null;
+}
+function debtAgeDays(cid){ var o=oldestUnpaid(cid); if(!o) return -1; if(o.opening||!o.date) return 999; return daysSince(o.date); }
+function ageLabel(age){ if(age<0) return ''; if(age>=999) return 'dette ancienne'; if(age===0) return "aujourd'hui"; return 'depuis '+age+' jour'+(age>1?'s':''); }
+function ageColor(age){ if(age>90) return 'var(--crit)'; if(age>60) return 'var(--warn)'; if(age>30) return 'var(--gold-deep,#A87C2E)'; return 'var(--muted)'; }
+function renderRecouvrement(){
+  var h='<button class="add-link" data-go="menu" style="margin:2px 0 12px">‹ Gestion</button>';
+  h+='<div class="view-title">Recouvrement</div><p class="view-sub">Qui vous doit, et depuis combien de temps. Relancez en un geste. Les paiements sont imputés aux plus anciennes dettes.</p>';
+  var debtors=S.clients.filter(function(c){return totals(c.id).du>0;}).map(function(c){ return {c:c, du:totals(c.id).du, age:debtAgeDays(c.id)}; });
+  var tot=debtors.reduce(function(s,d){return s+d.du;},0);
+  var bk={a:0,b:0,c:0,d:0,e:0};
+  debtors.forEach(function(x){ var a=x.age; if(a<0) return; if(a<=14) bk.a+=x.du; else if(a<=30) bk.b+=x.du; else if(a<=60) bk.c+=x.du; else if(a<=90) bk.d+=x.du; else bk.e+=x.du; });
+  h+='<div class="card"><div class="card-h"><h3>À recouvrer : '+money(tot)+'</h3></div>'
+    +'<div class="info-row"><span class="k">0 à 14 jours</span><b class="tnum">'+money(bk.a)+'</b></div>'
+    +'<div class="info-row"><span class="k">15 à 30 jours</span><b class="tnum">'+money(bk.b)+'</b></div>'
+    +'<div class="info-row"><span class="k" style="color:var(--gold-deep,#A87C2E)">31 à 60 jours</span><b class="tnum">'+money(bk.c)+'</b></div>'
+    +'<div class="info-row"><span class="k" style="color:var(--warn)">61 à 90 jours</span><b class="tnum">'+money(bk.d)+'</b></div>'
+    +'<div class="info-row"><span class="k" style="color:var(--crit)">Plus de 90 jours</span><b class="tnum" style="color:var(--crit)">'+money(bk.e)+'</b></div></div>';
+  if(!debtors.length){ h+='<div class="item-empty" style="margin-top:14px">Aucun client ne vous doit d\'argent. Tout est à jour ✓</div>'; return h; }
+  debtors.sort(function(a,b){ return (b.age-a.age) || (b.du-a.du); });
+  h+='<div class="section-h"><h2>Clients à relancer</h2></div><div class="clist">';
+  debtors.forEach(function(x){ var c=x.c;
+    h+='<div class="c-card"><button class="c-main" data-client="'+c.id+'" style="background:none;border:0;text-align:left;padding:0;flex:1;min-width:0">'
+      +'<div class="c-name">'+esc(c.full_name||'Sans nom')+'</div>'
+      +'<div class="c-meta"><span style="color:'+ageColor(x.age)+';font-weight:700">'+esc(ageLabel(x.age))+'</span>'+(c.phone?(' · '+esc(c.phone)):'')+'</div></button>'
+      +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:none">'
+      +'<span class="solde tnum">'+money(x.du)+'</span>'
+      +(c.phone?'<button class="btn btn-gold" data-wa="'+c.id+'" style="padding:6px 10px;font-size:12px">💬 Relancer</button>':'')
+      +'</div></div>';
+  });
+  h+='</div>';
+  h+='<div class="hint" style="margin-top:12px;line-height:1.6">« Depuis X jours » = ancienneté de la plus vieille dette encore impayée du client. Les clients les plus en retard apparaissent en premier.</div>';
+  return h;
+}
+
+/* ===== RÉAPPROVISIONNEMENT (jours de stock restants) ===== */
+function salesVelocity(pid, days){
+  var cutoff=new Date(today()+'T00:00:00'); cutoff.setDate(cutoff.getDate()-days);
+  var cut=cutoff.toISOString().slice(0,10), kg=0;
+  S.credits.forEach(function(x){ if(x.product_id===pid && String(x.date||'')>=cut){ kg+=Number(x.content_qty)||0; } });
+  return days>0 ? kg/days : 0;
+}
+function renderRestock(){
+  var h='<button class="add-link" data-go="menu" style="margin:2px 0 12px">‹ Gestion</button>';
+  h+='<div class="view-title">Réapprovisionnement</div><p class="view-sub">Combien de jours de stock vous reste-t-il, au rythme des ventes des 30 derniers jours. Les produits à racheter en priorité sont en haut.</p>';
+  var m=stockByProduct();
+  var rows=S.products.filter(function(p){return p.active!==false;}).map(function(p){
+    var r=m[p.id]||{}, stockKg=(r.ckyNet||0)+(r.routeNet||0), v=salesVelocity(p.id,30);
+    var days=v>0?(stockKg/v):Infinity, suggest=v>0?Math.max(0,Math.round(v*30-stockKg)):0;
+    return {p:p, stockKg:stockKg, v:v, days:days, suggest:suggest};
+  }).filter(function(x){ return x.stockKg>0 || x.v>0; });
+  if(!rows.length){ h+='<div class="item-empty">Aucun produit avec du stock ou des ventes récentes.</div>'; return h; }
+  rows.sort(function(a,b){ return a.days-b.days; });
+  h+='<div class="clist">';
+  rows.forEach(function(x){ var p=x.p, u=prodUnits(p.id), sacs=(u.content>1)?(' (≈ '+rnd(x.stockKg/u.content)+' '+esc(u.ou||'sac')+')'):'';
+    var col, lab;
+    if(!isFinite(x.days)){ col='var(--muted)'; lab='pas de vente récente'; }
+    else if(x.days<7){ col='var(--crit)'; lab='⚠️ '+Math.round(x.days)+' jours restants'; }
+    else if(x.days<14){ col='var(--warn)'; lab=Math.round(x.days)+' jours restants'; }
+    else { col='var(--good)'; lab=Math.round(x.days)+' jours restants'; }
+    h+='<div class="card" style="border-left:4px solid '+col+'"><div class="card-h"><h3>'+esc(p.name)+'</h3><span class="tnum" style="color:'+col+';font-weight:800">'+esc(lab)+'</span></div>'
+      +'<div class="info-row"><span class="k">Stock restant</span><b class="tnum">'+rnd(x.stockKg)+' '+esc(u.su)+sacs+'</b></div>'
+      +'<div class="info-row"><span class="k">Rythme de vente</span><b class="tnum">'+(x.v>0?(rnd(x.v)+' '+esc(u.su)+'/jour'):'—')+'</b></div>'
+      +(x.suggest>0?'<div class="info-row"><span class="k" style="color:var(--green);font-weight:700">À racheter (pour 30 j)</span><b class="tnum" style="color:var(--green)">'+rnd(x.suggest)+' '+esc(u.su)+(u.content>1?(' ≈ '+Math.ceil(x.suggest/u.content)+' '+esc(u.ou||'sac')):'')+'</b></div>':'')
+      +'</div>';
+  });
+  h+='</div>';
+  h+='<div class="hint" style="margin-top:12px;line-height:1.6">« Jours restants » = stock actuel ÷ rythme de vente moyen (30 derniers jours). « À racheter » = quantité pour tenir encore 30 jours. En rouge : moins d\'une semaine de stock.</div>';
+  return h;
+}
+
+/* ===== EMPRUNTS (écran) ===== */
+function renderLoans(){
+  var h='<button class="add-link" data-go="menu" style="margin:2px 0 12px">‹ Gestion</button>';
+  h+='<div class="view-title">Emprunts</div><p class="view-sub">Prêts reçus par l\'entreprise. L\'argent reçu entre en trésorerie ; chaque remboursement en sort. Les intérêts sont une charge (ils réduisent le bénéfice), le capital remboursé réduit la dette.</p>';
+  var tt=loansTotals();
+  h+='<div class="money-grid"><div class="m"><div class="lab">Emprunté</div><div class="v tnum">'+kFmt(tt.emprunte)+'</div></div>'
+    +'<div class="m"><div class="lab">Capital restant dû</div><div class="v tnum" style="color:var(--crit)">'+kFmt(tt.restant)+'</div></div>'
+    +'<div class="m"><div class="lab">Intérêts payés</div><div class="v tnum">'+kFmt(tt.interets)+'</div></div></div>';
+  h+='<button class="btn btn-green btn-block" data-addloan="1" style="margin:14px 0">+ Nouvel emprunt</button>';
+  var list=(S.loans||[]);
+  if(!list.length){ h+='<div class="item-empty">Aucun emprunt enregistré.</div>'; return h; }
+  list.forEach(function(l){
+    var bal=loanBalance(l), nd=loanNextDue(l), paid=(S.loanPayments||[]).filter(function(x){return x.loan_id===l.id;}).length, nb=loanSchedule(l).length;
+    h+='<div class="card"><div class="card-h"><h3>'+esc(l.lender||'Prêteur')+'</h3><span class="tnum" style="font-weight:800'+(bal<=0?';color:var(--good)':'')+'">'+(bal<=0?'Soldé ✓':money(bal))+'</span></div>'
+      +'<div class="sub" style="color:var(--muted);font-size:12.5px;margin-bottom:6px">'+money(l.principal)+' · '+rnd((Number(l.rate)||0)*100)+' %/an · '+esc(loanTypeLabel(l.rtype))+' · déblocage '+fmtDate(l.start_date)+'</div>'
+      +'<div class="info-row"><span class="k">Capital restant dû</span><b class="tnum"'+(bal>0?' style="color:var(--crit)"':'')+'>'+money(bal)+'</b></div>'
+      +'<div class="info-row"><span class="k">Échéances réglées</span><b class="tnum">'+paid+' / '+nb+'</b></div>';
+    if(nd && bal>0){ h+='<div class="info-row"><span class="k">Prochaine échéance ('+fmtDate(nd.date)+')</span><b class="tnum">'+money(Math.round(nd.interest+nd.capital))+'</b></div>'
+      +'<div class="hint" style="margin:4px 0 8px">Dont intérêts '+money(Math.round(nd.interest))+' · capital '+money(Math.round(nd.capital))+'.</div>'; }
+    if(bal>0) h+='<button class="btn btn-gold btn-block" data-loanpay="'+l.id+'" style="margin-top:6px">Enregistrer un remboursement</button>';
+    h+='</div>';
+  });
+  h+='<div class="hint" style="margin-top:12px;line-height:1.6">La réception du prêt est déjà comptée en trésorerie dès l\'enregistrement de l\'emprunt — ne la ressaisissez pas en « Apport ». À chaque remboursement, les intérêts passent en charge et le capital diminue la dette, automatiquement.</div>';
+  return h;
+}
+function loanForm(){
+  var types=[["infine","In fine — intérêts chaque année, capital à la fin"],["annuity_month","Mensualités constantes"],["annuity_year","Annuités constantes"],["constant_principal","Amortissement constant du capital"]];
+  openSheet('<h3>Nouvel emprunt</h3>'
+    +fld("Prêteur","text","ln_lender","","Ex : Alphonse Tolno")
+    +'<div class="field-row">'+fld("Montant (FG)","number","ln_principal","","0")+fld("Taux annuel (%)","number","ln_rate","10","10")+'</div>'
+    +'<div class="field-row">'+fld("Durée (années)","number","ln_years","5","5")+fld("Date de déblocage","date","ln_date",today(),"")+'</div>'
+    +'<div class="field"><label for="ln_type">Mode de remboursement</label><select id="ln_type">'+types.map(function(t){return '<option value="'+t[0]+'">'+t[1]+'</option>';}).join('')+'</select></div>'
+    +methodField("ln_method","banque")
+    +'<div class="hint" style="margin-top:-2px">L\'argent reçu entrera en trésorerie à la date de déblocage. Le mode de remboursement définit l\'échéancier (les intérêts et le capital à payer).</div>'
+    +area("Note","ln_note","","")
+    +'<div class="sheet-actions"><button class="btn btn-ghost" data-cancel="1">Annuler</button><button class="btn btn-green" data-saveloan="1">Enregistrer</button></div>');
+}
+async function saveLoan(){
+  if(needsOnline()) return;
+  var P=Number(V("ln_principal"))||0; if(P<=0){ toast("Indiquez le montant."); return; }
+  var data={lender:V("ln_lender")||"Prêteur", principal:P, rate:(Number(V("ln_rate"))||0)/100, years:Math.max(1,Math.round(Number(V("ln_years"))||1)), rtype:V("ln_type")||'infine', start_date:V("ln_date")||today(), method:V("ln_method")||'banque', note:V("ln_note")||null, created_by:curUid()};
+  var res=await sb.from('loans').insert(data);
+  if(res.error){ toast("Erreur : "+res.error.message); return; }
+  closeSheet(); toast("Emprunt enregistré ✓ — argent reçu en trésorerie"); await refresh();
+}
+function loanPayForm(loanId){
+  var l=(S.loans||[]).find(function(x){return x.id===loanId;}); if(!l) return;
+  var nd=loanNextDue(l);
+  var di=nd?Math.round(nd.interest):0, dc=nd?Math.round(nd.capital):0;
+  openSheet('<h3>Remboursement — '+esc(l.lender||'Prêteur')+'</h3>'
+    +'<div class="hint" style="margin-bottom:6px">Capital restant dû : <b>'+money(loanBalance(l))+'</b>.'+(nd?(' Prochaine échéance prévue le '+fmtDate(nd.date)+'.'):'')+'</div>'
+    +'<div class="field-row">'+fld("Intérêts payés (FG)","number","lp_interest",di||"","0")+fld("Capital remboursé (FG)","number","lp_capital",dc||"","0")+'</div>'
+    +'<div class="field-row">'+fld("Date","date","lp_date",today(),"")+methodField("lp_method",(l.method||'banque'))+'</div>'
+    +area("Note","lp_note","","")
+    +'<div class="sheet-actions"><button class="btn btn-ghost" data-cancel="1">Annuler</button><button class="btn btn-green" data-saveloanpay="'+loanId+'">Enregistrer</button></div>');
+}
+async function saveLoanPay(loanId){
+  if(needsOnline()) return;
+  var it=Number(V("lp_interest"))||0, cap=Number(V("lp_capital"))||0;
+  if(it<=0 && cap<=0){ toast("Indiquez un montant (intérêts et/ou capital)."); return; }
+  var data={loan_id:loanId, interest:it, capital:cap, date:V("lp_date")||today(), method:V("lp_method")||'banque', note:V("lp_note")||null, created_by:curUid()};
+  var res=await sb.from('loan_payments').insert(data);
+  if(res.error){ toast("Erreur : "+res.error.message); return; }
+  closeSheet(); toast("Remboursement enregistré ✓"); await refresh();
+}
+
 /* ===== EXPORT COMPTABLE MENSUEL ===== */
 var MOISFR=['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
 function monthLabel(key){ var p=String(key||"").split('-'); return p.length===2?(MOISFR[Number(p[1])-1]+' '+p[0]):key; }
@@ -2067,7 +2255,8 @@ function acctMonth(key){
   var apport   = S_(S.expenses, function(x){return x.category==='apport'&&inM(x.date);});
   var retrait  = S_(S.expenses, function(x){return x.category==='retrait'&&inM(x.date);});
   var amort    = amortOfMonth(key);
-  return {ventes:ventes, encaisse:encaisse, achats:achats, achatsCr:achatsCr, charges:charges, amort:amort, payFour:payFour, apport:apport, retrait:retrait, benef:ventes-achats-charges-amort};
+  var loanInt  = loanInterestOfMonth(key);
+  return {ventes:ventes, encaisse:encaisse, achats:achats, achatsCr:achatsCr, charges:charges, amort:amort, loanInt:loanInt, payFour:payFour, apport:apport, retrait:retrait, benef:ventes-achats-charges-amort-loanInt};
 }
 /* Ensemble de mois 'AAAA-MM' couverts par la sélection (mois précis, trimestre, année, ou tout) */
 function expMonthSet(){
@@ -2084,7 +2273,7 @@ function expMonthSet(){
   return [expMonth];
 }
 function acctRange(keys){
-  var tot={ventes:0,encaisse:0,achats:0,achatsCr:0,charges:0,amort:0,payFour:0,apport:0,retrait:0,benef:0};
+  var tot={ventes:0,encaisse:0,achats:0,achatsCr:0,charges:0,amort:0,loanInt:0,payFour:0,apport:0,retrait:0,benef:0};
   keys.forEach(function(k){ var a=acctMonth(k); for(var p in tot){ tot[p]+=a[p]; } });
   return tot;
 }
@@ -2116,6 +2305,7 @@ function renderAccountingExport(){
     +pline("Achats de marchandises", -a.achats, "var(--crit)")
     +pline("Dépenses de fonctionnement", -a.charges, "var(--crit)")
     +((a.amort>0)?pline("Amortissements (usure du matériel)", -a.amort, "var(--crit)"):'')
+    +((a.loanInt>0)?pline("Intérêts d'emprunt", -a.loanInt, "var(--crit)"):'')
     +'<div class="item"><div class="body"><div class="top"><span class="lab" style="font-weight:800">Bénéfice ('+esc(expLabel())+')</span><span class="amt tnum" style="color:'+(a.benef>=0?'var(--good)':'var(--crit)')+'">'+money(a.benef)+'</span></div></div></div>'
     +'</div></div>';
   h+='<div class="card"><div class="card-h"><h3>Mouvements d\'argent — '+esc(expLabel())+'</h3></div>'
@@ -2155,9 +2345,9 @@ function exportMonthCSV(){
   var credit=sum(S.credits,'amount')+openingDebtTotal(), du=Math.max(0,credit-sum(S.payments,'amount'));
   r.push([]);
   r.push(["RÉSUMÉ PAR MOIS — "+expLabel()]);
-  r.push(["Mois","Ventes","Achats march.","Charges","Amortissements","Bénéfice","Encaissé","Payé fourn.","Apports","Retraits"]);
-  keys.forEach(function(k){ var a=acctMonth(k); r.push([k,Math.round(a.ventes),Math.round(a.achats),Math.round(a.charges),Math.round(a.amort),Math.round(a.benef),Math.round(a.encaisse),Math.round(a.payFour),Math.round(a.apport),Math.round(a.retrait)]); });
-  r.push(["TOTAL",Math.round(tot.ventes),Math.round(tot.achats),Math.round(tot.charges),Math.round(tot.amort),Math.round(tot.benef),Math.round(tot.encaisse),Math.round(tot.payFour),Math.round(tot.apport),Math.round(tot.retrait)]);
+  r.push(["Mois","Ventes","Achats march.","Charges","Amortissements","Intérêts emprunt","Bénéfice","Encaissé","Payé fourn.","Apports","Retraits"]);
+  keys.forEach(function(k){ var a=acctMonth(k); r.push([k,Math.round(a.ventes),Math.round(a.achats),Math.round(a.charges),Math.round(a.amort),Math.round(a.loanInt),Math.round(a.benef),Math.round(a.encaisse),Math.round(a.payFour),Math.round(a.apport),Math.round(a.retrait)]); });
+  r.push(["TOTAL",Math.round(tot.ventes),Math.round(tot.achats),Math.round(tot.charges),Math.round(tot.amort),Math.round(tot.loanInt),Math.round(tot.benef),Math.round(tot.encaisse),Math.round(tot.payFour),Math.round(tot.apport),Math.round(tot.retrait)]);
   r.push([]);
   r.push(["SOLDES À CE JOUR"]);
   r.push(["Caisse","","","","",Math.round(tz.caisse)]);
@@ -2191,6 +2381,7 @@ function printAccounting(){
     +row("Achats de marchandises",-a.achats,true)
     +row("Dépenses de fonctionnement",-a.charges,true)
     +(a.amort>0?row("Amortissements (usure du matériel)",-a.amort,true):'')
+    +(a.loanInt>0?row("Intérêts d'emprunt",-a.loanInt,true):'')
     +'<div class="r tot"><span>Bénéfice de la période</span><b'+(a.benef<0?' class="neg"':'')+'>'+money(a.benef)+'</b></div>'
     +perMois
     +'<h2>Mouvements d\'argent — '+expLabel()+'</h2>'
@@ -2690,6 +2881,7 @@ function entryForm(type,clientId){
       +fld("Montant (FG)","number","e_amount","","0")
       +'</div>';
     h+='<div class="hint" id="e_priceHint">Vous pouvez modifier le prix à chaque vente (prix du jour, négociation).</div>';
+    h+='<div id="e_margin" style="margin:-4px 0 10px"></div>';
     h+=fld("Date","date","e_date",t,"");
   } else {
     h+=fld("Date","date","e_date",t,"");
@@ -2735,6 +2927,22 @@ function updateAmount(){
       else hint.innerHTML='Montant = '+money(price)+' / '+esc(su)+' × '+rnd(content)+' '+esc(su)+' = <b>'+money(price*net)+'</b>. <span style="color:var(--muted)">Prix modifiable.</span>';
     }
   } else if(hint){ hint.textContent="Vous pouvez modifier le prix à chaque vente (prix du jour, négociation)."; }
+  /* --- marge à la vente : prix de vente vs coût d'achat moyen --- */
+  var mEl=document.getElementById("e_margin");
+  if(mEl){
+    var pid=sel.value;
+    var avg=pid?((stockByProduct()[pid]||{}).avg||0):0;
+    if(!pid || avg<=0){
+      mEl.innerHTML = pid ? '<div class="hint" style="color:var(--muted)">Coût d\'achat moyen inconnu pour ce produit — renseignez vos entrées de stock pour voir la marge.</div>' : '';
+    } else if(price>0){
+      var mu=price-avg, mt=mu*net, pct=Math.round(mu/avg*100);
+      if(price<avg){
+        mEl.innerHTML='<div style="background:var(--crit-bg);border:1px solid var(--crit);border-radius:10px;padding:9px 11px;color:var(--crit);font-size:12.5px;font-weight:700">⚠️ Vente à perte : '+money(price)+' / '+esc(su)+' en dessous du coût d\'achat moyen ('+money(avg)+' / '+esc(su)+'). Perte ≈ '+money(Math.abs(mt))+' sur cette vente.</div>';
+      } else {
+        mEl.innerHTML='<div style="background:var(--good-bg);border:1px solid var(--good);border-radius:10px;padding:9px 11px;color:var(--good);font-size:12.5px;font-weight:700">Marge : +'+money(mu)+' / '+esc(su)+' (+'+pct+' %) · bénéfice ≈ '+money(mt)+' sur cette vente.<div style="font-weight:500;color:var(--muted);font-size:11px;margin-top:2px">Coût d\'achat moyen : '+money(avg)+' / '+esc(su)+'</div></div>';
+      }
+    } else { mEl.innerHTML=''; }
+  }
 }
 function numOrNull(id){ var v=V(id); return v===""?null:Number(v); }
 function prodForm(p){
@@ -2839,7 +3047,7 @@ function orderSheet(id){
 
 /* ===== EVENTS ===== */
 document.addEventListener("click",function(e){
-  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin],[data-go],[data-addstock],[data-savestock],[data-receivestock],[data-achemine],[data-saveachemine],[data-triage],[data-savetriage],[data-addexp],[data-saveexp],[data-profper],[data-homeper],[data-anaper],[data-wa],[data-receiptpay],[data-wareceipt],[data-export],[data-addrule],[data-editrule],[data-saverule],[data-delrule],[data-pdfreceipt],[data-actfilter],[data-dlbackup],[data-bio],[data-push],[data-cashper],[data-cashxfer],[data-savecashxfer],[data-exyear],[data-exprint],[data-cloture],[data-giftgiven],[data-savegift],[data-resetclient],[data-editcredit],[data-saveeditcredit],[data-saveopening],[data-ordersale],[data-repeatexp],[data-supplierpay],[data-savesupplierpay],[data-ownermove],[data-saveownermove],[data-expmonth],[data-exportmonth],[data-exprintacc],[data-attach],[data-viewattach],[data-delattach],[data-addasset],[data-saveasset]");
+  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin],[data-go],[data-addstock],[data-savestock],[data-receivestock],[data-achemine],[data-saveachemine],[data-triage],[data-savetriage],[data-addexp],[data-saveexp],[data-profper],[data-homeper],[data-anaper],[data-wa],[data-receiptpay],[data-wareceipt],[data-export],[data-addrule],[data-editrule],[data-saverule],[data-delrule],[data-pdfreceipt],[data-actfilter],[data-dlbackup],[data-bio],[data-push],[data-cashper],[data-cashxfer],[data-savecashxfer],[data-exyear],[data-exprint],[data-cloture],[data-giftgiven],[data-savegift],[data-resetclient],[data-editcredit],[data-saveeditcredit],[data-saveopening],[data-ordersale],[data-repeatexp],[data-supplierpay],[data-savesupplierpay],[data-ownermove],[data-saveownermove],[data-expmonth],[data-exportmonth],[data-exprintacc],[data-attach],[data-viewattach],[data-delattach],[data-addasset],[data-saveasset],[data-addloan],[data-saveloan],[data-loanpay],[data-saveloanpay]");
   if(!el) return; var d=el.dataset;
   if((d.del!==undefined||d.delclient!==undefined||d.delprod!==undefined||d.delcat!==undefined||d.delrule!==undefined)&&!isAdmin()){ toast("Suppression réservée au gérant principal."); return; }
   if(d.bio!==undefined){ toggleBio(); }
@@ -2903,6 +3111,10 @@ document.addEventListener("click",function(e){
   else if(d.delattach!==undefined){ delAttachment(d.delattach); }
   else if(d.addasset!==undefined){ assetForm(); }
   else if(d.saveasset!==undefined){ saveAsset(); }
+  else if(d.addloan!==undefined){ loanForm(); }
+  else if(d.saveloan!==undefined){ saveLoan(); }
+  else if(d.loanpay!==undefined){ loanPayForm(d.loanpay); }
+  else if(d.saveloanpay!==undefined){ saveLoanPay(d.saveloanpay); }
   else if(d.addprod!==undefined){ prodForm(null); }
   else if(d.editprod!==undefined){ prodForm(S.products.find(function(x){return x.id===d.editprod;})); }
   else if(d.cancel!==undefined){ closeSheet(); }
