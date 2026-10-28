@@ -210,6 +210,80 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .catroll .cr .q{font-size:12px;color:var(--muted);margin-top:2px}
 /* assistant : pas de suppression */
 .role-assistant .del,.role-assistant .btn-danger{display:none!important}
+
+/* ===================== ACCUEIL — refonte premium ===================== */
+.greet{margin:2px 0 14px}
+.greet .g-hi{font-size:14px;color:var(--muted);font-weight:600;margin:0 0 1px}
+.greet .g-t{font-family:"Montserrat";font-weight:800;font-size:23px;margin:0;letter-spacing:-.015em}
+.hero{position:relative;background:linear-gradient(158deg,var(--green) 0%,var(--green-deep) 58%,#042A20 100%);color:#fff;border-radius:20px;padding:17px 18px 15px;box-shadow:var(--shadow);overflow:hidden}
+.hero::after{content:"";position:absolute;right:-46px;top:-46px;width:160px;height:160px;border-radius:50%;background:radial-gradient(circle,rgba(216,182,95,.20),transparent 70%);pointer-events:none}
+.hero-lab{position:relative;display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:11px;font-weight:800;letter-spacing:.11em;text-transform:uppercase;color:rgba(255,255,255,.72)}
+.hero-eye{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:9px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;flex:none;padding:0}
+.hero-eye svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.hero-val{font-family:"Montserrat";font-weight:800;font-size:32px;line-height:1.08;margin:9px 0 2px;letter-spacing:-.025em}
+.hero-val small{font-size:14px;font-weight:700;opacity:.8}
+.hero-rule{height:1px;background:rgba(255,255,255,.16);margin:12px 0}
+.hero-split{display:flex;align-items:stretch}
+.hero-cell{flex:1;min-width:0}
+.hero-cell + .hero-cell{border-left:1px solid rgba(255,255,255,.16);padding-left:16px}
+.hero-cell .hk{font-size:12px;color:rgba(255,255,255,.72);font-weight:600}
+.hero-cell .hv{font-family:"Montserrat";font-weight:800;font-size:16px;margin-top:3px;letter-spacing:-.01em}
+.hero.masked .hero-val,.hero.masked .hv{filter:blur(10px);-webkit-filter:blur(10px)}
+.qacts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:14px 0 2px}
+.qact{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 8px 11px;display:flex;flex-direction:column;align-items:center;gap:8px;box-shadow:var(--shadow);font:inherit;color:var(--ink);transition:transform .08s ease}
+.qact:active{transform:scale(.96)}
+.qact .qic{width:46px;height:46px;border-radius:14px;background:var(--good-bg);display:flex;align-items:center;justify-content:center;color:var(--green)}
+.qact .qic svg{width:23px;height:23px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.qact.gold .qic{background:var(--warn-bg);color:var(--gold-deep,#A87C2E)}
+.qact.red .qic{background:var(--crit-bg);color:var(--crit)}
+.qact b{font-size:13px;font-weight:700}
+.perf{margin-top:20px}
+.perf-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:0 2px 10px}
+.perf-h h2{font-size:15px;font-weight:800;margin:0}
+.perf-h .pp{font-size:12px;color:var(--muted);font-weight:700}
+.perf-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:var(--shadow)}
+.perf-cell{background:var(--surface);padding:13px 14px;min-width:0;text-align:left}
+.perf-cell .pl{font-size:12px;color:var(--muted);font-weight:600}
+.perf-cell .pv{font-family:"Montserrat";font-weight:800;font-size:19px;margin-top:4px;letter-spacing:-.015em}
+@media (max-width:380px){.perf-cell .pv{font-size:16.5px}}
+.alert-cre{display:flex;align-items:center;gap:13px;width:100%;text-align:left;background:linear-gradient(135deg,var(--warn-bg) 0%,#F3E2BD 100%);border:1px solid #E7CF95;border-radius:16px;padding:13px 15px;margin-top:14px;box-shadow:var(--shadow);font:inherit;color:var(--ink)}
+.alert-cre .ac-ic{width:42px;height:42px;border-radius:12px;background:rgba(176,125,24,.16);display:flex;align-items:center;justify-content:center;color:var(--gold-deep,#A87C2E);flex:none}
+.alert-cre .ac-ic svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.alert-cre .ac-m{flex:1;min-width:0;display:flex;flex-direction:column}
+.alert-cre .ac-t{display:block;font-weight:800;font-size:14px}
+.alert-cre .ac-s{display:block;font-size:11.5px;color:var(--warn);margin-top:1px}
+.alert-cre .ac-v{display:block;font-family:"Montserrat";font-weight:800;font-size:17px;color:var(--gold-deep,#A87C2E);margin-top:3px;letter-spacing:-.01em}
+.alert-cre .ac-go{color:var(--gold-deep,#A87C2E);font-size:21px;font-weight:800;flex:none}
+.flat-row{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:13px 15px;margin-top:10px;box-shadow:var(--shadow);font:inherit;color:var(--ink)}
+.flat-row .fr-ic{color:var(--green);flex:none;display:flex}
+.flat-row .fr-ic svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.flat-row .fr-m{flex:1;font-weight:700;font-size:14px}
+.flat-row .fr-c{background:var(--good-bg);color:var(--green);font-weight:800;font-size:12px;border-radius:999px;padding:3px 10px;min-width:22px;text-align:center}
+.flat-row .fr-c.warn{background:var(--warn-bg);color:var(--warn)}
+.flat-row .fr-chev{color:var(--muted);font-size:19px;font-weight:800;flex:none;line-height:1}
+.sec-lab{font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:24px 2px 10px}
+
+/* ===================== CLIENTS — refonte premium ===================== */
+.cli-top{display:flex;align-items:center;gap:10px;margin:2px 0 6px}
+.cli-top h1{font-family:"Montserrat";font-weight:800;font-size:24px;margin:0}
+.cli-count{background:var(--good-bg);color:var(--green);font-weight:800;font-size:13px;border-radius:999px;padding:3px 11px}
+.cli-sum{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:16px;padding:12px 15px;box-shadow:var(--shadow);margin:12px 0 14px}
+.cli-sum .cs-l{font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+.cli-sum .cs-v{font-family:"Montserrat";font-weight:800;font-size:25px;color:var(--gold-deep,#A87C2E);margin-top:2px;letter-spacing:-.015em}
+.seg{display:flex;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:4px;gap:4px;margin-bottom:14px}
+.seg button{flex:1;border:0;background:none;border-radius:9px;padding:9px 6px;font:inherit;font-size:13px;font-weight:700;color:var(--muted)}
+.seg button.on{background:var(--green);color:#fff}
+.c-row{display:flex;align-items:center;gap:11px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px;box-shadow:var(--shadow)}
+.c-hit{display:flex;align-items:center;gap:11px;flex:1;min-width:0;background:none;border:0;padding:0;margin:0;color:inherit;text-align:left;font:inherit}
+.c-row .c-av{width:44px;height:44px;border-radius:50%;background:var(--good-bg);border:0;color:var(--green);font-size:15px}
+.c-row .c-main{flex:1;min-width:0;display:flex;flex-direction:column}
+.c-row .c-name{display:block;font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.c-rap{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.c-rap b{display:block;font-family:"Montserrat";font-weight:800;font-size:15px;color:var(--ink);margin-top:1px;letter-spacing:-.01em}
+.c-enc{flex:none;background:var(--surface);border:1.5px solid var(--green);color:var(--green);border-radius:11px;padding:9px 12px;font:inherit;font-weight:700;font-size:13px;display:inline-flex;align-items:center;gap:6px}
+.c-enc svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.c-badge{flex:none;background:var(--good-bg);color:var(--good);font-weight:700;font-size:12px;border-radius:999px;padding:6px 13px}
+.cli-add{position:sticky;bottom:12px;margin-top:16px}
 </style>
 </head>
 <body>
@@ -293,6 +367,19 @@ var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 var ME=null, ROLE=null;
 var S={clients:[],products:[],orders:[],deliveries:[],credits:[],payments:[],categories:[],stock:[],expenses:[],rules:[],people:[],backups:[],redemptions:[]};
 var view="home", currentId=null, search="", profitPeriod="month", actFilter="all", homePeriod="month", cashPeriod="month", anaPeriod="month", expMonth=null, exYear=String(new Date().getFullYear());
+var clientFilter="all", hideBal=lsGet('bgb_hidebal',false);
+/* petits pictogrammes (SVG) pour l'accueil et les clients */
+var IC={
+  cart:'<svg viewBox="0 0 24 24"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h2.3l2.3 12.4a1.6 1.6 0 0 0 1.6 1.3h8.9a1.6 1.6 0 0 0 1.6-1.3L22 7H6.2"/></svg>',
+  card:'<svg viewBox="0 0 24 24"><rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><path d="M2.5 10h19"/></svg>',
+  receipt:'<svg viewBox="0 0 24 24"><path d="M5 3v18l2-1.3 2 1.3 2-1.3 2 1.3 2-1.3 2 1.3V3l-2 1.3-2-1.3-2 1.3-2-1.3-2 1.3z"/><path d="M8.5 8.5h7M8.5 12h6"/></svg>',
+  eye:'<svg viewBox="0 0 24 24"><path d="M1.5 12S5 5 12 5s10.5 7 10.5 7-3.5 7-10.5 7S1.5 12 1.5 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+  eyeoff:'<svg viewBox="0 0 24 24"><path d="M3 3l18 18"/><path d="M10.6 6.2A9.9 9.9 0 0 1 12 6c7 0 10.5 6 10.5 6a17 17 0 0 1-3.3 3.9M6.1 7.3A17 17 0 0 0 1.5 12S5 18 12 18a9.8 9.8 0 0 0 3.6-.7"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>',
+  coins:'<svg viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7.5" ry="3"/><path d="M4.5 6v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3V6"/><path d="M4.5 12v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-6"/></svg>',
+  box:'<svg viewBox="0 0 24 24"><path d="M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>',
+  arrow:'<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>'
+};
+function firstName(){ return ((ME&&ME.full_name)||"").trim().split(/\s+/)[0]||""; }
 
 /* ===== HORS LIGNE / SYNCHRONISATION ===== */
 var NET={ uid:null, syncing:false, snapAt:null };
@@ -886,36 +973,70 @@ function stockByCategory(){
     var o=out[key]; o.qCky+=r.ckyNet; o.qRoute+=r.routeNet; o.vCky+=r.ckyNet*r.avg; o.vRoute+=r.routeNet*r.avg; });
   return out;
 }
+/* trois boutons d'action rapide (Vendre / Encaisser / Dépense) */
+function quickActions(){
+  return '<div class="qacts">'
+    +'<button class="qact" data-cfilter="all"><span class="qic">'+IC.cart+'</span><b>Vendre</b></button>'
+    +'<button class="qact" data-cfilter="due"><span class="qic">'+IC.card+'</span><b>Encaisser</b></button>'
+    +'<button class="qact red" data-addexp="1"><span class="qic">'+IC.receipt+'</span><b>Dépense</b></button>'
+    +'</div>';
+}
+/* carte verte : argent disponible (trésorerie), avec œil pour masquer */
+function heroCard(){
+  var tz=treasury('all');
+  return '<div class="hero'+(hideBal?' masked':'')+'">'
+    +'<div class="hero-lab"><span>Disponible à ce jour</span>'
+    +'<button class="hero-eye" data-togglebal="1" aria-label="Masquer le solde">'+(hideBal?IC.eyeoff:IC.eye)+'</button></div>'
+    +'<div class="hero-val tnum">'+money(tz.total)+'</div>'
+    +'<div class="hero-rule"></div>'
+    +'<div class="hero-split"><div class="hero-cell"><div class="hk">Caisse</div><div class="hv tnum">'+money(tz.caisse)+'</div></div>'
+    +'<div class="hero-cell"><div class="hk">Banque</div><div class="hv tnum">'+money(tz.banque)+'</div></div></div>'
+    +'</div>';
+}
 function renderHome(){
-  var nbClients=S.clients.length;
   var nouvelles=S.orders.filter(function(o){return o.status==='nouvelle';}).length;
-  var credit=sum(S.credits,'amount')+openingDebtTotal(), paye=sum(S.payments,'amount'), du=Math.max(0,credit-paye);
-  var h='<div class="view-title">Bonjour 👋</div><p class="view-sub">Tableau de bord de votre activité.</p>';
+  var prenom=firstName();
+  var h='<div class="greet"><p class="g-hi">Bonjour '+(prenom?esc(prenom):'👋')+'</p><h1 class="g-t">Vue d\'ensemble</h1></div>';
   if(isAdmin()){
-    var per=homePeriod, pl=perLabel(per).toLowerCase();
+    var per=homePeriod, pl=perLabel(per);
     var caPer  = S.credits.filter(function(x){return inPer(x.date,per);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
     var encPer = S.payments.filter(function(x){return inPer(x.date,per);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
     var depPer = expensesCharge(per);
     var achPer = S.stock.filter(function(x){return x.kind==='entree'&&!isOpening(x)&&inPer(x.date,per);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
     var amPer = amortCharge(per), loanIntPer = loanInterestCharge(per);
     var benefPer = caPer - achPer - depPer - amPer - loanIntPer;
-    var lv = stockLevels();
-    h+='<div class="hint" style="margin:-4px 0 8px;font-weight:700;color:var(--muted)">Afficher&nbsp;:</div>'+periodBar(per,"homeper");
-    var tz=treasury('all'), dette=supplierDebtTotal();
-    h+='<div class="dash-grid">';
-    h+=dashCard("Chiffre d'affaires · "+pl, money(caPer), "var(--green)", "analyse", "ventes enregistrées", "var(--green)");
-    h+=dashCard("Dépenses · "+pl, money(depPer), "var(--crit)", "expenses", "charges de la période", "var(--crit)");
-    h+=dashCard("Solde dû (global)", money(du), "var(--gold)", "recouvrement", "reste à recouvrer", "var(--gold-deep,#A87C2E)");
-    h+=dashCard("Encaissé · "+pl, money(encPer), "var(--good)", "cash", "argent reçu", "var(--good)");
-    h+=dashCard("Manque / Triage (sur vente)", money(lv.triageVal), "var(--crit)", "stock", (lv.triageKg>0?(rnd(lv.triageKg)+" kg perdus"):"aucun"), "var(--crit)");
-    h+=dashCard("Bénéfice · "+pl, money(benefPer), (benefPer>=0?"var(--good)":"var(--crit)"), "profit", "ventes − achats − charges", (benefPer>=0?"var(--good)":"var(--crit)"));
+    var credit=sum(S.credits,'amount')+openingDebtTotal(), du=Math.max(0,credit-sum(S.payments,'amount'));
+    var lv=stockLevels(), dette=supplierDebtTotal();
+    h+=heroCard();
+    h+=quickActions();
+    /* Performance de la période */
+    h+='<div class="perf"><div class="perf-h"><h2>Performance</h2><span class="pp">'+esc(pl.toLowerCase())+'</span></div>';
+    h+=periodBar(per,"homeper");
+    h+='<div class="perf-grid">'
+      +'<button class="perf-cell" data-go="analyse"><div class="pl">Ventes</div><div class="pv tnum" style="color:var(--green)">'+money(caPer)+'</div></button>'
+      +'<button class="perf-cell" data-go="cash"><div class="pl">Encaissements</div><div class="pv tnum" style="color:var(--good)">'+money(encPer)+'</div></button>'
+      +'<button class="perf-cell" data-go="expenses"><div class="pl">Dépenses</div><div class="pv tnum" style="color:var(--crit)">'+money(depPer)+'</div></button>'
+      +'<button class="perf-cell" data-go="profit"><div class="pl">Résultat estimé</div><div class="pv tnum" style="color:'+(benefPer>=0?'var(--good)':'var(--crit)')+'">'+money(benefPer)+'</div></button>'
+      +'</div></div>';
+    /* Bannière créances */
+    h+='<button class="alert-cre" data-go="recouvrement"><span class="ac-ic">'+IC.coins+'</span>'
+      +'<span class="ac-m"><span class="ac-t">Créances clients</span><span class="ac-s">Solde global à recouvrer</span>'
+      +'<span class="ac-v tnum">'+money(du)+'</span></span><span class="ac-go">›</span></button>';
+    /* Commandes à traiter */
+    h+='<button class="flat-row" data-go="orders"><span class="fr-ic">'+IC.box+'</span><span class="fr-m">Commandes à traiter</span>'
+      +'<span class="fr-c'+(nouvelles>0?' warn':'')+'">'+nouvelles+'</span><span class="fr-chev">›</span></button>';
+    /* Autres indicateurs */
+    h+='<div class="sec-lab">Autres indicateurs</div><div class="dash-grid">';
     h+=dashCard("Stock", money(lv.total), "var(--green)", "stock", "valeur disponible", "var(--ink)");
     h+=dashCard("Dettes fournisseurs", money(dette), "var(--crit)", "suppliers", "à payer", (dette>0?"var(--crit)":"var(--good)"));
-    h+='<button class="dash-card wide" data-go="cash" style="border-left-color:var(--green)"><div class="dc-top"><span class="dc-lab">Trésorerie</span><span class="dc-chev">›</span></div><div class="dc-val tnum">'+money(tz.total)+'</div><div class="dc-sub">Caisse '+money(tz.caisse)+' · Banque '+money(tz.banque)+'</div></button>';
+    h+=dashCard("Manque / Triage", money(lv.triageVal), "var(--crit)", "stock", (lv.triageKg>0?(rnd(lv.triageKg)+" kg perdus"):"aucun"), "var(--crit)");
     h+='</div>';
+    return h;
   }
-  h+='<div class="kpis">';
-  h+=kpi("Clients",nbClients,"var(--green)",false);
+  /* --- Vue assistant (sans finances) --- */
+  h+=quickActions();
+  h+='<div class="kpis" style="margin-top:14px">';
+  h+=kpi("Clients",S.clients.length,"var(--green)",false);
   h+=kpi("Commandes à traiter",nouvelles,"var(--warn)",false);
   h+='</div>';
   if(nouvelles>0){
@@ -924,7 +1045,7 @@ function renderHome(){
     h+='</div>';
   }
   h+='<div class="section-h"><h2>Derniers clients</h2></div>';
-  if(nbClients===0) h+='<div class="item-empty">Aucun client. Touchez « Clients » puis « + » pour en ajouter.</div>';
+  if(S.clients.length===0) h+='<div class="item-empty">Aucun client. Touchez « Clients » puis « + » pour en ajouter.</div>';
   else { h+='<div class="clist">'; S.clients.slice(0,5).forEach(function(c){ h+=clientCard(c); }); h+='</div>'; }
   return h;
 }
@@ -937,15 +1058,42 @@ function dashCard(label, value, color, go, sub, vcolor){
 }
 
 function renderClients(){
-  var h='<div class="view-title">Clients</div><p class="view-sub">'+S.clients.length+' client(s).</p>';
-  h+='<div class="search"><input id="searchInput" placeholder="Rechercher…" value="'+esc(search)+'"></div>';
-  h+='<button class="btn btn-green btn-block" data-addclient="1" style="margin-bottom:14px">+ Nouveau client</button>';
+  var n=S.clients.length;
+  var du=Math.max(0, sum(S.credits,'amount')+openingDebtTotal()-sum(S.payments,'amount'));
+  var h='<div class="cli-top"><h1>Clients</h1><span class="cli-count">'+n+'</span></div>';
+  h+='<div class="search"><input id="searchInput" placeholder="Rechercher un client…" value="'+esc(search)+'"></div>';
+  /* solde global à encaisser (mis en avant) */
+  h+='<div class="cli-sum"><div class="cs-l">À encaisser · solde global</div><div class="cs-v tnum">'+money(du)+'</div></div>';
+  /* filtres : Tous / À encaisser / À jour */
+  h+='<div class="seg">'
+    +'<button data-cfilter="all" class="'+(clientFilter==='all'?'on':'')+'">Tous</button>'
+    +'<button data-cfilter="due" class="'+(clientFilter==='due'?'on':'')+'">À encaisser</button>'
+    +'<button data-cfilter="ok" class="'+(clientFilter==='ok'?'on':'')+'">À jour</button>'
+    +'</div>';
   var list=S.clients.slice();
   if(search.trim()){ var q=search.toLowerCase(); list=list.filter(function(c){return [(c.full_name||""),(c.phone||""),(c.city||"")].join(" ").toLowerCase().indexOf(q)>=0;}); }
-  if(list.length===0){ h+='<div class="item-empty">Aucun client.</div>'; return h; }
-  h+='<div class="clist">'; list.forEach(function(c){ h+=clientCard(c); }); h+='</div>';
+  if(clientFilter==='due') list=list.filter(function(c){return totals(c.id).du>0;});
+  else if(clientFilter==='ok') list=list.filter(function(c){return totals(c.id).du<=0;});
+  /* à encaisser : les plus gros soldes d'abord */
+  if(clientFilter==='due') list.sort(function(a,b){return totals(b.id).du-totals(a.id).du;});
+  if(list.length===0){ h+='<div class="item-empty">Aucun client'+(clientFilter==='due'?' à encaisser':clientFilter==='ok'?' à jour':'')+'.</div>'; }
+  else { h+='<div class="clist">'; list.forEach(function(c){ h+=clientRow(c); }); h+='</div>'; }
+  h+='<div class="cli-add"><button class="btn btn-green btn-block" data-addclient="1">+ Ajouter un client</button></div>';
   return h;
 }
+/* ligne client premium : avatar + nom + reste à payer + bouton Encaisser (ou « À jour ») */
+function clientRow(c){
+  var t=totals(c.id);
+  var h='<div class="c-row"><button class="c-hit" data-client="'+c.id+'">'
+    +'<span class="c-av">'+esc(initials(c.full_name))+'</span>'
+    +'<span class="c-main"><span class="c-name">'+esc(c.full_name||"Sans nom")+'</span>'
+    +(t.du>0?'<span class="c-rap">Reste à payer<b class="tnum">'+money(t.du)+'</b></span>':'<span class="c-rap">'+esc([c.phone,c.city].filter(Boolean).join(" · ")||"—")+'</span>')
+    +'</span></button>';
+  if(t.du>0) h+='<button class="c-enc" data-addentry="pay:'+c.id+'">Encaisser'+IC.arrow+'</button>';
+  else h+='<span class="c-badge">À jour</span>';
+  return h+'</div>';
+}
+/* ancienne carte (toujours utilisée ailleurs : accueil assistant, etc.) */
 function clientCard(c){
   var t=totals(c.id);
   return '<button class="c-card" data-client="'+c.id+'"><div class="c-av">'+esc(initials(c.full_name))+'</div>'
@@ -3047,7 +3195,7 @@ function orderSheet(id){
 
 /* ===== EVENTS ===== */
 document.addEventListener("click",function(e){
-  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin],[data-go],[data-addstock],[data-savestock],[data-receivestock],[data-achemine],[data-saveachemine],[data-triage],[data-savetriage],[data-addexp],[data-saveexp],[data-profper],[data-homeper],[data-anaper],[data-wa],[data-receiptpay],[data-wareceipt],[data-export],[data-addrule],[data-editrule],[data-saverule],[data-delrule],[data-pdfreceipt],[data-actfilter],[data-dlbackup],[data-bio],[data-push],[data-cashper],[data-cashxfer],[data-savecashxfer],[data-exyear],[data-exprint],[data-cloture],[data-giftgiven],[data-savegift],[data-resetclient],[data-editcredit],[data-saveeditcredit],[data-saveopening],[data-ordersale],[data-repeatexp],[data-supplierpay],[data-savesupplierpay],[data-ownermove],[data-saveownermove],[data-expmonth],[data-exportmonth],[data-exprintacc],[data-attach],[data-viewattach],[data-delattach],[data-addasset],[data-saveasset],[data-addloan],[data-saveloan],[data-loanpay],[data-saveloanpay]");
+  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin],[data-go],[data-addstock],[data-savestock],[data-receivestock],[data-achemine],[data-saveachemine],[data-triage],[data-savetriage],[data-addexp],[data-saveexp],[data-profper],[data-homeper],[data-anaper],[data-wa],[data-receiptpay],[data-wareceipt],[data-export],[data-addrule],[data-editrule],[data-saverule],[data-delrule],[data-pdfreceipt],[data-actfilter],[data-dlbackup],[data-bio],[data-push],[data-cashper],[data-cashxfer],[data-savecashxfer],[data-exyear],[data-exprint],[data-cloture],[data-giftgiven],[data-savegift],[data-resetclient],[data-editcredit],[data-saveeditcredit],[data-saveopening],[data-ordersale],[data-repeatexp],[data-supplierpay],[data-savesupplierpay],[data-ownermove],[data-saveownermove],[data-expmonth],[data-exportmonth],[data-exprintacc],[data-attach],[data-viewattach],[data-delattach],[data-addasset],[data-saveasset],[data-addloan],[data-saveloan],[data-loanpay],[data-saveloanpay],[data-cfilter],[data-togglebal]");
   if(!el) return; var d=el.dataset;
   if((d.del!==undefined||d.delclient!==undefined||d.delprod!==undefined||d.delcat!==undefined||d.delrule!==undefined)&&!isAdmin()){ toast("Suppression réservée au gérant principal."); return; }
   if(d.bio!==undefined){ toggleBio(); }
@@ -3065,6 +3213,8 @@ document.addEventListener("click",function(e){
   else if(d.saveexp!==undefined){ saveExpense(); }
   else if(d.profper!==undefined){ profitPeriod=d.profper; render(); }
   else if(d.homeper!==undefined){ homePeriod=d.homeper; render(); }
+  else if(d.cfilter!==undefined){ clientFilter=d.cfilter; currentId=null; view="clients"; window.scrollTo(0,0); render(); }
+  else if(d.togglebal!==undefined){ hideBal=!hideBal; lsSet('bgb_hidebal',hideBal); render(); }
   else if(d.anaper!==undefined){ anaPeriod=d.anaper; render(); }
   else if(d.wa!==undefined){ waRelance(d.wa); }
   else if(d.receiptpay!==undefined){ var rp=d.receiptpay.split(":"); receiptPay(rp[0],rp[1]); }
