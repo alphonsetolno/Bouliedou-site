@@ -243,11 +243,20 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .perf-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:0 2px 10px}
 .perf-h h2{font-size:15px;font-weight:800;margin:0}
 .perf-h .pp{font-size:12px;color:var(--muted);font-weight:700}
-.perf-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:var(--shadow)}
-.perf-cell{background:var(--surface);padding:13px 14px;min-width:0;text-align:left}
-.perf-cell .pl{font-size:12px;color:var(--muted);font-weight:600}
-.perf-cell .pv{font-family:"Montserrat";font-weight:800;font-size:19px;margin-top:4px;letter-spacing:-.015em}
-@media (max-width:380px){.perf-cell .pv{font-size:16.5px}}
+.perf-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.perf-cell{display:flex;flex-direction:column;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:13px 13px 14px;box-shadow:var(--shadow);text-align:left;min-width:0;font:inherit;color:inherit;transition:transform .08s ease}
+.perf-cell:active{transform:scale(.98)}
+.perf-ic{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--good-bg);color:var(--green)}
+.perf-ic svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.perf-ic.good{background:var(--good-bg);color:var(--good)}
+.perf-ic.red{background:var(--crit-bg);color:var(--crit)}
+.perf-ic.gold{background:var(--warn-bg);color:var(--gold-deep,#A87C2E)}
+.perf-cell .pl{display:block;font-size:12px;color:var(--muted);font-weight:600}
+.perf-cell .pv{display:block;font-family:"Montserrat";font-weight:800;font-size:17.5px;letter-spacing:-.015em;line-height:1.15}
+@media (max-width:380px){.perf-cell .pv{font-size:16px}}
+:root[data-theme="dark"] .perf-ic{background:#15291F}
+:root[data-theme="dark"] .perf-ic.red{background:#331D1A}
+:root[data-theme="dark"] .perf-ic.gold{background:#2C2415}
 .alert-cre{display:flex;align-items:center;gap:13px;width:100%;text-align:left;background:linear-gradient(135deg,var(--warn-bg) 0%,#F3E2BD 100%);border:1px solid #E7CF95;border-radius:16px;padding:13px 15px;margin-top:14px;box-shadow:var(--shadow);font:inherit;color:var(--ink)}
 .alert-cre .ac-ic{width:42px;height:42px;border-radius:12px;background:rgba(176,125,24,.16);display:flex;align-items:center;justify-content:center;color:var(--gold-deep,#A87C2E);flex:none}
 .alert-cre .ac-ic svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
@@ -305,6 +314,33 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .head-av{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;font-family:"Montserrat";font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center;flex:none}
 /* état vide plus accueillant */
 .item-empty{color:var(--muted);font-size:13px;text-align:center;padding:16px 0}
+
+/* ===================== MODE SOMBRE ===================== */
+.theme-seg{display:flex;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:4px;gap:4px}
+.theme-seg button{flex:1;border:0;background:none;border-radius:9px;padding:10px 6px;font:inherit;font-size:13.5px;font-weight:700;color:var(--muted)}
+.theme-seg button.on{background:var(--green);color:#fff}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0E1512; --surface:#16211B; --surface-2:#1C2922; --line:#2A3730;
+  --ink:#EAF1EC; --muted:#9BB0A4; --ink-soft:#C8D5CD;
+  --green:#2E8A6A; --green-deep:#1C6B50;
+  --gold:#D8B65F; --gold-soft:#E6CC82; --gold-deep:#E0BE6A;
+  --good:#52C98A; --good-bg:#15291F; --warn:#E3BA63; --warn-bg:#2C2415;
+  --crit:#EA8B81; --crit-bg:#331D1A; --neutral:#9FB3C4; --neutral-bg:#1E2630;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 26px -16px rgba(0,0,0,.65);
+  --sheet-shadow:0 -8px 40px -12px rgba(0,0,0,.75);
+}
+:root[data-theme="dark"] .hero,:root[data-theme="dark"] .d-head{border:1px solid #2B3A32}
+:root[data-theme="dark"] .m-ic{background:#1B3328;color:#74CFA4}
+:root[data-theme="dark"] .m-ic.gold{background:#322A16;color:var(--gold-soft)}
+:root[data-theme="dark"] .m-ic.blue{background:#1E2A33;color:#9FC3DE}
+:root[data-theme="dark"] .m-ic.red{background:#331E1B;color:var(--crit)}
+:root[data-theme="dark"] .alert-cre{background:#2B2415;border-color:#3E361F}
+:root[data-theme="dark"] .qact .qic{background:#15291F}
+:root[data-theme="dark"] .qact.gold .qic{background:#2C2415}
+:root[data-theme="dark"] .qact.red .qic{background:#331D1A}
+:root[data-theme="dark"] .c-enc{background:var(--surface)}
+:root[data-theme="dark"] .role-badge{color:#201604}
 </style>
 </head>
 <body>
@@ -402,6 +438,12 @@ var IC={
   arrow:'<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>'
 };
 function firstName(){ return ((ME&&ME.full_name)||"").trim().split(/\s+/)[0]||""; }
+/* --- thème clair / sombre / auto --- */
+function themePref(){ return lsGet('bgb_theme','auto'); }
+function sysDark(){ try{ return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches; }catch(e){ return false; } }
+function applyTheme(){ var p=themePref(); var eff=(p==='auto')?(sysDark()?'dark':'light'):p; try{ document.documentElement.setAttribute('data-theme', eff); }catch(e){} }
+function setTheme(p){ lsSet('bgb_theme',p); applyTheme(); if(typeof render==='function'&&document.getElementById('root')) render(); }
+try{ applyTheme(); if(window.matchMedia){ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(){ if(themePref()==='auto') applyTheme(); }); } }catch(e){}
 /* avatars clients colorés (couleur déterministe selon le nom) */
 var AV_COLORS=[['#E4F2EA','#1F8F5F'],['#F7ECD2','#A87C2E'],['#E6ECF1','#3F5C74'],['#F7E3E0','#C0392B'],['#EADCF2','#7A4FA3'],['#DCEBF2','#2F7DA3'],['#F2E7DC','#9A6B2E'],['#E7EFD8','#5E7D2A']];
 function avPair(name){ var s=0,n=String(name||'?'); for(var i=0;i<n.length;i++){ s=(s+n.charCodeAt(i))%AV_COLORS.length; } return AV_COLORS[s]; }
@@ -699,6 +741,14 @@ async function refreshPush(){
 function renderSecurity(){
   var h='<button class="add-link" data-go="menu" style="margin:2px 0 12px">‹ Gestion</button>';
   h+='<div class="view-title">Sécurité & alertes</div><p class="view-sub">Protection de l\'application et notifications.</p>';
+  var tp=themePref();
+  h+='<div class="card"><div class="card-h"><h3>Apparence</h3></div>'
+    +'<div class="hint" style="margin:0 0 10px">Choisissez le thème de l\'application. « Auto » suit le réglage de votre téléphone.</div>'
+    +'<div class="theme-seg">'
+    +'<button data-settheme="auto" class="'+(tp==='auto'?'on':'')+'">Auto</button>'
+    +'<button data-settheme="light" class="'+(tp==='light'?'on':'')+'">☀️ Clair</button>'
+    +'<button data-settheme="dark" class="'+(tp==='dark'?'on':'')+'">🌙 Sombre</button>'
+    +'</div></div>';
   h+='<div class="card"><div class="card-h"><h3>Déverrouillage</h3></div>'
     +'<div class="info-row"><span class="k">Verrouillage</span><span>Automatique après 5 min d\'inactivité</span></div>'
     +'<button class="btn btn-ghost btn-block" data-bio="1" style="margin-top:10px">'+(bioEnrolled()?'Désactiver la biométrie':'Activer la biométrie (empreinte / Face ID)')+'</button></div>';
@@ -1079,10 +1129,10 @@ function renderHome(){
     h+='<div class="perf"><div class="perf-h"><h2>Performance</h2><span class="pp">'+esc(pl.toLowerCase())+'</span></div>';
     h+=periodBar(per,"homeper");
     h+='<div class="perf-grid">'
-      +'<button class="perf-cell" data-go="analyse"><div class="pl">Ventes</div><div class="pv tnum" style="color:var(--green)">'+money(caPer)+'</div></button>'
-      +'<button class="perf-cell" data-go="cash"><div class="pl">Encaissements</div><div class="pv tnum" style="color:var(--good)">'+money(encPer)+'</div></button>'
-      +'<button class="perf-cell" data-go="expenses"><div class="pl">Dépenses</div><div class="pv tnum" style="color:var(--crit)">'+money(depPer)+'</div></button>'
-      +'<button class="perf-cell" data-go="profit"><div class="pl">Résultat estimé</div><div class="pv tnum" style="color:'+(benefPer>=0?'var(--good)':'var(--crit)')+'">'+money(benefPer)+'</div></button>'
+      +perfCell("Ventes", money(caPer), "analyse", IC.cart, "", "var(--green)")
+      +perfCell("Encaissements", money(encPer), "cash", IC.card, "good", "var(--good)")
+      +perfCell("Dépenses", money(depPer), "expenses", IC.receipt, "red", "var(--crit)")
+      +perfCell("Résultat estimé", money(benefPer), "profit", MENU_IC.profit, (benefPer>=0?"gold":"red"), (benefPer>=0?"var(--good)":"var(--crit)"))
       +'</div></div>';
     /* Bannière créances */
     h+='<button class="alert-cre" data-go="recouvrement"><span class="ac-ic">'+IC.coins+'</span>'
@@ -1116,6 +1166,11 @@ function renderHome(){
   return h;
 }
 function kpi(l,v,color,sm){ return '<div class="kpi"><div class="lab"><i style="background:'+color+'"></i>'+l+'</div><div class="val'+(sm?' sm':'')+' tnum">'+v+'</div></div>'; }
+function perfCell(label, value, go, icon, tone, vcolor){
+  return '<button class="perf-cell" data-go="'+go+'"><span class="perf-ic'+(tone?' '+tone:'')+'">'+icon+'</span>'
+    +'<span class="pl">'+esc(label)+'</span>'
+    +'<span class="pv tnum" style="color:'+(vcolor||'var(--ink)')+'">'+value+'</span></button>';
+}
 function dashCard(label, value, color, go, sub, vcolor){
   return '<button class="dash-card" data-go="'+go+'" style="border-left-color:'+color+'">'
     +'<div class="dc-top"><span class="dc-lab">'+esc(label)+'</span><span class="dc-chev">›</span></div>'
@@ -3391,7 +3446,7 @@ function orderSheet(id){
 
 /* ===== EVENTS ===== */
 document.addEventListener("click",function(e){
-  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin],[data-go],[data-addstock],[data-savestock],[data-receivestock],[data-achemine],[data-saveachemine],[data-triage],[data-savetriage],[data-addexp],[data-saveexp],[data-profper],[data-homeper],[data-anaper],[data-wa],[data-receiptpay],[data-wareceipt],[data-export],[data-addrule],[data-editrule],[data-saverule],[data-delrule],[data-pdfreceipt],[data-actfilter],[data-dlbackup],[data-bio],[data-push],[data-cashper],[data-cashxfer],[data-savecashxfer],[data-exyear],[data-exprint],[data-cloture],[data-giftgiven],[data-savegift],[data-resetclient],[data-editcredit],[data-saveeditcredit],[data-saveopening],[data-ordersale],[data-repeatexp],[data-supplierpay],[data-savesupplierpay],[data-ownermove],[data-saveownermove],[data-expmonth],[data-exportmonth],[data-exprintacc],[data-attach],[data-viewattach],[data-delattach],[data-addasset],[data-saveasset],[data-addloan],[data-saveloan],[data-loanpay],[data-saveloanpay],[data-cfilter],[data-togglebal]");
+  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin],[data-go],[data-addstock],[data-savestock],[data-receivestock],[data-achemine],[data-saveachemine],[data-triage],[data-savetriage],[data-addexp],[data-saveexp],[data-profper],[data-homeper],[data-anaper],[data-wa],[data-receiptpay],[data-wareceipt],[data-export],[data-addrule],[data-editrule],[data-saverule],[data-delrule],[data-pdfreceipt],[data-actfilter],[data-dlbackup],[data-bio],[data-push],[data-cashper],[data-cashxfer],[data-savecashxfer],[data-exyear],[data-exprint],[data-cloture],[data-giftgiven],[data-savegift],[data-resetclient],[data-editcredit],[data-saveeditcredit],[data-saveopening],[data-ordersale],[data-repeatexp],[data-supplierpay],[data-savesupplierpay],[data-ownermove],[data-saveownermove],[data-expmonth],[data-exportmonth],[data-exprintacc],[data-attach],[data-viewattach],[data-delattach],[data-addasset],[data-saveasset],[data-addloan],[data-saveloan],[data-loanpay],[data-saveloanpay],[data-cfilter],[data-togglebal],[data-settheme]");
   if(!el) return; var d=el.dataset;
   if((d.del!==undefined||d.delclient!==undefined||d.delprod!==undefined||d.delcat!==undefined||d.delrule!==undefined)&&!isAdmin()){ toast("Suppression réservée au gérant principal."); return; }
   if(d.bio!==undefined){ toggleBio(); }
@@ -3411,6 +3466,7 @@ document.addEventListener("click",function(e){
   else if(d.homeper!==undefined){ homePeriod=d.homeper; render(); }
   else if(d.cfilter!==undefined){ clientFilter=d.cfilter; currentId=null; view="clients"; window.scrollTo(0,0); render(); }
   else if(d.togglebal!==undefined){ hideBal=!hideBal; lsSet('bgb_hidebal',hideBal); render(); }
+  else if(d.settheme!==undefined){ setTheme(d.settheme); }
   else if(d.anaper!==undefined){ anaPeriod=d.anaper; render(); }
   else if(d.wa!==undefined){ waRelance(d.wa); }
   else if(d.receiptpay!==undefined){ var rp=d.receiptpay.split(":"); receiptPay(rp[0],rp[1]); }
