@@ -57,7 +57,7 @@ input,select,textarea{font:inherit}
 
 main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .wrap{max-width:860px;margin:0 auto;padding:16px 16px 96px}
-.view-title{font-weight:800;font-size:22px;margin:4px 0 2px}
+.view-title{font-family:"Montserrat",sans-serif;font-weight:800;font-size:23px;letter-spacing:-.015em;margin:2px 0 2px}
 .view-sub{color:var(--muted);font-size:13.5px;margin:0 0 16px}
 
 .home-hi{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:2px 0 14px}
@@ -118,8 +118,10 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .add-link{background:none;border:0;color:var(--green);font-weight:700;font-size:13px;display:inline-flex;align-items:center;gap:4px}
 .add-link svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2.2}
 
-.d-head{background:linear-gradient(155deg,var(--green) 0%,var(--green-deep) 100%);color:#fff;border-radius:18px;padding:18px;box-shadow:var(--shadow)}
-.d-head .av{width:52px;height:52px;border-radius:14px;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;font-family:"Montserrat";font-weight:800;font-size:20px;margin-bottom:10px}
+.d-head{position:relative;overflow:hidden;background:linear-gradient(158deg,var(--green) 0%,var(--green-deep) 58%,#042A20 100%);color:#fff;border-radius:20px;padding:18px;box-shadow:var(--shadow)}
+.d-head::after{content:"";position:absolute;right:-46px;top:-46px;width:160px;height:160px;border-radius:50%;background:radial-gradient(circle,rgba(216,182,95,.20),transparent 70%);pointer-events:none}
+.d-head>*{position:relative}
+.d-head .av{width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;font-family:"Montserrat";font-weight:800;font-size:20px;margin-bottom:10px}
 .d-head h2{margin:0;font-size:20px}
 .d-head .t{color:var(--gold-soft);font-size:13px;font-weight:600;margin-top:3px}
 .d-actions{display:flex;gap:9px;margin:14px 0 2px;flex-wrap:wrap}
@@ -290,11 +292,11 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .menu-sec.first{margin-top:4px}
 .m-card{display:flex;align-items:center;gap:13px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 13px;box-shadow:var(--shadow);font:inherit;color:inherit;margin-bottom:10px;transition:transform .08s ease}
 .m-card:active{transform:scale(.985)}
-.m-ic{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex:none;background:var(--good-bg);color:var(--green)}
-.m-ic svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
-.m-ic.gold{background:var(--warn-bg);color:var(--gold-deep,#A87C2E)}
-.m-ic.blue{background:#E6ECF1;color:#3F5C74}
-.m-ic.red{background:var(--crit-bg);color:var(--crit)}
+.m-ic{width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;flex:none;background:linear-gradient(135deg,#E8F3EC 0%,#CDE8D7 100%);color:var(--green);box-shadow:inset 0 1px 0 rgba(255,255,255,.6)}
+.m-ic svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.m-ic.gold{background:linear-gradient(135deg,#F8EDD4 0%,#EEDAA6 100%);color:var(--gold-deep,#A87C2E)}
+.m-ic.blue{background:linear-gradient(135deg,#E9EEF3 0%,#D2DEE9 100%);color:#3F5C74}
+.m-ic.red{background:linear-gradient(135deg,#F8E5E2 0%,#F3CFC9 100%);color:var(--crit)}
 .m-main{flex:1;min-width:0;display:flex;flex-direction:column}
 .m-name{display:block;font-weight:700;font-size:15px}
 .m-sub{display:block;font-size:12px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -1172,8 +1174,12 @@ function renderClient(id){
   var t=totals(id);
   var deliv=by(S.deliveries,id), cred=by(S.credits,id), pay=by(S.payments,id), ord=by(S.orders,id);
   var h='<button class="add-link" data-back="1" style="margin:2px 0 12px">‹ Clients</button>';
-  h+='<div class="d-head"><div class="av">'+esc(initials(c.full_name))+'</div><h2>'+esc(c.full_name||"Sans nom")+'</h2>'
-    +'<div class="t">'+esc([c.phone,c.city].filter(Boolean).join(" · ")||"Client")+'</div></div>';
+  h+='<div class="d-head"><div class="av" style="'+avStyle(c.full_name)+'">'+esc(initials(c.full_name))+'</div><h2>'+esc(c.full_name||"Sans nom")+'</h2>'
+    +'<div class="t">'+esc([c.phone,c.city].filter(Boolean).join(" · ")||"Client")+'</div>'
+    +(t.du>0
+      ? '<div style="margin-top:14px;display:flex;align-items:flex-end;justify-content:space-between;gap:12px"><div><div class="t" style="margin:0">Reste à payer</div><div class="tnum" style="font-family:\'Montserrat\';font-weight:800;font-size:26px;line-height:1.1;margin-top:3px">'+money(t.du)+'</div></div><button class="btn" style="background:#fff;color:var(--green);flex:none;padding:11px 18px;font-weight:800" data-addentry="pay:'+id+'">Encaisser</button></div>'
+      : '<div style="margin-top:12px"><span style="background:rgba(255,255,255,.18);color:#fff;font-weight:700;font-size:12.5px;border-radius:999px;padding:6px 14px">À jour ✓</span></div>')
+    +'</div>';
   h+='<div class="d-actions"><button class="btn btn-ghost" data-editclient="'+id+'">Modifier</button>';
   if(c.phone) h+='<button class="btn btn-gold" data-wa="'+id+'">Relance WhatsApp</button>';
   if(isAdmin()) h+='<button class="btn btn-ghost" data-resetclient="'+id+'">Réinitialiser</button>';
@@ -2742,11 +2748,12 @@ function renderCash(){
   var h='<button class="add-link" data-go="menu" style="margin:2px 0 12px">‹ Gestion</button>';
   h+='<div class="view-title">Caisse &amp; Banque</div><p class="view-sub">Situation des recouvrements en espèces et journal de banque.</p>';
   var bal=treasury('all');
-  h+='<div class="home-hi">'
-    +'<div class="hi-card" style="border-left-color:var(--green)"><div class="hi-l">Caisse (espèces)</div><div class="hi-v tnum" style="color:'+(bal.caisse<0?'var(--crit)':'var(--green)')+'">'+money(bal.caisse)+'</div><div class="hi-s">solde actuel</div></div>'
-    +'<div class="hi-card" style="border-left-color:var(--gold)"><div class="hi-l">Banque</div><div class="hi-v tnum" style="color:'+(bal.banque<0?'var(--crit)':'var(--gold-deep,#A87C2E)')+'">'+money(bal.banque)+'</div><div class="hi-s">solde actuel</div></div>'
-    +'</div>';
-  h+='<div class="card" style="margin-top:4px"><div class="info-row"><span class="k" style="font-weight:800">Trésorerie totale</span><b class="tnum" style="font-size:18px">'+money(bal.total)+'</b></div></div>';
+  h+='<div class="hero'+(hideBal?' masked':'')+'">'
+    +'<div class="hero-lab"><span>Trésorerie totale</span><button class="hero-eye" data-togglebal="1" aria-label="Masquer le solde">'+(hideBal?IC.eyeoff:IC.eye)+'</button></div>'
+    +'<div class="hero-val tnum"'+(bal.total<0?' style="color:#F2B8B0"':'')+'>'+money(bal.total)+'</div>'
+    +'<div class="hero-rule"></div>'
+    +'<div class="hero-split"><div class="hero-cell"><div class="hk">Caisse (espèces)</div><div class="hv tnum">'+money(bal.caisse)+'</div></div>'
+    +'<div class="hero-cell"><div class="hk">Banque</div><div class="hv tnum">'+money(bal.banque)+'</div></div></div></div>';
   if(isAdmin()) h+='<button class="btn btn-gold btn-block" data-cashxfer="1" style="margin:12px 0">⇄ Transfert caisse ↔ banque</button>';
   h+='<div class="hint" style="margin:-2px 0 8px;font-weight:700;color:var(--muted)">Période&nbsp;:</div>'+periodBar(cashPeriod,"cashper");
   var t=treasury(cashPeriod), pl=perLabel(cashPeriod).toLowerCase();
