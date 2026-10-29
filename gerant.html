@@ -2433,6 +2433,69 @@ function expLabel(){
   return monthLabel(expMonth);
 }
 function expSlug(){ if(expMonth==='all')return 'tout'; if(expMonth==='year')return today().slice(0,4); if(expMonth==='semester')return today().slice(0,4)+'-S'+((Number(today().slice(5,7))<=6)?1:2); if(expMonth==='quarter')return today().slice(0,4)+'-T'+(Math.floor((Number(today().slice(5,7))-1)/3)+1); return expMonth; }
+/* ===================== Correspondance comptable SYSCOHADA (OHADA — Guinée) =====================
+   La Guinée applique le référentiel SYSCOHADA révisé de l'OHADA (et NON le plan comptable
+   français). Chaque opération est traduite en une écriture Débit / Crédit avec les numéros de
+   comptes OHADA. Les comptes à 2–3 chiffres sont les comptes principaux ; le comptable agréé
+   affine les sous-comptes (ex. 6052 Électricité) à l'établissement des états financiers. */
+var SYSCO_EXP={
+  salaire:['6611','Appointements, salaires et commissions'],
+  transport:['611','Transports sur achats'],
+  electricite:['6052','Fournitures non stockables – électricité'],
+  loyer:['6222','Locations de bâtiments'],
+  communication:['6281','Frais de téléphone'],
+  walike:['6378','Rémunérations de personnel extérieur (manutention)'],
+  gardiennage:['638','Autres charges externes (gardiennage)'],
+  recompense_client:['6278','Cadeaux à la clientèle (fidélisation)'],
+  assurance:['625','Primes d\'assurances'],
+  cadeau_equipe:['6612','Primes et gratifications (équipe)'],
+  autre:['658','Charges diverses']
+};
+function syscoExp(c){ return SYSCO_EXP[c]||['658','Charges diverses']; }
+var SYSCO_ASSET={materiel:['241','Matériel et outillage'],vehicule:['245','Matériel de transport'],local:['231','Bâtiments'],mobilier:['2444','Matériel et mobilier de bureau'],autre:['24','Immobilisations corporelles']};
+function syscoAsset(c){ return SYSCO_ASSET[c]||['24','Immobilisations corporelles']; }
+function syscoTre(m){ return (m==='banque')?['521','Banque']:['571','Caisse']; }
+/* Journal des écritures SYSCOHADA pour une sélection de mois (keys = ['AAAA-MM', ...]) */
+function syscoJournal(keys){
+  var kset={}; keys.forEach(function(k){kset[k]=1;});
+  function inSel(d){ return kset[String(d||'').slice(0,7)]===1; }
+  var J=[];
+  function e(date,lib,deb,cred,montant){ var m=Math.round(Number(montant)||0); if(m===0) return; J.push({date:date,lib:lib,da:deb[0],di:deb[1],ca:cred[0],ci:cred[1],montant:m}); }
+  S.credits.forEach(function(x){ if(inSel(x.date)) e(x.date,'Vente à crédit — '+(clientName(x.client_id)||'')+(x.label?(' ('+x.label+')'):''),['411','Clients'],['701','Ventes de marchandises'],x.amount); });
+  S.payments.forEach(function(x){ if(inSel(x.date)) e(x.date,'Encaissement client — '+(clientName(x.client_id)||''),syscoTre(payMethod(x)),['411','Clients'],x.amount); });
+  S.stock.forEach(function(x){ if(x.kind==='entree'&&!isOpening(x)&&inSel(x.date)){ var cr=(x.paid===false)?['401','Fournisseurs']:syscoTre(payMethod(x)); e(x.date,'Achat de marchandises'+(x.label?(' — '+x.label):'')+(x.paid===false?' (à crédit)':''),['601','Achats de marchandises'],cr,x.amount); } });
+  S.expenses.forEach(function(x){ if(!inSel(x.date)) return;
+    if(isSupplierPay(x)) e(x.date,'Paiement fournisseur'+(x.label?(' — '+x.label):''),['401','Fournisseurs'],syscoTre(payMethod(x)),x.amount);
+    else if(x.category==='apport') e(x.date,'Apport du propriétaire',syscoTre(payMethod(x)),['104','Compte de l\'exploitant'],x.amount);
+    else if(x.category==='retrait') e(x.date,'Retrait du propriétaire',['104','Compte de l\'exploitant'],syscoTre(payMethod(x)),x.amount);
+    else if(!isCashMove(x)){ e(x.date,'Dépense — '+catLabel(x.category)+(x.label?(' ('+x.label+')'):''),syscoExp(x.category),syscoTre(payMethod(x)),x.amount); }
+  });
+  (S.assets||[]).forEach(function(a){ if(inSel(a.date)) e(a.date,'Acquisition immobilisation'+(a.name?(' — '+a.name):''),syscoAsset(a.category),syscoTre(payMethod(a)),a.cost); });
+  (S.loans||[]).forEach(function(l){ if(inSel(l.start_date)) e(l.start_date,'Déblocage emprunt'+(l.lender?(' — '+l.lender):''),syscoTre(payMethod(l)),['162','Emprunts et dettes'],l.principal); });
+  (S.loanPayments||[]).forEach(function(x){ if(!inSel(x.date)) return; var tre=syscoTre(payMethod(x));
+    e(x.date,'Intérêts d\'emprunt',['671','Intérêts des emprunts'],tre,x.interest);
+    e(x.date,'Remboursement capital emprunt',['162','Emprunts et dettes'],tre,x.capital);
+  });
+  J.sort(function(a,b){ return String(a.date).localeCompare(String(b.date)); });
+  return J;
+}
+/* Bilan simplifié SYSCOHADA (Actif / Passif), à la date du jour */
+function syscoBilan(){
+  var tz=treasury('all'), lv=stockLevels();
+  var credit=sum(S.credits,'amount')+openingDebtTotal(), paye=sum(S.payments,'amount');
+  var creances=Math.max(0,credit-paye);
+  var avances=S.clients.reduce(function(a,c){ var t=totals(c.id); return a+Math.max(0,t.paye-t.credit); },0);
+  var immo=assetsTotals().net, stock=lv.total;
+  var banquePos=Math.max(0,tz.banque), banqueNeg=Math.max(0,-tz.banque);
+  var caissePos=Math.max(0,tz.caisse);
+  var actif=immo+stock+creances+banquePos+caissePos;
+  var emprunts=(typeof loansTotals==='function')?(loansTotals().restant||0):0;
+  var fourn=supplierDebtTotal();
+  var dettes=emprunts+fourn+avances+banqueNeg;
+  var capitaux=actif-dettes; // situation nette (inclut le résultat)
+  return {immo:immo,stock:stock,creances:creances,banque:banquePos,caisse:caissePos,actif:actif,
+          capitaux:capitaux,emprunts:emprunts,fourn:fourn,avances:avances,decouvert:banqueNeg,dettes:dettes,passif:capitaux+dettes};
+}
 function renderAccountingExport(){
   if(!expMonth) expMonth=today().slice(0,7);
   var h='<button class="add-link" data-go="menu" style="margin:2px 0 12px">‹ Gestion</button>';
@@ -2449,11 +2512,11 @@ function renderAccountingExport(){
   var credit=sum(S.credits,'amount')+openingDebtTotal(), paye=sum(S.payments,'amount'), du=Math.max(0,credit-paye);
   var tz=treasury('all'), dette=supplierDebtTotal();
   h+='<div class="card"><div class="card-h"><h3>Compte de résultat — '+esc(expLabel())+'</h3></div><div class="items">'
-    +pline("Ventes (marchandises vendues)", a.ventes, "var(--good)")
-    +pline("Achats de marchandises", -a.achats, "var(--crit)")
-    +pline("Dépenses de fonctionnement", -a.charges, "var(--crit)")
-    +((a.amort>0)?pline("Amortissements (usure du matériel)", -a.amort, "var(--crit)"):'')
-    +((a.loanInt>0)?pline("Intérêts d'emprunt", -a.loanInt, "var(--crit)"):'')
+    +pline("701 · Ventes de marchandises", a.ventes, "var(--good)")
+    +pline("601 · Achats de marchandises", -a.achats, "var(--crit)")
+    +pline("60–65 · Charges de fonctionnement", -a.charges, "var(--crit)")
+    +((a.amort>0)?pline("681 · Dotations aux amortissements", -a.amort, "var(--crit)"):'')
+    +((a.loanInt>0)?pline("671 · Intérêts des emprunts", -a.loanInt, "var(--crit)"):'')
     +'<div class="item"><div class="body"><div class="top"><span class="lab" style="font-weight:800">Bénéfice ('+esc(expLabel())+')</span><span class="amt tnum" style="color:'+(a.benef>=0?'var(--good)':'var(--crit)')+'">'+money(a.benef)+'</span></div></div></div>'
     +'</div></div>';
   h+='<div class="card"><div class="card-h"><h3>Mouvements d\'argent — '+esc(expLabel())+'</h3></div>'
@@ -2463,16 +2526,16 @@ function renderAccountingExport(){
     +(a.retrait>0?'<div class="info-row"><span class="k">Retraits du propriétaire</span><b class="tnum" style="color:var(--crit)">'+money(a.retrait)+'</b></div>':'')
     +'</div>';
   h+='<div class="card"><div class="card-h"><h3>Soldes à ce jour</h3></div>'
-    +'<div class="info-row"><span class="k">Caisse (espèces)</span><b class="tnum"'+(tz.caisse<0?' style="color:var(--crit)"':'')+'>'+money(tz.caisse)+'</b></div>'
-    +'<div class="info-row"><span class="k">Banque</span><b class="tnum"'+(tz.banque<0?' style="color:var(--crit)"':'')+'>'+money(tz.banque)+'</b></div>'
-    +'<div class="info-row"><span class="k">Créances clients (ce qu\'on vous doit)</span><b class="tnum" style="color:var(--gold)">'+money(du)+'</b></div>'
-    +'<div class="info-row"><span class="k">Dettes fournisseurs (ce que vous devez)</span><b class="tnum" style="color:var(--crit)">'+money(dette)+'</b></div>'
-    +'<div class="info-row"><span class="k">Immobilisations (valeur nette)</span><b class="tnum">'+money(assetsTotals().net)+'</b></div>'
+    +'<div class="info-row"><span class="k">571 · Caisse (espèces)</span><b class="tnum"'+(tz.caisse<0?' style="color:var(--crit)"':'')+'>'+money(tz.caisse)+'</b></div>'
+    +'<div class="info-row"><span class="k">521 · Banque</span><b class="tnum"'+(tz.banque<0?' style="color:var(--crit)"':'')+'>'+money(tz.banque)+'</b></div>'
+    +'<div class="info-row"><span class="k">411 · Créances clients (on vous doit)</span><b class="tnum" style="color:var(--gold)">'+money(du)+'</b></div>'
+    +'<div class="info-row"><span class="k">401 · Dettes fournisseurs (vous devez)</span><b class="tnum" style="color:var(--crit)">'+money(dette)+'</b></div>'
+    +'<div class="info-row"><span class="k">Classe 2 · Immobilisations (valeur nette)</span><b class="tnum">'+money(assetsTotals().net)+'</b></div>'
     +'</div>';
   h+='<div style="margin:16px 0 4px;display:flex;flex-direction:column;gap:8px">'
     +'<button class="btn btn-green btn-block" data-exprintacc="1">📄 Imprimer / PDF (synthèse de la période)</button>'
     +'<button class="btn btn-gold btn-block" data-exportmonth="1">⬇️ Télécharger le détail (CSV) à m\'envoyer</button></div>';
-  h+='<div class="hint" style="margin-top:10px;line-height:1.6">« Soldes à ce jour » = situation actuelle (caisse, banque, créances, dettes). Le compte de résultat et les mouvements concernent la période choisie (mois, trimestre, année ou tout). Envoyez-moi le fichier CSV et je vous prépare le compte de résultat et le bilan.</div>';
+  h+='<div class="hint" style="margin-top:10px;line-height:1.6">Les numéros (701, 601, 411…) sont les comptes du <b>référentiel SYSCOHADA</b> (OHADA), celui qui s\'applique en Guinée. Le fichier CSV inclut un <b>journal des écritures Débit/Crédit</b> prêt pour votre comptable. « Soldes à ce jour » = situation actuelle ; le compte de résultat concerne la période choisie.</div>';
   return h;
 }
 function exportMonthCSV(){
@@ -2503,8 +2566,34 @@ function exportMonthCSV(){
   r.push(["Créances clients (dû par les clients)","","","","",Math.round(du)]);
   r.push(["Dettes fournisseurs (dû aux fournisseurs)","","","","",Math.round(supplierDebtTotal())]);
   r.push(["Immobilisations (valeur nette)","","","","",Math.round(assetsTotals().net)]);
+  /* --- Journal des écritures SYSCOHADA (OHADA — Guinée) --- */
+  var J=syscoJournal(keys);
+  r.push([]);
+  r.push(["JOURNAL COMPTABLE — SYSCOHADA (OHADA) — "+expLabel()]);
+  r.push(["Date","Libellé","Compte débit","Intitulé débit","Compte crédit","Intitulé crédit","Montant (FG)"]);
+  var totJ=0;
+  J.forEach(function(x){ r.push([x.date,x.lib,x.da,x.di,x.ca,x.ci,x.montant]); totJ+=x.montant; });
+  r.push(["","TOTAL (débit = crédit)","","","","",Math.round(totJ)]);
+  /* --- Bilan simplifié SYSCOHADA à ce jour --- */
+  var B=syscoBilan();
+  r.push([]);
+  r.push(["BILAN SIMPLIFIÉ — SYSCOHADA (à ce jour)"]);
+  r.push(["ACTIF","Compte","Montant (FG)"]);
+  r.push(["Immobilisations nettes","Classe 2",Math.round(B.immo)]);
+  r.push(["Stocks de marchandises","31",Math.round(B.stock)]);
+  r.push(["Créances clients","411",Math.round(B.creances)]);
+  r.push(["Banque","521",Math.round(B.banque)]);
+  r.push(["Caisse","571",Math.round(B.caisse)]);
+  r.push(["TOTAL ACTIF","",Math.round(B.actif)]);
+  r.push(["PASSIF","Compte","Montant (FG)"]);
+  r.push(["Capitaux propres (situation nette, résultat inclus)","10/13",Math.round(B.capitaux)]);
+  r.push(["Emprunts (capital restant dû)","162",Math.round(B.emprunts)]);
+  r.push(["Dettes fournisseurs","401",Math.round(B.fourn)]);
+  r.push(["Clients, avances et acomptes reçus","4191",Math.round(B.avances)]);
+  if(B.decouvert>0) r.push(["Découvert bancaire","521",Math.round(B.decouvert)]);
+  r.push(["TOTAL PASSIF","",Math.round(B.passif)]);
   csvDownload("bouliedou-comptable-"+expSlug()+".csv", r);
-  toast("Détail — "+expLabel()+" téléchargé ✓");
+  toast("Détail + journal SYSCOHADA — "+expLabel()+" téléchargé ✓");
 }
 function printAccounting(){
   var keys=expMonthSet(), a=acctRange(keys), tz=treasury('all');
@@ -2524,22 +2613,22 @@ function printAccounting(){
     +'.foot{color:#6B7A70;font-size:11px;margin-top:20px;border-top:1px solid #E7E1CF;padding-top:8px}'
     +'.bar{display:flex;gap:8px;margin:18px 0 6px}.bar button{padding:10px 16px;border:0;border-radius:8px;font-weight:700;cursor:pointer}.print{background:#0C4A39;color:#fff}.close{background:#eee}@media print{.bar{display:none}body{margin:12mm}}</style></head><body>'
     +'<h1>BOULIEDOU GLOBAL BUSINESS</h1><div class="sub">Synthèse comptable — '+expLabel()+' · éditée le '+fmtDate(today())+'</div>'
-    +'<h2>Compte de résultat</h2>'
-    +row("Ventes (marchandises vendues)",a.ventes)
-    +row("Achats de marchandises",-a.achats,true)
-    +row("Dépenses de fonctionnement",-a.charges,true)
-    +(a.amort>0?row("Amortissements (usure du matériel)",-a.amort,true):'')
-    +(a.loanInt>0?row("Intérêts d'emprunt",-a.loanInt,true):'')
+    +'<h2>Compte de résultat (SYSCOHADA)</h2>'
+    +row("701 · Ventes de marchandises",a.ventes)
+    +row("601 · Achats de marchandises",-a.achats,true)
+    +row("60–65 · Charges de fonctionnement",-a.charges,true)
+    +(a.amort>0?row("681 · Dotations aux amortissements",-a.amort,true):'')
+    +(a.loanInt>0?row("671 · Intérêts des emprunts",-a.loanInt,true):'')
     +'<div class="r tot"><span>Bénéfice de la période</span><b'+(a.benef<0?' class="neg"':'')+'>'+money(a.benef)+'</b></div>'
     +perMois
     +'<h2>Mouvements d\'argent — '+expLabel()+'</h2>'
     +row("Encaissé des clients",a.encaisse)+row("Payé aux fournisseurs",a.payFour,true)
     +(a.apport>0?row("Apports du propriétaire",a.apport):'')+(a.retrait>0?row("Retraits du propriétaire",a.retrait,true):'')
     +'<h2>Soldes à ce jour</h2>'
-    +row("Caisse (espèces)",tz.caisse)+row("Banque",tz.banque)
-    +row("Créances clients (on vous doit)",du)+row("Dettes fournisseurs (vous devez)",dette,true)
-    +row("Immobilisations (valeur nette)",assetsTotals().net)
-    +'<div class="foot">Enta marché, Conakry · +224 623 01 08 18 · contact@bouliedou.com · www.bouliedou.com<br>Document de gestion interne, établi à partir des opérations enregistrées dans l\'application.</div>'
+    +row("571 · Caisse (espèces)",tz.caisse)+row("521 · Banque",tz.banque)
+    +row("411 · Créances clients (on vous doit)",du)+row("401 · Dettes fournisseurs (vous devez)",dette,true)
+    +row("Classe 2 · Immobilisations (valeur nette)",assetsTotals().net)
+    +'<div class="foot">Comptes au référentiel SYSCOHADA (OHADA), applicable en Guinée. Document de gestion interne — la classification des sous-comptes est à valider par un comptable agréé.<br>Enta marché, Conakry · +224 623 01 08 18 · contact@bouliedou.com · www.bouliedou.com</div>'
     +'<div class="bar"><button class="print" onclick="window.print()">Imprimer / Enregistrer en PDF</button><button class="close" onclick="window.close()">Fermer</button></div>'
     +'</body></html>';
   w.document.write(html); w.document.close();
@@ -2822,6 +2911,26 @@ function renderExercice(){
   h+='<div class="card"><div class="card-h"><h3>Stock (aujourd\'hui)</h3></div>'
     +'<div class="info-row"><span class="k">Valeur du stock (Conakry + non acheminé)</span><b class="tnum">'+money(lv.total)+'</b></div>'
     +(lv.triageKg>0?'<div class="info-row"><span class="k">Manques / triages cumulés</span><b class="tnum" style="color:var(--crit)">'+rnd(lv.triageKg)+' kg · '+money(lv.triageVal)+'</b></div>':'')+'</div>';
+  /* --- Bilan simplifié SYSCOHADA (à ce jour) --- */
+  var B=syscoBilan();
+  h+='<div class="card"><div class="card-h"><h3>Bilan simplifié — SYSCOHADA</h3></div>';
+  h+='<div class="hint" style="margin:-2px 0 8px;line-height:1.5">Situation du patrimoine à ce jour, au référentiel OHADA. Par construction, <b>Total actif = Total passif</b>.</div>';
+  h+='<div class="info-row" style="background:var(--good-bg);border-radius:8px"><span class="k" style="color:var(--green);font-weight:800">ACTIF</span><b></b></div>'
+    +cashLine("Immobilisations nettes (classe 2)", B.immo)
+    +cashLine("Stocks de marchandises (31)", B.stock)
+    +cashLine("Créances clients (411)", B.creances)
+    +cashLine("Banque (521)", B.banque)
+    +cashLine("Caisse (571)", B.caisse)
+    +'<div class="info-row" style="border-top:2px solid var(--green);margin-top:4px;padding-top:8px"><span class="k" style="font-weight:800">Total actif</span><b class="tnum" style="font-size:16px">'+money(B.actif)+'</b></div>';
+  h+='<div class="info-row" style="background:var(--good-bg);border-radius:8px;margin-top:10px"><span class="k" style="color:var(--green);font-weight:800">PASSIF</span><b></b></div>'
+    +cashLine("Capitaux propres · situation nette (10-13)", B.capitaux, (B.capitaux<0?'var(--crit)':''))
+    +cashLine("Emprunts · capital restant dû (162)", B.emprunts)
+    +cashLine("Dettes fournisseurs (401)", B.fourn)
+    +cashLine("Clients, avances et acomptes reçus (4191)", B.avances)
+    +(B.decouvert>0?cashLine("Découvert bancaire (521)", B.decouvert, 'var(--crit)'):'')
+    +'<div class="info-row" style="border-top:2px solid var(--green);margin-top:4px;padding-top:8px"><span class="k" style="font-weight:800">Total passif</span><b class="tnum" style="font-size:16px">'+money(B.passif)+'</b></div>';
+  h+='<div class="hint" style="margin-top:8px;line-height:1.5">« Capitaux propres · situation nette » = Total actif − dettes (emprunts, fournisseurs, avances). Il comprend le résultat. Les comptes suivent le SYSCOHADA (OHADA) ; la classification fine est à valider par un comptable agréé.</div>';
+  h+='</div>';
   h+='<div class="section-h"><h2>Rapport d\'exercice</h2></div>';
   h+='<div class="clist">'
     +'<button class="btn btn-green btn-block" data-exprint="1">📄 Rapport à imprimer / PDF</button>'
@@ -2837,7 +2946,7 @@ function renderExercice(){
   return h;
 }
 function printExercice(){
-  var y=exYear, e=exerciceData(y), lv=stockLevels();
+  var y=exYear, e=exerciceData(y), lv=stockLevels(), B=syscoBilan();
   var rows='';
   function rr(l,v,c){ return '<tr><td>'+esc(l)+'</td><td style="text-align:right'+(c?';color:'+c:'')+'">'+pdfMoney(v)+'</td></tr>'; }
   rows+=rr("Ventes (chiffre d'affaires)", e.ventes);
@@ -2870,6 +2979,22 @@ function printExercice(){
     +'<h2>Stock (à ce jour)</h2><table>'
     +'<tr><td>Valeur du stock (Conakry + non acheminé)</td><td style="text-align:right">'+pdfMoney(lv.total)+'</td></tr>'
     +(lv.triageKg>0?'<tr><td>Manques / triages cumulés</td><td style="text-align:right">'+rnd(lv.triageKg)+' kg · '+pdfMoney(lv.triageVal)+'</td></tr>':'')+'</table>'
+    +'<h2>Bilan simplifié — SYSCOHADA (à ce jour)</h2><table>'
+    +'<tr><td colspan="2" style="font-weight:bold;color:#0C4A39">ACTIF</td></tr>'
+    +rr("Immobilisations nettes (classe 2)", B.immo)
+    +rr("Stocks de marchandises (31)", B.stock)
+    +rr("Créances clients (411)", B.creances)
+    +rr("Banque (521)", B.banque)
+    +rr("Caisse (571)", B.caisse)
+    +'<tr class="tot"><td>Total actif</td><td style="text-align:right">'+pdfMoney(B.actif)+'</td></tr>'
+    +'<tr><td colspan="2" style="font-weight:bold;color:#0C4A39;padding-top:10px">PASSIF</td></tr>'
+    +rr("Capitaux propres · situation nette (10-13)", B.capitaux)
+    +rr("Emprunts · capital restant dû (162)", B.emprunts)
+    +rr("Dettes fournisseurs (401)", B.fourn)
+    +rr("Clients, avances et acomptes reçus (4191)", B.avances)
+    +(B.decouvert>0?rr("Découvert bancaire (521)", B.decouvert):'')
+    +'<tr class="tot"><td>Total passif</td><td style="text-align:right">'+pdfMoney(B.passif)+'</td></tr></table>'
+    +'<p style="color:#666;font-size:11px;margin-top:8px">Comptes au référentiel SYSCOHADA (OHADA), applicable en Guinée. « Capitaux propres · situation nette » = actif − dettes (résultat inclus). Présentation simplifiée de gestion, à faire valider par un comptable agréé.</p>'
     +'<div class="sign"><div class="box"><div class="line"></div><div class="cap">Le Gérant — signature &amp; cachet</div></div></div>'
     +'<p style="margin-top:34px;color:#888;font-size:11px">Document généré par l\'application de gestion Bouliedou Global Business. Montants en francs guinéens (FG).</p>'
     +'</body></html>';
