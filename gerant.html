@@ -284,6 +284,25 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .c-enc svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
 .c-badge{flex:none;background:var(--good-bg);color:var(--good);font-weight:700;font-size:12px;border-radius:999px;padding:6px 13px}
 .cli-add{position:sticky;bottom:12px;margin-top:16px}
+
+/* ===================== Menu « Gestion » — refonte ===================== */
+.menu-sec{font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:22px 2px 10px}
+.menu-sec.first{margin-top:4px}
+.m-card{display:flex;align-items:center;gap:13px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 13px;box-shadow:var(--shadow);font:inherit;color:inherit;margin-bottom:10px;transition:transform .08s ease}
+.m-card:active{transform:scale(.985)}
+.m-ic{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex:none;background:var(--good-bg);color:var(--green)}
+.m-ic svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.m-ic.gold{background:var(--warn-bg);color:var(--gold-deep,#A87C2E)}
+.m-ic.blue{background:#E6ECF1;color:#3F5C74}
+.m-ic.red{background:var(--crit-bg);color:var(--crit)}
+.m-main{flex:1;min-width:0;display:flex;flex-direction:column}
+.m-name{display:block;font-weight:700;font-size:15px}
+.m-sub{display:block;font-size:12px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m-chev{color:var(--muted);font-size:19px;font-weight:800;flex:none;line-height:1}
+/* avatar dans l'en-tête */
+.head-av{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;font-family:"Montserrat";font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center;flex:none}
+/* état vide plus accueillant */
+.item-empty{color:var(--muted);font-size:13px;text-align:center;padding:16px 0}
 </style>
 </head>
 <body>
@@ -326,6 +345,7 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
     <div style="display:flex;align-items:center;gap:10px">
       <button class="head-btn" id="bellBtn" data-go="notifs" style="position:relative" aria-label="Alertes">🔔<span class="bell-badge" id="bellBadge" hidden></span></button>
       <span class="role-badge" id="roleBadge">—</span>
+      <span class="head-av" id="headAv"></span>
       <button class="head-btn" id="logoutBtn">Quitter</button>
     </div>
   </header>
@@ -380,6 +400,33 @@ var IC={
   arrow:'<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>'
 };
 function firstName(){ return ((ME&&ME.full_name)||"").trim().split(/\s+/)[0]||""; }
+/* avatars clients colorés (couleur déterministe selon le nom) */
+var AV_COLORS=[['#E4F2EA','#1F8F5F'],['#F7ECD2','#A87C2E'],['#E6ECF1','#3F5C74'],['#F7E3E0','#C0392B'],['#EADCF2','#7A4FA3'],['#DCEBF2','#2F7DA3'],['#F2E7DC','#9A6B2E'],['#E7EFD8','#5E7D2A']];
+function avPair(name){ var s=0,n=String(name||'?'); for(var i=0;i<n.length;i++){ s=(s+n.charCodeAt(i))%AV_COLORS.length; } return AV_COLORS[s]; }
+function avStyle(name){ var p=avPair(name); return 'background:'+p[0]+';color:'+p[1]; }
+/* pictogrammes du menu Gestion */
+var MENU_IC={
+  catalog:'<svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg>',
+  stock:'<svg viewBox="0 0 24 24"><rect x="3" y="4" width="7" height="7" rx="1"/><rect x="14" y="4" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg>',
+  opening:'<svg viewBox="0 0 24 24"><path d="M5 3v18"/><path d="M5 4h12l-2 4 2 4H5"/></svg>',
+  restock:'<svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg>',
+  prodreport:'<svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
+  rewards:'<svg viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="5" rx="1"/><path d="M5 13v8h14v-8M12 8v13"/><path d="M12 8S10.5 3 8 4.5 10 8 12 8zM12 8s1.5-5 4-3.5S14 8 12 8z"/></svg>',
+  cash:'<svg viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 9v6M18 9v6"/></svg>',
+  expenses:IC.receipt,
+  profit:'<svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 7-7"/><path d="M17 8h4v4"/></svg>',
+  recouvrement:'<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="2.5"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/><path d="M12 11.5V15"/></svg>',
+  suppliers:'<svg viewBox="0 0 24 24"><path d="M2 5h11v9H2zM13 8h5l3 3v3h-8z"/><circle cx="6" cy="18" r="1.6"/><circle cx="17" cy="18" r="1.6"/></svg>',
+  owner:'<svg viewBox="0 0 24 24"><circle cx="12" cy="7" r="3"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/><path d="M12 10v4M10 12l2 2 2-2"/></svg>',
+  assets:'<svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V8l7-4 7 4v13"/><path d="M9 21v-5h6v5"/></svg>',
+  loans:'<svg viewBox="0 0 24 24"><path d="M3 10l9-6 9 6"/><path d="M5 10v8M19 10v8M9 10v8M15 10v8M3 20h18"/></svg>',
+  export:'<svg viewBox="0 0 24 24"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5"/><path d="M12 11v6M9.5 14.5L12 17l2.5-2.5"/></svg>',
+  exercice:'<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>',
+  analyse:'<svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M12 3v9h9"/></svg>',
+  activity:'<svg viewBox="0 0 24 24"><path d="M3 12h4l2 6 4-14 2 8h6"/></svg>',
+  security:'<svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 5-3.5 8-7 9-3.5-1-7-4-7-9V6z"/><path d="M9.5 12l1.8 1.8 3.5-3.6"/></svg>',
+  backup:'<svg viewBox="0 0 24 24"><path d="M7 18a4 4 0 0 1-.5-7.97A6 6 0 0 1 18 9a3.5 3.5 0 0 1 .5 9H7z"/><path d="M12 12v5M9.7 14.3L12 12l2.3 2.3"/></svg>'
+};
 
 /* ===== HORS LIGNE / SYNCHRONISATION ===== */
 var NET={ uid:null, syncing:false, snapAt:null };
@@ -891,33 +938,50 @@ function render(){
   var root=document.getElementById("root");
   document.body.classList.toggle("role-assistant", !isAdmin());
   updateBell();
+  var ha=document.getElementById("headAv"); if(ha) ha.textContent=ME?initials(ME.full_name):"";
   if(currentId){ root.innerHTML=renderClient(currentId); return; }
   root.innerHTML = view==="home"?renderHome() : view==="clients"?renderClients() : view==="orders"?renderOrders()
     : view==="menu"?renderMenu() : view==="stock"?renderStock() : view==="expenses"?renderExpenses() : view==="profit"?renderProfit() : view==="cash"?renderCash() : view==="exercice"?renderExercice() : view==="backup"?renderBackup() : view==="rewards"?renderRewards() : view==="activity"?renderActivity() : view==="notifs"?renderNotifs() : view==="security"?renderSecurity() : view==="prodreport"?renderProductReport() : view==="analyse"?renderAnalyse() : view==="opening"?renderOpening() : view==="suppliers"?renderSuppliers() : view==="owner"?renderOwner() : view==="export"?renderAccountingExport() : view==="assets"?renderAssets() : view==="recouvrement"?renderRecouvrement() : view==="restock"?renderRestock() : view==="loans"?renderLoans() : renderCatalog();
 }
 function renderMenu(){
-  var h='<div class="view-title">Gestion</div><p class="view-sub">Catalogue, stock, dépenses et bénéfice.</p><div class="clist">';
-  h+=menuCard("catalog","Catalogue","Produits, interfaces et prix");
-  h+=menuCard("stock","Stock","Entrées, sorties et stock restant");
-  if(isAdmin()) h+=menuCard("opening","Stock de départ","Saisir le stock présent au démarrage");
-  h+=menuCard("expenses","Dépenses","Salaires, loyer, électricité…");
-  h+=menuCard("profit","Bénéfice","Résultat : ventes − achats − dépenses");
-  if(isAdmin()) h+=menuCard("analyse","Analyse","Graphiques : ventes, clients, dépenses, stock");
-  if(isAdmin()) h+=menuCard("cash","Caisse & Banque","Espèces, banque et transferts");
-  if(isAdmin()) h+=menuCard("recouvrement","Recouvrement","Clients à relancer, par ancienneté de dette");
-  if(isAdmin()) h+=menuCard("restock","Réapprovisionnement","Jours de stock restants et quantités à racheter");
-  if(isAdmin()) h+=menuCard("suppliers","Dettes fournisseurs","Ce que vous devez à vos fournisseurs");
-  if(isAdmin()) h+=menuCard("owner","Apports & retraits","Argent que vous mettez ou retirez");
-  if(isAdmin()) h+=menuCard("assets","Immobilisations","Matériel, véhicule, local (amortis dans le temps)");
-  if(isAdmin()) h+=menuCard("loans","Emprunts","Prêts reçus : échéancier, intérêts, capital restant");
-  if(isAdmin()) h+=menuCard("export","Export comptable","Synthèse du mois + fichier pour la comptabilité");
-  if(isAdmin()) h+=menuCard("exercice","Exercice annuel","Bilan de l'année + rapport à télécharger");
-  h+=menuCard("prodreport","Bilan par produit","Stock, crédit et caisse par produit");
-  h+=menuCard("rewards","Récompenses","Cadeaux de fidélité par produit");
-  if(isAdmin()) h+=menuCard("activity","Activité","Qui a saisi quoi (gérant / assistant)");
-  h+=menuCard("security","Sécurité & alertes","Biométrie, verrouillage et notifications");
-  h+=menuCard("backup","Sauvegarde","Exporter vos données en Excel (CSV)");
-  h+='</div>';
+  var admin=isAdmin();
+  var h='<div class="greet"><p class="g-hi">Gestion</p><h1 class="g-t">Tout piloter</h1></div>';
+  function mc(go,title,sub,tone){
+    return '<button class="m-card" data-go="'+go+'"><span class="m-ic '+(tone||'')+'">'+(MENU_IC[go]||'')+'</span>'
+      +'<span class="m-main"><span class="m-name">'+esc(title)+'</span><span class="m-sub">'+esc(sub)+'</span></span>'
+      +'<span class="m-chev">›</span></button>';
+  }
+  function sec(label,first){ return '<div class="menu-sec'+(first?' first':'')+'">'+esc(label)+'</div>'; }
+
+  h+=sec("Produits & stock",true);
+  h+=mc("catalog","Catalogue","Produits, interfaces et prix","green");
+  h+=mc("stock","Stock","Entrées, sorties et stock restant","green");
+  if(admin) h+=mc("opening","Stock de départ","Stock présent au démarrage","green");
+  if(admin) h+=mc("restock","Réapprovisionnement","Jours de stock et quantités à racheter","green");
+  h+=mc("prodreport","Bilan par produit","Stock, crédit et caisse par produit","green");
+  h+=mc("rewards","Récompenses","Cadeaux de fidélité par produit","gold");
+
+  h+=sec("Finances & trésorerie");
+  if(admin) h+=mc("cash","Caisse & Banque","Espèces, banque et transferts","gold");
+  h+=mc("expenses","Dépenses","Salaires, loyer, électricité…","red");
+  h+=mc("profit","Bénéfice","Ventes − achats − dépenses","green");
+  if(admin) h+=mc("recouvrement","Recouvrement","Clients à relancer par ancienneté","gold");
+  if(admin) h+=mc("suppliers","Dettes fournisseurs","Ce que vous devez aux fournisseurs","red");
+  if(admin) h+=mc("owner","Apports & retraits","Argent que vous mettez ou retirez","gold");
+  if(admin) h+=mc("assets","Immobilisations","Matériel, véhicule, local (amortis)","blue");
+  if(admin) h+=mc("loans","Emprunts","Échéancier, intérêts, capital restant","blue");
+
+  if(admin){
+    h+=sec("Comptabilité");
+    h+=mc("export","Export comptable","Synthèse + journal SYSCOHADA","blue");
+    h+=mc("exercice","Exercice annuel","Bilan de l'année + rapport","blue");
+    h+=mc("analyse","Analyse","Graphiques : ventes, clients, stock","blue");
+  }
+
+  h+=sec("Outils & réglages");
+  if(admin) h+=mc("activity","Activité","Qui a saisi quoi (gérant / assistant)","blue");
+  h+=mc("security","Sécurité & alertes","Biométrie, verrouillage, notifications","blue");
+  h+=mc("backup","Sauvegarde","Exporter vos données en Excel (CSV)","blue");
   return h;
 }
 function menuCard(go,title,sub){
@@ -1085,7 +1149,7 @@ function renderClients(){
 function clientRow(c){
   var t=totals(c.id);
   var h='<div class="c-row"><button class="c-hit" data-client="'+c.id+'">'
-    +'<span class="c-av">'+esc(initials(c.full_name))+'</span>'
+    +'<span class="c-av" style="'+avStyle(c.full_name)+'">'+esc(initials(c.full_name))+'</span>'
     +'<span class="c-main"><span class="c-name">'+esc(c.full_name||"Sans nom")+'</span>'
     +(t.du>0?'<span class="c-rap">Reste à payer<b class="tnum">'+money(t.du)+'</b></span>':'<span class="c-rap">'+esc([c.phone,c.city].filter(Boolean).join(" · ")||"—")+'</span>')
     +'</span></button>';
@@ -1096,7 +1160,7 @@ function clientRow(c){
 /* ancienne carte (toujours utilisée ailleurs : accueil assistant, etc.) */
 function clientCard(c){
   var t=totals(c.id);
-  return '<button class="c-card" data-client="'+c.id+'"><div class="c-av">'+esc(initials(c.full_name))+'</div>'
+  return '<button class="c-card" data-client="'+c.id+'"><div class="c-av" style="'+avStyle(c.full_name)+';border-radius:50%">'+esc(initials(c.full_name))+'</div>'
     +'<div class="c-main"><div class="c-name">'+esc(c.full_name||"Sans nom")+'</div>'
     +'<div class="c-meta">'+esc([c.phone,c.city].filter(Boolean).join(" · ")||"—")+'</div></div>'
     +(t.du>0?'<span class="solde tnum">'+money(t.du)+'</span>':'<span class="solde ok">à jour</span>')+'</button>';
