@@ -341,6 +341,24 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 :root[data-theme="dark"] .qact.red .qic{background:#331D1A}
 :root[data-theme="dark"] .c-enc{background:var(--surface)}
 :root[data-theme="dark"] .role-badge{color:#201604}
+/* tuiles de synthèse en lignes pleine largeur (nombres complets) */
+.sumg{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:2px 14px;margin-top:4px}
+.sumg-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
+.sumg-row:last-child{border-bottom:0}
+.sumg-l{font-size:13px;color:var(--muted);font-weight:600}
+.sumg-v{font-family:"Montserrat";font-weight:800;font-size:16px;letter-spacing:-.01em;white-space:nowrap}
+
+/* ===================== Icônes animées ===================== */
+@keyframes bgbPop{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.08)}100%{transform:scale(1);opacity:1}}
+@keyframes bgbFadeUp{0%{transform:translateY(8px);opacity:0}100%{transform:translateY(0);opacity:1}}
+.m-ic,.qact .qic,.perf-ic,.alert-cre .ac-ic,.flat-row .fr-ic{animation:bgbPop .42s cubic-bezier(.34,1.56,.64,1) both}
+.m-card{animation:bgbFadeUp .34s ease both}
+.m-card:nth-child(2){animation-delay:.02s}.m-card:nth-child(3){animation-delay:.04s}.m-card:nth-child(4){animation-delay:.06s}
+.m-card:nth-child(5){animation-delay:.08s}.m-card:nth-child(6){animation-delay:.10s}.m-card:nth-child(7){animation-delay:.12s}
+.qact:active .qic,.m-card:active .m-ic{animation:bgbPop .3s ease}
+.tab.on svg{animation:bgbPop .35s cubic-bezier(.34,1.56,.64,1)}
+.hero-eye:active svg{transform:scale(.8);transition:transform .12s}
+@media (prefers-reduced-motion:reduce){.m-ic,.qact .qic,.perf-ic,.alert-cre .ac-ic,.flat-row .fr-ic,.m-card,.tab.on svg{animation:none!important}}
 </style>
 </head>
 <body>
@@ -1171,6 +1189,9 @@ function perfCell(label, value, go, icon, tone, vcolor){
     +'<span class="pl">'+esc(label)+'</span>'
     +'<span class="pv tnum" style="color:'+(vcolor||'var(--ink)')+'">'+value+'</span></button>';
 }
+/* synthèse en lignes pleine largeur, montants complets. rows = [[label, montant, couleur|null], …] */
+function sumRows(rows){ return rows.map(function(r){ return '<div class="sumg-row"><span class="sumg-l">'+esc(r[0])+'</span><b class="sumg-v tnum"'+(r[2]?' style="color:'+r[2]+'"':'')+'>'+money(r[1])+'</b></div>'; }).join(''); }
+function sumGrid(rows){ return '<div class="sumg">'+sumRows(rows)+'</div>'; }
 function dashCard(label, value, color, go, sub, vcolor){
   return '<button class="dash-card" data-go="'+go+'" style="border-left-color:'+color+'">'
     +'<div class="dc-top"><span class="dc-lab">'+esc(label)+'</span><span class="dc-chev">›</span></div>'
@@ -1714,9 +1735,7 @@ function renderOwner(){
   var h='<button class="add-link" data-go="menu" style="margin:2px 0 12px">‹ Gestion</button>';
   h+='<div class="view-title">Apports &amp; retraits</div><p class="view-sub">L\'argent que vous (le propriétaire) mettez dans l\'entreprise ou en retirez. Ce ne sont ni des ventes ni des dépenses : ça ajuste seulement la caisse.</p>';
   var o=ownerTotals();
-  h+='<div class="money-grid"><div class="m"><div class="lab">Apports</div><div class="v tnum" style="color:var(--good)">'+kFmt(o.apport)+'</div></div>'
-    +'<div class="m"><div class="lab">Retraits</div><div class="v tnum" style="color:var(--crit)">'+kFmt(o.retrait)+'</div></div>'
-    +'<div class="m"><div class="lab">Net investi</div><div class="v tnum">'+kFmt(o.net)+'</div></div></div>';
+  h+=sumGrid([['Apports', o.apport, 'var(--good)'],['Retraits', o.retrait, 'var(--crit)'],['Net investi', o.net, null]]);
   h+='<div class="d-actions" style="margin:14px 0"><button class="btn btn-green" data-ownermove="apport">+ Apport (j\'ajoute)</button><button class="btn btn-gold" data-ownermove="retrait">− Retrait (je retire)</button></div>';
   var mv=S.expenses.filter(isOwnerMove).slice().sort(function(a,b){return String(b.date||"").localeCompare(String(a.date||""));});
   if(!mv.length){ h+='<div class="item-empty">Aucun apport ni retrait enregistré.</div>'; return h; }
@@ -1988,7 +2007,8 @@ function waNotifyOrder(orderId, kind){
 
 /* ===== ANALYSE — graphiques 100% hors-ligne (SVG), lus sur les données existantes ===== */
 /* Palette catégorielle validée (contrastée, lisible) pour le camembert */
-var ANA_CAT=['#2a78d6','#eb6834','#1baf7a','#eda100','#e87ba4','#6250d6','#C0392B','#5B6B7A'];
+/* palette graphiques aux couleurs BGB (vert, or, terre, sauge…) */
+var ANA_CAT=['#0C4A39','#C2993F','#1F8F5F','#A87C2E','#6E8B6A','#7A4F2E','#4F7D6B','#D8B65F'];
 function anaEmpty(msg){ return '<div class="item-empty" style="margin-top:2px">'+esc(msg||'Pas encore de données pour cette période.')+'</div>'; }
 function trunc(s,n){ s=String(s==null?'':s); return s.length>n?s.slice(0,n-1)+'…':s; }
 /* Montant compact en FG : 1 234 567 -> « 1,2 M FG » (pour les étiquettes de graphiques) */
@@ -2107,10 +2127,7 @@ function renderAnalyse(){
   var depP=expensesCharge(per);
   var achP=S.stock.filter(function(x){return x.kind==='entree'&&!isOpening(x)&&inPer(x.date,per);}).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
   var benP=caP-achP-depP-amortCharge(per)-loanInterestCharge(per);
-  h+='<div class="money-grid" style="margin-top:10px">'
-    +'<div class="m"><div class="lab">CA · '+esc(pl)+'</div><div class="v tnum" style="color:var(--green)">'+kFmt(caP)+'</div></div>'
-    +'<div class="m"><div class="lab">Bénéfice</div><div class="v tnum" style="color:'+(benP>=0?'var(--good)':'var(--crit)')+'">'+kFmt(benP)+'</div></div>'
-    +'<div class="m"><div class="lab">Encaissé</div><div class="v tnum" style="color:var(--good)">'+kFmt(encP)+'</div></div></div>';
+  h+='<div style="margin-top:10px">'+sumGrid([['CA · '+pl, caP, 'var(--green)'],['Bénéfice', benP, (benP>=0?'var(--good)':'var(--crit)')],['Encaissé', encP, 'var(--good)']])+'</div>';
 
   /* ===== 3) Ventes par produit (période) ===== */
   var vp={}; S.credits.forEach(function(x){ if(!inPer(x.date,per)) return; var k=x.product_id||'__none'; vp[k]=(vp[k]||0)+(Number(x.amount)||0); });
@@ -2154,10 +2171,7 @@ function renderAnalyse(){
 
   /* ===== 8) Trésorerie (situation) + encaissé vs crédit (période) ===== */
   var tz=treasury('all');
-  var tzBody='<div class="money-grid">'
-    +'<div class="m"><div class="lab">Caisse</div><div class="v tnum"'+(tz.caisse<0?' style="color:var(--crit)"':'')+'>'+kFmt(tz.caisse)+'</div></div>'
-    +'<div class="m"><div class="lab">Banque</div><div class="v tnum"'+(tz.banque<0?' style="color:var(--crit)"':'')+'>'+kFmt(tz.banque)+'</div></div>'
-    +'<div class="m"><div class="lab">Total</div><div class="v tnum">'+kFmt(tz.total)+'</div></div></div>';
+  var tzBody=sumRows([['Caisse', tz.caisse, (tz.caisse<0?'var(--crit)':null)],['Banque', tz.banque, (tz.banque<0?'var(--crit)':null)],['Total', tz.total, null]]);
   var recouvr = caP>0?Math.round(encP/caP*100):0;
   tzBody+='<div class="ana-sub" style="margin:14px 0 6px">Sur la période : encaissé vs ventes</div>'
     +svgBarsH([{label:'Ventes (crédit)',value:caP,color:'var(--gold)'},{label:'Encaissé (payé)',value:encP,color:'var(--good)'}],{empty:'Aucun mouvement sur cette période.'});
@@ -2324,9 +2338,7 @@ function renderAssets(){
   h+='<div class="view-title">Immobilisations</div><p class="view-sub">Vos biens durables (matériel, véhicule, local, mobilier). Leur coût ne passe pas en charge d\'un coup : il s\'use (s\'amortit) sur plusieurs années.</p>';
   var tt=assetsTotals(), mkey=today().slice(0,7);
   var monthly=(S.assets||[]).reduce(function(acc,a){ return acc + (assetMonths(a).indexOf(mkey)>=0?assetMonthlyAmort(a):0); },0);
-  h+='<div class="money-grid"><div class="m"><div class="lab">Valeur d\'achat</div><div class="v tnum">'+kFmt(tt.brut)+'</div></div>'
-    +'<div class="m"><div class="lab">Déjà amorti</div><div class="v tnum" style="color:var(--crit)">'+kFmt(tt.cumul)+'</div></div>'
-    +'<div class="m"><div class="lab">Valeur nette</div><div class="v tnum" style="color:var(--green)">'+kFmt(tt.net)+'</div></div></div>';
+  h+=sumGrid([['Valeur d\'achat', tt.brut, null],['Déjà amorti', tt.cumul, 'var(--crit)'],['Valeur nette', tt.net, 'var(--green)']]);
   if(monthly>0) h+='<div class="hint" style="margin-top:8px">Amortissement de ce mois-ci : <b>'+money(Math.round(monthly))+'</b> (compté automatiquement dans le bénéfice).</div>';
   h+='<button class="btn btn-green btn-block" data-addasset="1" style="margin:14px 0">+ Nouvelle immobilisation</button>';
   var list=(S.assets||[]);
@@ -2451,9 +2463,7 @@ function renderLoans(){
   var h='<button class="add-link" data-go="menu" style="margin:2px 0 12px">‹ Gestion</button>';
   h+='<div class="view-title">Emprunts</div><p class="view-sub">Prêts reçus par l\'entreprise. L\'argent reçu entre en trésorerie ; chaque remboursement en sort. Les intérêts sont une charge (ils réduisent le bénéfice), le capital remboursé réduit la dette.</p>';
   var tt=loansTotals();
-  h+='<div class="money-grid"><div class="m"><div class="lab">Emprunté</div><div class="v tnum">'+kFmt(tt.emprunte)+'</div></div>'
-    +'<div class="m"><div class="lab">Capital restant dû</div><div class="v tnum" style="color:var(--crit)">'+kFmt(tt.restant)+'</div></div>'
-    +'<div class="m"><div class="lab">Intérêts payés</div><div class="v tnum">'+kFmt(tt.interets)+'</div></div></div>';
+  h+=sumGrid([['Emprunté', tt.emprunte, null],['Capital restant dû', tt.restant, 'var(--crit)'],['Intérêts payés', tt.interets, null]]);
   h+='<button class="btn btn-green btn-block" data-addloan="1" style="margin:14px 0">+ Nouvel emprunt</button>';
   var list=(S.loans||[]);
   if(!list.length){ h+='<div class="item-empty">Aucun emprunt enregistré.</div>'; return h; }

@@ -154,6 +154,42 @@
     .tab{text-align:left;padding:12px 10px}
     .burger{display:block}
   }
+  /* ---- Nos engagements (accueil) ---- */
+  .eng{background:linear-gradient(180deg,var(--ivory),var(--cream))}
+  .eng-grid{display:grid;grid-template-columns:1fr;gap:16px;margin-top:22px}
+  @media(min-width:560px){.eng-grid{grid-template-columns:1fr 1fr}}
+  @media(min-width:980px){.eng-grid{grid-template-columns:repeat(4,1fr)}}
+  .eng-card{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:22px 20px;box-shadow:0 12px 32px -24px rgba(12,44,44,.55)}
+  .eng-ic{width:56px;height:56px;border-radius:15px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#E8F3EC,#CFE8D8);color:var(--green);margin-bottom:14px;animation:engFloat 4.5s ease-in-out infinite}
+  .eng-card:nth-child(2) .eng-ic{animation-delay:.7s;background:linear-gradient(135deg,#F7ECD4,#EEDBA8);color:var(--gold-deep)}
+  .eng-card:nth-child(3) .eng-ic{animation-delay:1.4s}
+  .eng-card:nth-child(4) .eng-ic{animation-delay:2.1s;background:linear-gradient(135deg,#F7ECD4,#EEDBA8);color:var(--gold-deep)}
+  .eng-ic svg{width:28px;height:28px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;transition:transform .3s}
+  .eng-card:hover .eng-ic svg{transform:scale(1.14) rotate(-4deg)}
+  .eng-card h3{color:var(--green);font-size:17px;margin-bottom:6px}
+  .eng-card p{color:var(--muted);font-size:14.5px}
+  @keyframes engFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+  /* ---- Bande d'appel à l'action ---- */
+  .cta-band{background:linear-gradient(155deg,var(--green) 0%,var(--green-900) 100%);color:#fff;margin-top:48px;position:relative;overflow:hidden}
+  .cta-band::after{content:"";position:absolute;right:-60px;top:-60px;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,rgba(216,182,95,.18),transparent 70%)}
+  .cta-in{position:relative;padding:50px 20px;text-align:center}
+  .cta-in h2{font-size:27px;margin-bottom:10px;color:#fff}
+  .cta-in h2 b{color:var(--gold-soft)}
+  .cta-in p{color:rgba(255,255,255,.82);max-width:620px;margin:0 auto 24px;font-size:16px}
+  .cta-in .btn{font-size:16px;padding:14px 28px}
+  /* ---- Pied de page enrichi ---- */
+  footer{background:var(--green-900);color:rgba(255,255,255,.72);margin-top:0;padding:42px 0 26px;text-align:left;font-size:14px}
+  .foot-grid{display:grid;grid-template-columns:1fr;gap:26px;padding-bottom:24px;border-bottom:1px solid rgba(255,255,255,.12)}
+  @media(min-width:720px){.foot-grid{grid-template-columns:1.5fr 1fr 1.2fr}}
+  .foot-brand img{height:46px;width:auto;margin-bottom:10px}
+  .foot-brand b{color:#fff;font-family:"Montserrat";font-size:16px;display:block}
+  .foot-brand p{margin-top:8px;max-width:320px;font-size:13.5px;line-height:1.6}
+  .foot-col h4{color:#fff;font-size:12.5px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px;font-family:"Montserrat"}
+  .foot-col a,.foot-col .fl{display:block;color:rgba(255,255,255,.72);padding:5px 0;font-size:14px;cursor:pointer;background:none;border:none;font-family:inherit;text-align:left}
+  .foot-col a:hover,.foot-col .fl:hover{color:var(--gold-soft)}
+  .foot-bottom{padding-top:18px;font-size:13px;color:rgba(255,255,255,.58)}
+  .foot-bottom b{color:#fff}
+  @media(prefers-reduced-motion:reduce){.eng-ic{animation:none!important}}
 </style>
 </head>
 <body>
@@ -171,7 +207,7 @@
   </div>
 </div>
 <main id="app"></main>
-<footer><div class="wrap">© <span id="yr"></span> <b>Bouliedou Global Business</b>, Enta marché, Conakry, Guinée · +224 623 01 08 18 · contact@bouliedou.com</div></footer>
+<footer id="foot"></footer>
 
 <script>
 /* ===================== DATA (bilingue FR/EN) ===================== */
@@ -187,6 +223,12 @@ var UI={
   our_biz_i:{fr:'Cliquez un métier pour découvrir nos prestations, notre méthode et demander un devis.',en:'Click a business to discover our services, our method and request a quote.'},
   view_biz:{fr:'Voir le métier →',en:'View business →'}, see_detail:{fr:'Voir le détail →',en:'See details →'},
   learn_more:{fr:'En savoir plus',en:'Learn more'},
+  eng_k:{fr:'Nos engagements',en:'Our commitments'},
+  eng_h:{fr:'Pourquoi les clients nous choisissent',en:'Why clients choose us'},
+  cta_h:{fr:"Un projet, une liste d'achats, un chantier&nbsp;?",en:'A project, a shopping list, a worksite?'},
+  cta_sub:{fr:"Parlons-en dès aujourd'hui — réponse rapide sur WhatsApp.",en:"Let's talk today — a quick reply on WhatsApp."},
+  foot_explore:{fr:'Explorer',en:'Explore'}, foot_contact_h:{fr:'Contact',en:'Contact'},
+  foot_tagline:{fr:'Cinq métiers, un partenaire : agrobusiness, fourniture de biens, services et travaux, formation et commerce, en Guinée.',en:'Five businesses, one partner: agribusiness, supply, services & works, training and trade, in Guinea.'},
   back_all:{fr:'‹ Tous nos métiers',en:'‹ All our businesses'},
   we_offer:{fr:'Ce que nous proposons',en:'What we offer'},
   method_h:{fr:'Notre méthode, en 4 étapes',en:'Our method, in 4 steps'},
@@ -343,6 +385,21 @@ function viewAccueil(){
     +'<a class="tlink" href="#pourquoi" onclick="go(\'pourquoi\');return false;">'+t('nav_why')+'</a> · '
     +'<a class="tlink" href="#realisations" onclick="go(\'realisations\');return false;">'+t('nav_work')+'</a> · '
     +'<a class="tlink" href="#contact" onclick="go(\'contact\');return false;">'+t('nav_contact')+'</a></p></div>';
+  /* --- Nos engagements (icônes animées) --- */
+  var ENG=[
+    {ic:'<svg viewBox="0 0 24 24"><circle cx="12" cy="7.5" r="3.2"/><path d="M5 20a7 7 0 0 1 14 0"/><path d="M16.8 7.2l1.4 1.4 2.6-2.8"/></svg>',
+     t:{fr:'Interlocuteur unique',en:'One point of contact'},d:{fr:'Un seul partenaire pour cinq métiers : moins de démarches, plus de temps pour vous.',en:'One partner for five businesses: less hassle, more time for you.'}},
+    {ic:'<svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 5-3.5 8-7 9-3.5-1-7-4-7-9V6z"/><path d="M9 12l2.2 2.2L15.5 10"/></svg>',
+     t:{fr:'Fiabilité',en:'Reliability'},d:{fr:'Des engagements clairs et tenus, à chaque étape de votre projet.',en:'Clear commitments, kept at every step of your project.'}},
+    {ic:'<svg viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.6"/></svg>',
+     t:{fr:'Proximité',en:'Local presence'},d:{fr:'Une équipe guinéenne, proche de vous et de vos projets, à Conakry.',en:'A Guinean team, close to you and your projects, in Conakry.'}},
+    {ic:'<svg viewBox="0 0 24 24"><path d="M5 20c0-8 6-14 14-14 0 8-6 14-14 14z"/><path d="M5 20C9 16 13 12 17.5 9.5"/></svg>',
+     t:{fr:'Produits locaux',en:'Local products'},d:{fr:'Une place de choix aux filières et aux produits de Guinée.',en:'A prime place for Guinea\'s supply chains and products.'}}
+  ];
+  h+='<section class="eng"><div class="wrap sec"><p class="kicker">'+t('eng_k')+'</p><h2 class="big">'+t('eng_h')+'</h2>'
+    +'<div class="eng-grid">'+ENG.map(function(e){return '<div class="eng-card"><div class="eng-ic">'+e.ic+'</div><h3>'+esc(L(e.t))+'</h3><p>'+esc(L(e.d))+'</p></div>';}).join('')+'</div></div></section>';
+  h+='<section class="cta-band"><div class="cta-in"><h2>'+t('cta_h')+'</h2><p>'+t('cta_sub')+'</p>'
+    +'<div>'+waBtn('btn-gold',t('hero_wa'),t('wa_hello'))+'</div></div></section>';
   return h;
 }
 function viewPoles(){var p=C.poles;
@@ -418,10 +475,22 @@ function applyMeta(){
   if(LANG==='en'){ document.title='Bouliedou Global Business — Agribusiness, supply, services & works, training and trade in Guinea';
     var m=document.querySelector('meta[name=description]'); if(m) m.content='Bouliedou Global Business, a Guinean company in Conakry: agribusiness, supply of goods, services & works, training and integration, trade. A single, reliable and close partner for your supplies, equipment and projects.'; }
 }
-function setLang(l){ if(l!==LANG){ LANG=l; try{localStorage.setItem('bgb_lang',l);}catch(e){} } buildTabs(); buildLang(); applyMeta(); showFromHash(); }
-
-document.getElementById('yr').textContent=new Date().getFullYear();
-buildLang(); buildTabs(); applyMeta(); showFromHash();
+function setLang(l){ if(l!==LANG){ LANG=l; try{localStorage.setItem('bgb_lang',l);}catch(e){} } buildTabs(); buildLang(); applyMeta(); renderFooter(); showFromHash(); }
+function renderFooter(){
+  var links=[['apropos','nav_about'],['poles','nav_poles'],['realisations','nav_work'],['pourquoi','nav_why'],['contact','nav_contact']];
+  var fh='<div class="wrap"><div class="foot-grid">'
+    +'<div class="foot-brand"><img src="img/logo-emblem.svg" alt="Bouliedou Global Business"><b>BOULIEDOU GLOBAL BUSINESS</b><p>'+t('foot_tagline')+'</p></div>'
+    +'<div class="foot-col"><h4>'+t('foot_explore')+'</h4>'+links.map(function(l){return '<button class="fl" onclick="go(\''+l[0]+'\')">'+t(l[1])+'</button>';}).join('')+'</div>'
+    +'<div class="foot-col"><h4>'+t('foot_contact_h')+'</h4>'
+      +'<div class="fl">Enta marché, Conakry — Guinée</div>'
+      +'<a href="tel:'+TEL+'">'+TEL+'</a>'
+      +'<a href="mailto:'+MAIL+'">'+MAIL+'</a>'
+      +'<a href="'+waLink(t('wa_hello'))+'" target="_blank" rel="noopener">WhatsApp</a></div>'
+    +'</div>'
+    +'<div class="foot-bottom">© '+new Date().getFullYear()+' <b>Bouliedou Global Business</b>. '+(LANG==='en'?'All rights reserved.':'Tous droits réservés.')+'</div></div>';
+  document.getElementById('foot').innerHTML=fh;
+}
+buildLang(); buildTabs(); applyMeta(); renderFooter(); showFromHash();
 </script>
 </body>
 </html>
