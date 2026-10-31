@@ -443,7 +443,7 @@ var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 var ME=null, ROLE=null;
 var S={clients:[],products:[],orders:[],deliveries:[],credits:[],payments:[],categories:[],stock:[],expenses:[],rules:[],people:[],backups:[],redemptions:[]};
 var view="home", currentId=null, search="", profitPeriod="month", actFilter="all", homePeriod="month", cashPeriod="month", anaPeriod="month", expMonth=null, exYear=String(new Date().getFullYear());
-var clientFilter="all", hideBal=lsGet('bgb_hidebal',false);
+var clientFilter="all", clientProd="", hideBal=lsGet('bgb_hidebal',false);
 /* petits pictogrammes (SVG) pour l'accueil et les clients */
 var IC={
   cart:'<svg viewBox="0 0 24 24"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h2.3l2.3 12.4a1.6 1.6 0 0 0 1.6 1.3h8.9a1.6 1.6 0 0 0 1.6-1.3L22 7H6.2"/></svg>',
@@ -1199,6 +1199,20 @@ function dashCard(label, value, color, go, sub, vcolor){
     +(sub?'<div class="dc-sub">'+esc(sub)+'</div>':'')+'</button>';
 }
 
+/* produits qu'un client a réellement pris à crédit (distincts) */
+function clientBoughtProducts(clientId){
+  var seen={}, out=[];
+  by(S.credits, clientId).forEach(function(x){ var pid=x.product_id; if(pid && !seen[pid]){ seen[pid]=1; var p=prodById(pid); out.push({id:pid, name:(p?p.name:(x.label||'Produit'))}); } });
+  return out;
+}
+/* produits présents dans au moins une vente à crédit (pour le filtre clients) */
+function productsWithCredits(){
+  var seen={}, out=[];
+  S.credits.forEach(function(x){ var pid=x.product_id; if(pid && !seen[pid]){ seen[pid]=1; var p=prodById(pid); if(p) out.push(p); } });
+  return out.sort(function(a,b){return (a.name||'').localeCompare(b.name||'');});
+}
+/* un client a-t-il acheté ce produit ? */
+function clientHasProduct(clientId, pid){ return by(S.credits, clientId).some(function(x){return x.product_id===pid;}); }
 function renderClients(){
   var n=S.clients.length;
   var du=Math.max(0, sum(S.credits,'amount')+openingDebtTotal()-sum(S.payments,'amount'));
@@ -1212,8 +1226,17 @@ function renderClients(){
     +'<button data-cfilter="due" class="'+(clientFilter==='due'?'on':'')+'">À encaisser</button>'
     +'<button data-cfilter="ok" class="'+(clientFilter==='ok'?'on':'')+'">À jour</button>'
     +'</div>';
+  /* filtre par marchandise achetée */
+  var prods=productsWithCredits();
+  if(prods.length>1){
+    if(clientProd && !prods.some(function(p){return p.id===clientProd;})) clientProd="";
+    h+='<div class="hint" style="margin:-2px 2px 6px;font-weight:700;color:var(--muted)">Filtrer par marchandise&nbsp;:</div>';
+    h+='<div class="perbar" style="margin-bottom:12px"><button class="perchip'+(clientProd===''?' on':'')+'" data-cprod="">Toutes</button>'
+      +prods.map(function(p){return '<button class="perchip'+(clientProd===p.id?' on':'')+'" data-cprod="'+p.id+'">'+esc(p.name)+'</button>';}).join('')+'</div>';
+  }
   var list=S.clients.slice();
   if(search.trim()){ var q=search.toLowerCase(); list=list.filter(function(c){return [(c.full_name||""),(c.phone||""),(c.city||"")].join(" ").toLowerCase().indexOf(q)>=0;}); }
+  if(clientProd) list=list.filter(function(c){return clientHasProduct(c.id, clientProd);});
   if(clientFilter==='due') list=list.filter(function(c){return totals(c.id).du>0;});
   else if(clientFilter==='ok') list=list.filter(function(c){return totals(c.id).du<=0;});
   /* à encaisser : les plus gros soldes d'abord */
@@ -3264,12 +3287,21 @@ function prodOptionsOnly(clientId){
   var c=S.clients.find(function(x){return x.id===clientId;});
   return productsForClient(c).map(function(p){ var cat=prodCat(p); var u=cat?(" — "+cat.order_unit):""; return '<option value="'+p.id+'">'+esc(p.name)+esc(u)+'</option>'; }).join('');
 }
+/* options « Produit concerné » du paiement : les marchandises réellement prises par le client ;
+   si le client n'en a pris qu'une seule, elle est pré-sélectionnée par défaut. */
+function payProdOptions(clientId){
+  var bought=clientBoughtProducts(clientId);
+  if(!bought.length) return '<option value="">— Général / non précisé —</option>'+prodOptionsOnly(clientId);
+  var one=(bought.length===1);
+  return '<option value=""'+(one?'':' selected')+'>— Général / non précisé —</option>'
+    +bought.map(function(p){ return '<option value="'+p.id+'"'+(one?' selected':'')+'>'+esc(p.name)+'</option>'; }).join('');
+}
 function entryForm(type,clientId){
   var t=today();
   if(type==="pay"){
     openSheet('<h3>Nouveau paiement</h3>'+fld("Montant (FG)","number","e_amount","","0")
       +methodField("e_method","caisse")
-      +'<div class="field"><label for="e_payprod">Produit concerné (facultatif)</label><select id="e_payprod"><option value="">— Général / non précisé —</option>'+prodOptionsOnly(clientId)+'</select></div>'
+      +'<div class="field"><label for="e_payprod">Produit concerné (facultatif)</label><select id="e_payprod">'+payProdOptions(clientId)+'</select></div>'
       +'<div class="field-row">'+fld("Date","date","e_date",t,"")+fld("Note","text","e_note","","(facultatif)")+'</div>'
       +'<div class="sheet-actions"><button class="btn btn-ghost" data-cancel="1">Annuler</button><button class="btn btn-green" data-saveentry="pay:'+clientId+'">Enregistrer</button></div>');
     return;
@@ -3456,7 +3488,7 @@ function orderSheet(id){
 
 /* ===== EVENTS ===== */
 document.addEventListener("click",function(e){
-  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin],[data-go],[data-addstock],[data-savestock],[data-receivestock],[data-achemine],[data-saveachemine],[data-triage],[data-savetriage],[data-addexp],[data-saveexp],[data-profper],[data-homeper],[data-anaper],[data-wa],[data-receiptpay],[data-wareceipt],[data-export],[data-addrule],[data-editrule],[data-saverule],[data-delrule],[data-pdfreceipt],[data-actfilter],[data-dlbackup],[data-bio],[data-push],[data-cashper],[data-cashxfer],[data-savecashxfer],[data-exyear],[data-exprint],[data-cloture],[data-giftgiven],[data-savegift],[data-resetclient],[data-editcredit],[data-saveeditcredit],[data-saveopening],[data-ordersale],[data-repeatexp],[data-supplierpay],[data-savesupplierpay],[data-ownermove],[data-saveownermove],[data-expmonth],[data-exportmonth],[data-exprintacc],[data-attach],[data-viewattach],[data-delattach],[data-addasset],[data-saveasset],[data-addloan],[data-saveloan],[data-loanpay],[data-saveloanpay],[data-cfilter],[data-togglebal],[data-settheme]");
+  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin],[data-go],[data-addstock],[data-savestock],[data-receivestock],[data-achemine],[data-saveachemine],[data-triage],[data-savetriage],[data-addexp],[data-saveexp],[data-profper],[data-homeper],[data-anaper],[data-wa],[data-receiptpay],[data-wareceipt],[data-export],[data-addrule],[data-editrule],[data-saverule],[data-delrule],[data-pdfreceipt],[data-actfilter],[data-dlbackup],[data-bio],[data-push],[data-cashper],[data-cashxfer],[data-savecashxfer],[data-exyear],[data-exprint],[data-cloture],[data-giftgiven],[data-savegift],[data-resetclient],[data-editcredit],[data-saveeditcredit],[data-saveopening],[data-ordersale],[data-repeatexp],[data-supplierpay],[data-savesupplierpay],[data-ownermove],[data-saveownermove],[data-expmonth],[data-exportmonth],[data-exprintacc],[data-attach],[data-viewattach],[data-delattach],[data-addasset],[data-saveasset],[data-addloan],[data-saveloan],[data-loanpay],[data-saveloanpay],[data-cfilter],[data-togglebal],[data-settheme],[data-cprod]");
   if(!el) return; var d=el.dataset;
   if((d.del!==undefined||d.delclient!==undefined||d.delprod!==undefined||d.delcat!==undefined||d.delrule!==undefined)&&!isAdmin()){ toast("Suppression réservée au gérant principal."); return; }
   if(d.bio!==undefined){ toggleBio(); }
@@ -3475,6 +3507,7 @@ document.addEventListener("click",function(e){
   else if(d.profper!==undefined){ profitPeriod=d.profper; render(); }
   else if(d.homeper!==undefined){ homePeriod=d.homeper; render(); }
   else if(d.cfilter!==undefined){ clientFilter=d.cfilter; currentId=null; view="clients"; window.scrollTo(0,0); render(); }
+  else if(d.cprod!==undefined){ clientProd=d.cprod; render(); }
   else if(d.togglebal!==undefined){ hideBal=!hideBal; lsSet('bgb_hidebal',hideBal); render(); }
   else if(d.settheme!==undefined){ setTheme(d.settheme); }
   else if(d.anaper!==undefined){ anaPeriod=d.anaper; render(); }

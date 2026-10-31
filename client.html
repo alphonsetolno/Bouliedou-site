@@ -53,15 +53,23 @@ input,select,textarea{font:inherit}
 
 main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .wrap{max-width:720px;margin:0 auto;padding:16px 16px 96px}
-.view-title{font-weight:800;font-size:22px;margin:4px 0 2px}
+.view-title{font-family:"Montserrat",sans-serif;font-weight:800;font-size:23px;letter-spacing:-.015em;margin:2px 0 2px}
 .view-sub{color:var(--muted);font-size:13.5px;margin:0 0 16px}
 
-.hero{background:linear-gradient(155deg,var(--green) 0%,var(--green-deep) 100%);color:#fff;border-radius:18px;padding:20px;box-shadow:var(--shadow)}
+.hero{position:relative;overflow:hidden;background:linear-gradient(158deg,var(--green) 0%,var(--green-deep) 58%,#042A20 100%);color:#fff;border-radius:20px;padding:20px;box-shadow:var(--shadow)}
+.hero::after{content:"";position:absolute;right:-46px;top:-46px;width:160px;height:160px;border-radius:50%;background:radial-gradient(circle,rgba(216,182,95,.20),transparent 70%);pointer-events:none}
+.hero>*{position:relative}
 .hero .hi{font-size:14px;color:var(--gold-soft);font-weight:600}
 .hero .nm{font-size:21px;font-weight:800;margin:2px 0 14px}
 .hero .lab{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:rgba(255,255,255,.75);font-weight:700}
 .hero .solde{font-family:"Montserrat";font-weight:800;font-size:30px;margin-top:4px;letter-spacing:-.01em}
 .hero .solde.ok{color:var(--gold-soft)}
+.hero .rule{height:1px;background:rgba(255,255,255,.16);margin:14px 0}
+.hero .split{display:flex}
+.hero .cell{flex:1;min-width:0}
+.hero .cell+.cell{border-left:1px solid rgba(255,255,255,.16);padding-left:16px}
+.hero .cell .k{font-size:12px;color:rgba(255,255,255,.72);font-weight:600}
+.hero .cell .v{font-family:"Montserrat";font-weight:800;font-size:16px;margin-top:3px}
 
 .kpis{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
 .kpi{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 15px;box-shadow:var(--shadow)}
@@ -89,6 +97,9 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .item .amt{font-weight:800;font-size:14px;white-space:nowrap}
 .item .sub{font-size:12px;color:var(--muted);margin-top:1px}
 .item-empty{color:var(--muted);font-size:13px;text-align:center;padding:16px 0}
+.info-row{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
+.info-row:last-child{border-bottom:0}
+.info-row .k{color:var(--muted);font-size:12.5px;font-weight:600}
 .pill{font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:999px}
 .pill.nouvelle{background:var(--warn-bg);color:var(--warn)} .pill.validée{background:var(--neutral-bg);color:var(--neutral)}
 .pill.livrée{background:var(--good-bg);color:var(--good)} .pill.annulée{background:var(--line);color:var(--muted)}
@@ -152,6 +163,31 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .lock-logout{background:none;border:0;color:var(--muted);font-weight:700;font-size:13px;margin-top:14px;text-decoration:underline}
 .loading{flex:1;display:flex;align-items:center;justify-content:center;color:var(--muted);font-weight:600}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+/* avatar en-tête */
+.head-r{display:flex;align-items:center;gap:10px}
+.head-av{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;font-family:"Montserrat";font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center;flex:none}
+/* sélecteur de thème */
+.theme-seg{display:flex;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:4px;gap:4px}
+.theme-seg button{flex:1;border:0;background:none;border-radius:9px;padding:10px 6px;font:inherit;font-size:13.5px;font-weight:700;color:var(--muted)}
+.theme-seg button.on{background:var(--green);color:#fff}
+/* icônes animées */
+@keyframes bgbPop{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.08)}100%{transform:scale(1);opacity:1}}
+.tab.on svg{animation:bgbPop .35s cubic-bezier(.34,1.56,.64,1)}
+.btn-gold:active,.btn-green:active{transform:scale(.985)}
+@media (prefers-reduced-motion:reduce){.tab.on svg{animation:none!important}}
+/* ===== MODE SOMBRE ===== */
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0E1512; --surface:#16211B; --surface-2:#1C2922; --line:#2A3730;
+  --ink:#EAF1EC; --muted:#9BB0A4; --ink-soft:#C8D5CD;
+  --green:#2E8A6A; --green-deep:#1C6B50; --gold:#D8B65F; --gold-soft:#E6CC82;
+  --good:#52C98A; --good-bg:#15291F; --warn:#E3BA63; --warn-bg:#2C2415;
+  --crit:#EA8B81; --crit-bg:#331D1A; --neutral:#9FB3C4; --neutral-bg:#1E2630;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 26px -16px rgba(0,0,0,.65);
+  --sheet-shadow:0 -8px 40px -12px rgba(0,0,0,.75);
+}
+:root[data-theme="dark"] .hero{border:1px solid #2B3A32}
+:root[data-theme="dark"] .cartbar .inner{border:1px solid #2B3A32}
 </style>
 </head>
 <body>
@@ -191,7 +227,7 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
       <img src="/logo-emblem-cream.svg" alt="Bouliedou Global Business">
       <div class="t"><b>Mon espace</b><span>Bouliedou</span></div>
     </div>
-    <button class="head-btn" id="logoutBtn">Quitter</button>
+    <div class="head-r"><span class="head-av" id="headAv"></span><button class="head-btn" id="logoutBtn">Quitter</button></div>
   </header>
   <div class="netbar" id="netbar"></div>
   <main><div class="wrap" id="root"></div></main>
@@ -239,6 +275,13 @@ var NET={ uid:null, syncing:false, snapAt:null };
 var MEKEY='bgb_cli_me', SNAPKEY='bgb_cli_snap', QKEY='bgb_cli_queue';
 function lsGet(k,def){ try{ var v=localStorage.getItem(k); return v?JSON.parse(v):def; }catch(e){ return def; } }
 function lsSet(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); return true; }catch(e){ return false; } }
+function initials(n){ var p=(n||"?").trim().split(/\s+/); return (((p[0]||"")[0]||"")+((p[1]||"")[0]||"")).toUpperCase(); }
+/* thème clair / sombre / auto */
+function themePref(){ return lsGet('bgb_cli_theme','auto'); }
+function sysDark(){ try{ return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches; }catch(e){ return false; } }
+function applyTheme(){ var p=themePref(); var eff=(p==='auto')?(sysDark()?'dark':'light'):p; try{ document.documentElement.setAttribute('data-theme', eff); }catch(e){} }
+function setTheme(p){ lsSet('bgb_cli_theme',p); applyTheme(); if(typeof render==='function'&&document.getElementById('root')) render(); }
+try{ applyTheme(); if(window.matchMedia){ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(){ if(themePref()==='auto') applyTheme(); }); } }catch(e){}
 function curUid(){ return (ME&&ME.auth_user_id)||NET.uid||null; }
 function cacheMe(){ lsSet(MEKEY,{uid:curUid(), me:ME}); }
 function cachedMe(uid){ var o=lsGet(MEKEY,null); return (o&&o.uid===uid)?o.me:null; }
@@ -529,16 +572,16 @@ async function loadAll(){
 function render(){
   document.querySelectorAll(".tab").forEach(function(b){ b.classList.toggle("on", b.dataset.tab===view || ((view==="credits"||view==="payments") && b.dataset.tab==="home")); });
   var root=document.getElementById("root");
+  var ha=document.getElementById("headAv"); if(ha) ha.textContent=(ME&&ME.full_name)?initials(ME.full_name):"";
   root.innerHTML = view==="home"?renderHome() : view==="order"?renderOrder() : view==="orders"?renderOrders() : view==="credits"?renderCreditsFull() : view==="payments"?renderPaymentsFull() : renderAccount();
 }
 
 function renderHome(){
   var t=totals();
   var h='<div class="hero"><div class="hi">Bonjour,</div><div class="nm">'+esc(ME.full_name||"Cher client")+'</div>'
-    +'<div class="lab">Solde dû</div><div class="solde'+(t.du>0?'':' ok')+' tnum">'+money(t.du)+'</div></div>';
-  h+='<div class="kpis">'
-    +'<div class="kpi"><div class="lab">Total pris à crédit</div><div class="val tnum">'+money(t.credit)+'</div></div>'
-    +'<div class="kpi"><div class="lab">Total payé</div><div class="val tnum">'+money(t.paye)+'</div></div></div>';
+    +'<div class="lab">Solde dû</div><div class="solde'+(t.du>0?'':' ok')+' tnum">'+money(t.du)+'</div>'
+    +'<div class="rule"></div><div class="split"><div class="cell"><div class="k">Total pris à crédit</div><div class="v tnum">'+money(t.credit)+'</div></div>'
+    +'<div class="cell"><div class="k">Total payé</div><div class="v tnum">'+money(t.paye)+'</div></div></div></div>';
   h+='<button class="btn btn-gold btn-block" data-go="order" style="margin-top:16px">Passer une commande</button>';
   h+=rewardsSection();
   // dernières commandes
@@ -650,6 +693,14 @@ function renderAccount(){
     +'<div class="m due'+(t.du>0?'':' ok')+'"><div class="lab">Solde dû</div><div class="v tnum">'+money(t.du)+'</div></div></div></div>';
   h+='<div class="hint" style="margin:-2px 0 12px">Votre historique (marchandises à crédit et paiements) est désormais sur l\'accueil.</div>';
   h+='<button class="btn btn-ghost btn-block" data-statement="1" style="margin-bottom:14px">📄 Télécharger mon relevé (PDF)</button>';
+  var tp=themePref();
+  h+='<div class="card"><div class="card-h"><h3>Apparence</h3></div>'
+    +'<div class="hint" style="margin:-4px 0 10px">« Auto » suit le réglage de votre téléphone.</div>'
+    +'<div class="theme-seg">'
+    +'<button data-settheme="auto" class="'+(tp==='auto'?'on':'')+'">Auto</button>'
+    +'<button data-settheme="light" class="'+(tp==='light'?'on':'')+'">☀️ Clair</button>'
+    +'<button data-settheme="dark" class="'+(tp==='dark'?'on':'')+'">🌙 Sombre</button>'
+    +'</div></div>';
   // aide & contact
   h+=contactCard();
   // notifications
@@ -789,7 +840,7 @@ async function submitOrder(){
 
 /* ===== EVENTS ===== */
 document.addEventListener("click",function(e){
-  var el=e.target.closest("[data-tab],[data-go],[data-inc],[data-dec],[data-checkout],[data-cancel],[data-cancelorder],[data-bio],[data-changepin],[data-statement],[data-push]");
+  var el=e.target.closest("[data-tab],[data-go],[data-inc],[data-dec],[data-checkout],[data-cancel],[data-cancelorder],[data-bio],[data-changepin],[data-statement],[data-push],[data-settheme]");
   if(!el) return; var d=el.dataset;
   if(d.changepin!==undefined){ changePinSheet(); }
   else if(d.statement!==undefined){ accountStatement(); }
@@ -797,6 +848,7 @@ document.addEventListener("click",function(e){
   else if(d.bio!==undefined){ toggleBio(); }
   else if(d.tab!==undefined){ view=d.tab; window.scrollTo(0,0); render(); }
   else if(d.go!==undefined){ view=d.go; window.scrollTo(0,0); render(); }
+  else if(d.settheme!==undefined){ setTheme(d.settheme); }
   else if(d.inc!==undefined){ CART[d.inc]=(CART[d.inc]||0)+1; updateQty(d.inc); }
   else if(d.dec!==undefined){ CART[d.dec]=Math.max(0,(CART[d.dec]||0)-1); if(CART[d.dec]===0) delete CART[d.dec]; updateQty(d.dec); }
   else if(d.checkout!==undefined){ checkoutSheet(); }
