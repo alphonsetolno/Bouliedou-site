@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Bouliedou Global Business — Agrobusiness, fourniture, services & travaux, formation et commerce en Guinée</title>
+<title>Bouliedou Global Business : agrobusiness, fourniture, services et travaux, formation et commerce en Guinée</title>
 <meta name="description" content="Bouliedou Global Business, société guinéenne à Conakry : agrobusiness, fourniture de biens, services et travaux, formation et insertion, commerce. Un interlocuteur unique, fiable et proche pour vos achats, vos équipements et vos projets.">
 <meta name="theme-color" content="#0C4A39">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta property="og:title" content="Bouliedou Global Business — cinq métiers, un partenaire en Guinée">
-<meta property="og:description" content="Agrobusiness, fourniture de biens, services et travaux, formation et commerce — un interlocuteur unique à Conakry.">
+<meta property="og:title" content="Bouliedou Global Business : cinq métiers, un partenaire en Guinée">
+<meta property="og:description" content="Agrobusiness, fourniture de biens, services et travaux, formation et commerce. Un interlocuteur unique à Conakry.">
 <meta property="og:type" content="website">
 <meta property="og:image" content="og-cover.jpg">
 <meta property="og:url" content="https://www.bouliedou.com/">
@@ -55,7 +55,7 @@
   @keyframes fade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
   .sec{padding:clamp(40px,6vw,74px) 0}
   .kicker{color:var(--gold-deep);font-weight:700;font-size:12.5px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:10px}
-  .kicker::before{content:"— "}
+  .kicker::before{content:""}
   h2.big{font-size:clamp(27px,4.6vw,42px);color:var(--green);line-height:1.12;margin-bottom:14px}
   .intro{font-size:17px;color:var(--muted);max-width:640px;margin-bottom:8px}
   .lead{font-size:16px;color:var(--ink);max-width:760px;margin-bottom:14px}
@@ -189,6 +189,15 @@
   .foot-col a:hover,.foot-col .fl:hover{color:var(--gold-soft)}
   .foot-bottom{padding-top:18px;font-size:13px;color:rgba(255,255,255,.58)}
   .foot-bottom b{color:#fff}
+  .legal-link{background:none;border:0;color:rgba(255,255,255,.72);cursor:pointer;font:inherit;font-size:13px;text-decoration:underline;padding:0;margin-top:8px;display:inline-block}
+  .legal-link:hover{color:var(--gold-soft)}
+  .legal-ov{position:fixed;inset:0;background:rgba(6,56,44,.6);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px}
+  .legal-box{background:#fff;color:#1B2821;max-width:640px;width:100%;max-height:86vh;overflow:auto;border-radius:16px;padding:30px 32px 26px;box-shadow:0 24px 64px rgba(0,0,0,.32);position:relative;border-top:5px solid #C2993F}
+  .legal-box h2{font-family:"Montserrat";color:#0C4A39;font-size:23px;margin-bottom:16px}
+  .legal-box p{font-size:14px;line-height:1.62;margin-bottom:11px}
+  .legal-box b{color:#0C4A39}
+  .legal-x{position:absolute;top:12px;right:16px;background:none;border:0;font-size:26px;line-height:1;color:#5B6B62;cursor:pointer}
+  .legal-x:hover{color:#0C4A39}
   @media(prefers-reduced-motion:reduce){.eng-ic{animation:none!important}}
 </style>
 </head>
@@ -226,7 +235,7 @@ var UI={
   eng_k:{fr:'Nos engagements',en:'Our commitments'},
   eng_h:{fr:'Pourquoi les clients nous choisissent',en:'Why clients choose us'},
   cta_h:{fr:"Un projet, une liste d'achats, un chantier&nbsp;?",en:'A project, a shopping list, a worksite?'},
-  cta_sub:{fr:"Parlons-en dès aujourd'hui — réponse rapide sur WhatsApp.",en:"Let's talk today — a quick reply on WhatsApp."},
+  cta_sub:{fr:"Parlons-en dès aujourd'hui. Réponse rapide sur WhatsApp.",en:"Let's talk today. A quick reply on WhatsApp."},
   foot_explore:{fr:'Explorer',en:'Explore'}, foot_contact_h:{fr:'Contact',en:'Contact'},
   foot_tagline:{fr:'Cinq métiers, un partenaire : agrobusiness, fourniture de biens, services et travaux, formation et commerce, en Guinée.',en:'Five businesses, one partner: agribusiness, supply, services & works, training and trade, in Guinea.'},
   back_all:{fr:'‹ Tous nos métiers',en:'‹ All our businesses'},
@@ -345,7 +354,7 @@ var C={
     kicker:{fr:"Contact",en:"Contact"},
     h2:{fr:"Parlons de votre projet",en:"Let's talk about your project"},
     intro:{fr:"Une question, une demande de devis, un partenariat ? Contactez-nous directement.",en:"A question, a quote request, a partnership? Contact us directly."},
-    hours:{fr:"Lundi – Samedi : 8h – 18h",en:"Monday – Saturday: 8am – 6pm"},
+    hours:{fr:"Lundi au samedi : 8h à 18h",en:"Monday to Saturday: 8am to 6pm"},
     address:{fr:"Enta marché, Conakry, Guinée",en:"Enta market, Conakry, Guinea"}
   }
 };
@@ -472,7 +481,7 @@ function buildTabs(){ document.getElementById('tabs').innerHTML=TABS.map(functio
 function buildLang(){ document.getElementById('lang').innerHTML=['fr','en'].map(function(l){return '<button class="'+(LANG===l?'on':'')+'" onclick="setLang(\''+l+'\')">'+l.toUpperCase()+'</button>';}).join(''); }
 function applyMeta(){
   document.documentElement.lang=LANG;
-  if(LANG==='en'){ document.title='Bouliedou Global Business — Agribusiness, supply, services & works, training and trade in Guinea';
+  if(LANG==='en'){ document.title='Bouliedou Global Business : agribusiness, supply, services and works, training and trade in Guinea';
     var m=document.querySelector('meta[name=description]'); if(m) m.content='Bouliedou Global Business, a Guinean company in Conakry: agribusiness, supply of goods, services & works, training and integration, trade. A single, reliable and close partner for your supplies, equipment and projects.'; }
 }
 function setLang(l){ if(l!==LANG){ LANG=l; try{localStorage.setItem('bgb_lang',l);}catch(e){} } buildTabs(); buildLang(); applyMeta(); renderFooter(); showFromHash(); }
@@ -482,14 +491,44 @@ function renderFooter(){
     +'<div class="foot-brand"><img src="img/logo-emblem.svg" alt="Bouliedou Global Business"><b>BOULIEDOU GLOBAL BUSINESS</b><p>'+t('foot_tagline')+'</p></div>'
     +'<div class="foot-col"><h4>'+t('foot_explore')+'</h4>'+links.map(function(l){return '<button class="fl" onclick="go(\''+l[0]+'\')">'+t(l[1])+'</button>';}).join('')+'</div>'
     +'<div class="foot-col"><h4>'+t('foot_contact_h')+'</h4>'
-      +'<div class="fl">Enta marché, Conakry — Guinée</div>'
+      +'<div class="fl">Enta Marché, Commune de Tombolia, Conakry, Guinée</div>'
       +'<a href="tel:'+TEL+'">'+TEL+'</a>'
       +'<a href="mailto:'+MAIL+'">'+MAIL+'</a>'
       +'<a href="'+waLink(t('wa_hello'))+'" target="_blank" rel="noopener">WhatsApp</a></div>'
     +'</div>'
-    +'<div class="foot-bottom">© '+new Date().getFullYear()+' <b>Bouliedou Global Business</b>. '+(LANG==='en'?'All rights reserved.':'Tous droits réservés.')+'</div></div>';
+    +'<div class="foot-bottom"><b>BOULIEDOU GLOBAL BUSINESS</b>, SARL au capital de 300&nbsp;000&nbsp;000 GNF, RCCM&nbsp;: GN.TCC.2026.B.15940, NIF&nbsp;: 608727509<br>© '+new Date().getFullYear()+' Bouliedou Global Business. '+(LANG==='en'?'All rights reserved.':'Tous droits réservés.')+'<br><button class="legal-link" onclick="openLegal()">'+(LANG==='en'?'Legal notice':'Mentions légales')+'</button></div></div>';
   document.getElementById('foot').innerHTML=fh;
 }
+function legalHTML(){
+  if(LANG==='en'){return '<h2>Legal notice</h2>'
+    +'<p><b>Publisher</b><br>BOULIEDOU GLOBAL BUSINESS (BGB), a limited liability company (SARL) incorporated under Guinean law (OHADA).</p>'
+    +'<p><b>Share capital</b>: GNF&nbsp;300,000,000.</p>'
+    +'<p><b>Registered office</b>: Enta Marché, Commune de Tombolia, Conakry, Guinea.</p>'
+    +'<p><b>Trade register (RCCM)</b>: GN.TCC.2026.B.15940, Conakry Commercial Court.</p>'
+    +'<p><b>Tax identification number (NIF)</b>: 608727509.</p>'
+    +'<p><b>Management / Publication director</b>: Bouliedou.</p>'
+    +'<p><b>Contact</b>: +224 623 01 08 18, contact@bouliedou.com.</p>'
+    +'<p><b>Intellectual property</b>: all content on this site (text, images, logo) is the property of Bouliedou Global Business unless otherwise stated. Any reproduction without prior authorization is prohibited.</p>';}
+  return '<h2>Mentions légales</h2>'
+    +'<p><b>Éditeur du site</b><br>BOULIEDOU GLOBAL BUSINESS (BGB), Société à Responsabilité Limitée (SARL) de droit guinéen, conforme à l\'OHADA.</p>'
+    +'<p><b>Capital social</b> : 300&nbsp;000&nbsp;000 GNF.</p>'
+    +'<p><b>Siège social</b> : Enta Marché, Commune de Tombolia, Conakry, Guinée.</p>'
+    +'<p><b>RCCM</b> : GN.TCC.2026.B.15940, Tribunal de Commerce de Conakry.</p>'
+    +'<p><b>NIF (Numéro d\'Identification Fiscale)</b> : 608727509.</p>'
+    +'<p><b>Gérance / Directeur de la publication</b> : Bouliedou.</p>'
+    +'<p><b>Contact</b> : +224 623 01 08 18, contact@bouliedou.com.</p>'
+    +'<p><b>Propriété intellectuelle</b> : l\'ensemble des contenus de ce site (textes, visuels, logo) est la propriété de Bouliedou Global Business, sauf mention contraire. Toute reproduction sans autorisation préalable est interdite.</p>';
+}
+function openLegal(){
+  closeLegal();
+  var ov=document.createElement('div'); ov.className='legal-ov'; ov.id='legalOv';
+  ov.innerHTML='<div class="legal-box"><button class="legal-x" aria-label="Fermer" onclick="closeLegal()">&times;</button>'+legalHTML()+'</div>';
+  ov.addEventListener('click',function(e){ if(e.target===ov) closeLegal(); });
+  document.body.appendChild(ov);
+  document.addEventListener('keydown',legalEsc);
+}
+function legalEsc(e){ if(e.key==='Escape') closeLegal(); }
+function closeLegal(){ var o=document.getElementById('legalOv'); if(o) o.remove(); document.removeEventListener('keydown',legalEsc); }
 buildLang(); buildTabs(); applyMeta(); renderFooter(); showFromHash();
 </script>
 </body>
