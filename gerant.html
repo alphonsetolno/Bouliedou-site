@@ -294,6 +294,7 @@ main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .c-enc{flex:none;background:var(--surface);border:1.5px solid var(--green);color:var(--green);border-radius:11px;padding:9px 12px;font:inherit;font-weight:700;font-size:13px;display:inline-flex;align-items:center;gap:6px}
 .c-enc svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
 .c-badge{flex:none;background:var(--good-bg);color:var(--good);font-weight:700;font-size:12px;border-radius:999px;padding:6px 13px}
+.c-badge.adv{background:rgba(194,153,63,.15);color:#A87C2E}
 .cli-add{position:sticky;bottom:12px;margin-top:16px}
 
 /* ===================== Menu « Gestion » — refonte ===================== */
@@ -785,7 +786,7 @@ function by(arr,id){ return arr.filter(function(x){return x.client_id===id;}); }
 function sum(arr,f){ return arr.reduce(function(a,x){return a+(Number(f?x[f]:x.amount)||0);},0); }
 function clientOpening(c){ return (c&&c.opening_debt!=null)?(Number(c.opening_debt)||0):0; }
 function openingDebtTotal(){ return S.clients.reduce(function(a,c){ return a+clientOpening(c); },0); }
-function totals(id){ var sales=sum(by(S.credits,id),'amount'), p=sum(by(S.payments,id),'amount'); var cl=S.clients.find(function(x){return x.id===id;}); var op=clientOpening(cl); var credit=op+sales; return {credit:credit,paye:p,du:Math.max(0,credit-p),opening:op,sales:sales}; }
+function totals(id){ var sales=sum(by(S.credits,id),'amount'), p=sum(by(S.payments,id),'amount'); var cl=S.clients.find(function(x){return x.id===id;}); var op=clientOpening(cl); var credit=op+sales; return {credit:credit,paye:p,du:Math.max(0,credit-p),avance:Math.max(0,p-credit),opening:op,sales:sales}; }
 /* --- dépenses réelles vs mouvements caisse↔banque --- */
 function isCashMove(x){ return x && x.category==='mouvement_cb'; }
 /* Paiement à un fournisseur (règle une dette) — sortie de caisse, mais PAS une charge d'exploitation */
@@ -1141,6 +1142,7 @@ function renderHome(){
     var benefPer = caPer - achPer - depPer - amPer - loanIntPer;
     var credit=sum(S.credits,'amount')+openingDebtTotal(), du=Math.max(0,credit-sum(S.payments,'amount'));
     var lv=stockLevels(), dette=supplierDebtTotal();
+    var avancesTot=S.clients.reduce(function(a,c){ return a+(totals(c.id).avance||0); },0);
     h+=heroCard();
     h+=quickActions();
     /* Performance de la période */
@@ -1164,6 +1166,7 @@ function renderHome(){
     h+=dashCard("Stock", money(lv.total), "var(--green)", "stock", "valeur disponible", "var(--ink)");
     h+=dashCard("Dettes fournisseurs", money(dette), "var(--crit)", "suppliers", "à payer", (dette>0?"var(--crit)":"var(--good)"));
     h+=dashCard("Manque / Triage", money(lv.triageVal), "var(--crit)", "stock", (lv.triageKg>0?(rnd(lv.triageKg)+" kg perdus"):"aucun"), "var(--crit)");
+    h+=dashCard("Paiement en avance", money(avancesTot), "var(--gold)", "clients", (avancesTot>0?"reçu d'avance (clients)":"aucun"), (avancesTot>0?"var(--gold-deep,#A87C2E)":"var(--ink)"));
     h+='</div>';
     return h;
   }
@@ -1255,6 +1258,7 @@ function clientRow(c){
     +(t.du>0?'<span class="c-rap">Reste à payer<b class="tnum">'+money(t.du)+'</b></span>':'<span class="c-rap">'+esc([c.phone,c.city].filter(Boolean).join(" · ")||"—")+'</span>')
     +'</span></button>';
   if(t.du>0) h+='<button class="c-enc" data-addentry="pay:'+c.id+'">Encaisser'+IC.arrow+'</button>';
+  else if(t.avance>0) h+='<span class="c-badge adv">Avance <b class="tnum">'+money(t.avance)+'</b></span>';
   else h+='<span class="c-badge">À jour</span>';
   return h+'</div>';
 }
@@ -1264,7 +1268,7 @@ function clientCard(c){
   return '<button class="c-card" data-client="'+c.id+'"><div class="c-av" style="'+avStyle(c.full_name)+';border-radius:50%">'+esc(initials(c.full_name))+'</div>'
     +'<div class="c-main"><div class="c-name">'+esc(c.full_name||"Sans nom")+'</div>'
     +'<div class="c-meta">'+esc([c.phone,c.city].filter(Boolean).join(" · ")||"—")+'</div></div>'
-    +(t.du>0?'<span class="solde tnum">'+money(t.du)+'</span>':'<span class="solde ok">à jour</span>')+'</button>';
+    +(t.du>0?'<span class="solde tnum">'+money(t.du)+'</span>':(t.avance>0?'<span class="solde ok tnum">Avance '+money(t.avance)+'</span>':'<span class="solde ok">à jour</span>'))+'</button>';
 }
 
 function renderClient(id){
@@ -1277,7 +1281,9 @@ function renderClient(id){
     +'<div class="t">'+esc([c.phone,c.city].filter(Boolean).join(" · ")||"Client")+'</div>'
     +(t.du>0
       ? '<div style="margin-top:14px;display:flex;align-items:flex-end;justify-content:space-between;gap:12px"><div><div class="t" style="margin:0">Reste à payer</div><div class="tnum" style="font-family:\'Montserrat\';font-weight:800;font-size:26px;line-height:1.1;margin-top:3px">'+money(t.du)+'</div></div><button class="btn" style="background:#fff;color:var(--green);flex:none;padding:11px 18px;font-weight:800" data-addentry="pay:'+id+'">Encaisser</button></div>'
-      : '<div style="margin-top:12px"><span style="background:rgba(255,255,255,.18);color:#fff;font-weight:700;font-size:12.5px;border-radius:999px;padding:6px 14px">À jour ✓</span></div>')
+      : (t.avance>0
+          ? '<div style="margin-top:14px"><div class="t" style="margin:0">Avance en votre faveur</div><div class="tnum" style="font-family:\'Montserrat\';font-weight:800;font-size:26px;line-height:1.1;margin-top:3px">'+money(t.avance)+'</div></div>'
+          : '<div style="margin-top:12px"><span style="background:rgba(255,255,255,.18);color:#fff;font-weight:700;font-size:12.5px;border-radius:999px;padding:6px 14px">À jour ✓</span></div>'))
     +'</div>';
   h+='<div class="d-actions"><button class="btn btn-ghost" data-editclient="'+id+'">Modifier</button>';
   if(c.phone) h+='<button class="btn btn-gold" data-wa="'+id+'">Relance WhatsApp</button>';
@@ -1301,7 +1307,7 @@ function renderClient(id){
   h+='<div class="card"><div class="card-h"><h3>Finances</h3></div><div class="money-grid">'
     +'<div class="m"><div class="lab">Crédit</div><div class="v tnum">'+money(t.credit)+'</div></div>'
     +'<div class="m"><div class="lab">Payé</div><div class="v tnum">'+money(t.paye)+'</div></div>'
-    +'<div class="m due'+(t.du>0?'':' ok')+'"><div class="lab">Solde dû</div><div class="v tnum">'+money(t.du)+'</div></div></div>'
+    +'<div class="m due'+(t.du>0?'':' ok')+'"><div class="lab">'+(t.avance>0?'Avance':'Solde dû')+'</div><div class="v tnum">'+money(t.avance>0?t.avance:t.du)+'</div></div></div>'
     +(t.opening>0?'<div class="info-row" style="margin-top:8px"><span class="k">dont dette antérieure</span><b class="tnum" style="color:var(--gold-deep,#A87C2E)">'+money(t.opening)+'</b></div><div class="info-row"><span class="k">ventes enregistrées</span><b class="tnum">'+money(t.sales)+'</b></div>':'')
     +'</div>';
   h+=rewardsCard(id);
@@ -2220,7 +2226,9 @@ function waRelance(id){
   var c=S.clients.find(function(x){return x.id===id;}); if(!c) return;
   if(!c.phone){ toast("Ce client n'a pas de numéro."); return; }
   var t=totals(id);
-  var msg="Bonjour "+(c.full_name||"")+",\n\nVoici votre situation chez Bouliedou Global Business :\n• Total pris à crédit : "+money(t.credit)+"\n• Total payé : "+money(t.paye)+"\n• Solde dû : "+money(t.du)+"\n\nMerci de bien vouloir régulariser dès que possible.\nBouliedou Global Business";
+  var msg = t.avance>0
+    ? "Bonjour "+(c.full_name||"")+",\n\nVoici votre situation chez Bouliedou Global Business :\n• Total pris à crédit : "+money(t.credit)+"\n• Total payé : "+money(t.paye)+"\n• Avance en votre faveur : "+money(t.avance)+"\n\nVotre compte est à jour. Merci pour votre confiance.\nBouliedou Global Business"
+    : "Bonjour "+(c.full_name||"")+",\n\nVoici votre situation chez Bouliedou Global Business :\n• Total pris à crédit : "+money(t.credit)+"\n• Total payé : "+money(t.paye)+"\n• Solde dû : "+money(t.du)+"\n\nMerci de bien vouloir régulariser dès que possible.\nBouliedou Global Business";
   waOpen(c.phone,msg);
 }
 function receiptPay(id,pid){
@@ -2233,7 +2241,9 @@ function receiptPay(id,pid){
     +'<div class="info-row"><span class="k">Client</span><span>'+esc(c.full_name||"")+'</span></div>'
     +'<div class="info-row"><span class="k">Montant</span><b class="tnum">'+money(p.amount)+'</b></div>'
     +'<div class="info-row"><span class="k">Date</span><span>'+fmtDate(p.date)+'</span></div>'
-    +'<div class="info-row"><span class="k">Solde dû</span><b class="tnum" style="color:var(--crit)">'+money(t.du)+'</b></div>'
+    +(t.avance>0
+        ? '<div class="info-row"><span class="k">Avance en votre faveur</span><b class="tnum" style="color:var(--green)">'+money(t.avance)+'</b></div>'
+        : '<div class="info-row"><span class="k">Solde dû</span><b class="tnum" style="color:var(--crit)">'+money(t.du)+'</b></div>')
     +'</div>'
     +'<div class="sheet-actions"><button class="btn btn-ghost" data-cancel="1">Fermer</button><button class="btn btn-green" data-pdfreceipt="'+id+':'+pid+'">Reçu PDF</button></div>'
     +(c.phone?'<button class="btn btn-gold btn-block" data-wareceipt="'+id+':'+pid+'" style="margin-top:9px">Envoyer un message WhatsApp</button>':''));
@@ -2277,14 +2287,16 @@ async function genReceiptPDF(id,pid){
   if(c.phone) row("Téléphone", c.phone);
   if(p.note) row("Objet", p.note);
   row("Montant payé", pdfMoney(p.amount), true, green);
-  row("Solde dû restant", pdfMoney(t.du), true, crit);
+  if(t.avance>0) row("Avance en votre faveur", pdfMoney(t.avance), true, green);
+  else row("Solde dû restant", pdfMoney(t.du), true, crit);
   y+=8; doc.setFont('helvetica','italic'); doc.setFontSize(10.5); doc.setTextColor.apply(doc,ink);
   doc.text("Nous accusons réception de ce paiement et vous remercions pour votre confiance.", M, y, {maxWidth:W-2*M});
   var fy=270;
   doc.setDrawColor.apply(doc,goldSoft); doc.setLineWidth(0.6); doc.line(M,fy,W-M,fy);
   doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor.apply(doc,green); doc.text("BOULIEDOU GLOBAL BUSINESS", W/2, fy+6, {align:'center'});
-  doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor.apply(doc,gold); doc.text("COMMERCE  ·  AGRIBUSINESS  ·  ÉLEVAGE  ·  PRESTATIONS DE SERVICES", W/2, fy+11, {align:'center'});
-  doc.setTextColor.apply(doc,muted); doc.setFontSize(8); doc.text("Conakry, Guinée  ·  +224 623 01 08 18  ·  contact@bouliedou.com", W/2, fy+16.5, {align:'center'});
+  doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor.apply(doc,gold); doc.text("AGROBUSINESS  ·  FOURNITURE DE BIENS  ·  SERVICES ET TRAVAUX  ·  FORMATION  ·  COMMERCE", W/2, fy+11, {align:'center'});
+  doc.setTextColor.apply(doc,muted); doc.setFontSize(8); doc.text("Enta Marché, Commune de Tombolia, Conakry  ·  +224 623 01 08 18  ·  contact@bouliedou.com", W/2, fy+16.5, {align:'center'});
+  doc.setFontSize(7); doc.text("SARL au capital de 300 000 000 GNF, RCCM : GN.TCC.2026.B.15940, NIF : 608727509", W/2, fy+21, {align:'center'});
   var fname="recu-"+((c.full_name||"client").replace(/[^a-z0-9]+/gi,'-').toLowerCase())+".pdf";
   try{
     var blob=doc.output('blob'), file=new File([blob],fname,{type:'application/pdf'});
@@ -2295,7 +2307,8 @@ async function genReceiptPDF(id,pid){
 function waReceipt(id,pid){
   var c=S.clients.find(function(x){return x.id===id;}), p=S.payments.find(function(x){return x.id===pid;}); if(!c||!p) return;
   var t=totals(id);
-  var msg="REÇU — Bouliedou Global Business\n\nClient : "+(c.full_name||"")+"\nPaiement reçu : "+money(p.amount)+"\nDate : "+fmtDate(p.date)+"\nSolde dû restant : "+money(t.du)+"\n\nMerci pour votre confiance.";
+  var bal = t.avance>0 ? ("Avance en votre faveur : "+money(t.avance)) : ("Solde dû restant : "+money(t.du));
+  var msg="REÇU — Bouliedou Global Business\n\nClient : "+(c.full_name||"")+"\nPaiement reçu : "+money(p.amount)+"\nDate : "+fmtDate(p.date)+"\n"+bal+"\n\nMerci pour votre confiance.";
   waOpen(c.phone,msg);
 }
 
@@ -2317,8 +2330,8 @@ function exportFullBackup(){
   r.push(["Montants en francs guinéens (FG)"]);
 
   sec("CLIENTS");
-  r.push(["Nom","Téléphone","Ville","Dette antérieure","Crédit total","Payé","Solde dû","Note"]);
-  S.clients.forEach(function(c){ var t=totals(c.id); r.push([c.full_name,c.phone,c.city,Math.round(clientOpening(c)),Math.round(t.credit),Math.round(t.paye),Math.round(t.du),c.note||""]); });
+  r.push(["Nom","Téléphone","Ville","Dette antérieure","Crédit total","Payé","Solde dû","Avance (payé d'avance)","Note"]);
+  S.clients.forEach(function(c){ var t=totals(c.id); r.push([c.full_name,c.phone,c.city,Math.round(clientOpening(c)),Math.round(t.credit),Math.round(t.paye),Math.round(t.du),Math.round(t.avance||0),c.note||""]); });
 
   sec("VENTES À CRÉDIT (marchandises prises à crédit)");
   r.push(["Date","Client","Produit","Désignation","Quantité","Unité","Contenu","Unité contenu","Montant"]);
@@ -2371,6 +2384,7 @@ function exportFullBackup(){
   r.push(["Banque",Math.round(tz.banque)]);
   r.push(["Trésorerie totale",Math.round(tz.total)]);
   r.push(["Créances clients (dû par les clients)",Math.round(du)]);
+  r.push(["Clients, avances reçues (payées d'avance)",Math.round(S.clients.reduce(function(a,c){return a+(totals(c.id).avance||0);},0))]);
   r.push(["Dettes fournisseurs (dû aux fournisseurs)",Math.round(supplierDebtTotal())]);
   r.push(["Valeur du stock",Math.round(lv.total)]);
   r.push(["Immobilisations (valeur nette)",Math.round(assetsTotals().net)]);
@@ -2380,15 +2394,15 @@ function exportFullBackup(){
   toast("Sauvegarde complète téléchargée ✓");
 }
 function runExport(what){
-  if(what==="clients"){ var r=[["Nom","Téléphone","Ville","Crédit total","Payé","Solde dû"]]; S.clients.forEach(function(c){ var t=totals(c.id); r.push([c.full_name,c.phone,c.city,t.credit,t.paye,t.du]); }); csvDownload("clients.csv",r); }
+  if(what==="clients"){ var r=[["Nom","Téléphone","Ville","Crédit total","Payé","Solde dû","Avance"]]; S.clients.forEach(function(c){ var t=totals(c.id); r.push([c.full_name,c.phone,c.city,t.credit,t.paye,t.du,t.avance||0]); }); csvDownload("clients.csv",r); }
   else if(what==="sales"){ var r=[["Date","Client","Désignation","Quantité","Unité","Montant"]]; S.credits.forEach(function(x){ r.push([x.date,clientName(x.client_id),x.label,x.qty,x.order_unit,x.amount]); }); csvDownload("ventes.csv",r); }
   else if(what==="payments"){ var r=[["Date","Client","Note","Montant"]]; S.payments.forEach(function(x){ r.push([x.date,clientName(x.client_id),x.note,x.amount]); }); csvDownload("paiements.csv",r); }
   else if(what==="expenses"){ var r=[["Date","Catégorie","Libellé","Montant"]]; S.expenses.forEach(function(x){ r.push([x.date,catLabel(x.category),x.label,x.amount]); }); csvDownload("depenses.csv",r); }
   else if(what==="stock"){ var r=[["Date","Type","Emplacement","Produit","Quantité","Unité","Contenance","Prix unitaire","Coût total","Fournisseur","Règlement"]]; S.stock.forEach(function(x){ r.push([x.date,x.kind,(x.kind==='entree'?(x.location==='route'?'En route':'Conakry'):''),x.label,x.qty,x.unit,x.content_per_unit,x.unit_price,x.amount,x.supplier,(x.kind==='entree'?payMethod(x):'')]); }); csvDownload("stock.csv",r); }
   else if(what==="clients_db"){
-    var r=[["Nom","Téléphone","Ville","Interfaces","Dette antérieure","Ventes enregistrées","Crédit total","Payé","Solde dû","Note"]];
+    var r=[["Nom","Téléphone","Ville","Interfaces","Dette antérieure","Ventes enregistrées","Crédit total","Payé","Solde dû","Avance","Note"]];
     S.clients.forEach(function(c){ var t=totals(c.id); var ifs=clientCatIds(c).map(catName).filter(function(n){return n&&n!=="—";}).join(" / ");
-      r.push([c.full_name,c.phone,c.city,ifs,t.opening,t.sales,t.credit,t.paye,t.du,c.note]); });
+      r.push([c.full_name,c.phone,c.city,ifs,t.opening,t.sales,t.credit,t.paye,t.du,t.avance||0,c.note]); });
     csvDownload("base-clients.csv",r);
   }
   else if(what==="exercice"){

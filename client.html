@@ -538,7 +538,7 @@ function productsForMe(){
   if(ids.length) list=list.filter(function(p){return p.category_id && ids.indexOf(p.category_id)>=0;});
   return list;
 }
-function totals(){ var c=sum(S.credits), p=sum(S.payments); return {credit:c,paye:p,du:Math.max(0,c-p)}; }
+function totals(){ var c=sum(S.credits), p=sum(S.payments); return {credit:c,paye:p,du:Math.max(0,c-p),avance:Math.max(0,p-c)}; }
 function cartCount(){ var n=0; for(var k in CART){ n+=CART[k]; } return n; }
 function cartTotal(){ var t=0; for(var k in CART){ var p=S.products.find(function(x){return x.id===k;}); if(p) t+=CART[k]*unitPrice(p); } return t; }
 
@@ -579,9 +579,12 @@ function render(){
 function renderHome(){
   var t=totals();
   var h='<div class="hero"><div class="hi">Bonjour,</div><div class="nm">'+esc(ME.full_name||"Cher client")+'</div>'
-    +'<div class="lab">Solde dû</div><div class="solde'+(t.du>0?'':' ok')+' tnum">'+money(t.du)+'</div>'
+    +(t.avance>0
+        ? '<div class="lab">Avance en votre faveur</div><div class="solde ok tnum">'+money(t.avance)+'</div>'
+        : '<div class="lab">Solde dû</div><div class="solde'+(t.du>0?'':' ok')+' tnum">'+money(t.du)+'</div>')
     +'<div class="rule"></div><div class="split"><div class="cell"><div class="k">Total pris à crédit</div><div class="v tnum">'+money(t.credit)+'</div></div>'
     +'<div class="cell"><div class="k">Total payé</div><div class="v tnum">'+money(t.paye)+'</div></div></div></div>';
+  if(t.avance>0){ h+='<div class="hint" style="margin:10px 0 0;line-height:1.5">Vous avez réglé d\'avance : ce montant sera déduit de vos prochains achats à crédit.</div>'; }
   h+='<button class="btn btn-gold btn-block" data-go="order" style="margin-top:16px">Passer une commande</button>';
   h+=rewardsSection();
   // dernières commandes
@@ -690,7 +693,7 @@ function renderAccount(){
   h+='<div class="card"><div class="card-h"><h3>Mon solde</h3></div><div class="money-grid">'
     +'<div class="m"><div class="lab">À crédit</div><div class="v tnum">'+money(t.credit)+'</div></div>'
     +'<div class="m"><div class="lab">Payé</div><div class="v tnum">'+money(t.paye)+'</div></div>'
-    +'<div class="m due'+(t.du>0?'':' ok')+'"><div class="lab">Solde dû</div><div class="v tnum">'+money(t.du)+'</div></div></div></div>';
+    +'<div class="m due'+(t.du>0?'':' ok')+'"><div class="lab">'+(t.avance>0?'Avance en votre faveur':'Solde dû')+'</div><div class="v tnum">'+money(t.avance>0?t.avance:t.du)+'</div></div></div></div>';
   h+='<div class="hint" style="margin:-2px 0 12px">Votre historique (marchandises à crédit et paiements) est désormais sur l\'accueil.</div>';
   h+='<button class="btn btn-ghost btn-block" data-statement="1" style="margin-bottom:14px">📄 Télécharger mon relevé (PDF)</button>';
   var tp=themePref();
@@ -777,7 +780,7 @@ function accountStatement(){
     +'th,td{text-align:left;padding:7px 8px;border-bottom:1px solid #E7E1CF;font-size:12.5px}th{color:#6B7A70}td.r,th.r{text-align:right}'
     +'h2{font-size:14px;color:#0C4A39;margin:16px 0 2px}'
     +'.sum{background:#FAF7EE;border:1px solid #E7E1CF;border-radius:10px;padding:12px 14px;margin:10px 0}'
-    +'.sum div{display:flex;justify-content:space-between;padding:3px 0}.due b{color:#C0392B}'
+    +'.sum div{display:flex;justify-content:space-between;padding:3px 0}.due b{color:#C0392B}.adv b{color:#0C4A39}'
     +'.foot{color:#6B7A70;font-size:11px;margin-top:18px;border-top:1px solid #E7E1CF;padding-top:8px}'
     +'.bar{display:flex;gap:8px;margin:16px 0 6px}.bar button{padding:10px 16px;border:0;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px}'
     +'.print{background:#0C4A39;color:#fff}.close{background:#eee;color:#333}@media print{.bar{display:none}body{margin:12mm}}</style></head><body>'
@@ -785,10 +788,10 @@ function accountStatement(){
     +'<div class="who"><b>'+esc(ME.full_name||"")+'</b>'+(ME.phone?(' · '+esc(ME.phone)):'')+'</div>'
     +'<div class="sum"><div><span>Total pris à crédit</span><b>'+money(t.credit)+'</b></div>'
     +'<div><span>Total payé</span><b>'+money(t.paye)+'</b></div>'
-    +'<div class="due"><span>Solde dû</span><b>'+money(t.du)+'</b></div></div>'
+    +'<div class="'+(t.avance>0?'adv':'due')+'"><span>'+(t.avance>0?'Avance en votre faveur':'Solde dû')+'</span><b>'+money(t.avance>0?t.avance:t.du)+'</b></div></div>'
     +'<h2>Marchandises prises à crédit</h2><table><tr><th>Date</th><th>Détail</th><th class="r">Montant</th></tr>'+rows(S.credits,true)+'</table>'
     +'<h2>Paiements</h2><table><tr><th>Date</th><th>Détail</th><th class="r">Montant</th></tr>'+rows(S.payments,false)+'</table>'
-    +'<div class="foot">Enta marché, Conakry · +224 623 01 08 18 · contact@bouliedou.com · www.bouliedou.com<br>Document informatif reflétant les opérations enregistrées à la date d\'édition.</div>'
+    +'<div class="foot">Enta Marché, Commune de Tombolia, Conakry, Guinée · +224 623 01 08 18 · contact@bouliedou.com · www.bouliedou.com<br>Document informatif reflétant les opérations enregistrées à la date d\'édition.</div>'
     +'<div class="bar"><button class="print" onclick="window.print()">Imprimer / Enregistrer en PDF</button><button class="close" onclick="window.close()">Fermer</button></div>'
     +'</body></html>';
   w.document.write(html); w.document.close();
