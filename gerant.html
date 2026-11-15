@@ -2283,11 +2283,7 @@ async function genReceiptPDF(id,pid){
   _pdfSign(doc);
   _pdfFoot(doc);
   var fname="recu-"+((c.full_name||"client").replace(/[^a-z0-9]+/gi,'-').toLowerCase())+".pdf";
-  try{
-    var blob=doc.output('blob'), file=new File([blob],fname,{type:'application/pdf'});
-    if(navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file], title:'Reçu de paiement'}); closeSheet(); return; }
-  }catch(e){}
-  doc.save(fname); closeSheet();
+  _pdfPreview(doc, fname, "Reçu de paiement", "rx");
 }
 function waReceipt(id,pid){
   var c=S.clients.find(function(x){return x.id===id;}), p=S.payments.find(function(x){return x.id===pid;}); if(!c||!p) return;
@@ -2382,6 +2378,21 @@ async function _pdfSave(doc, fname){
     if(navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file], title:fname}); return; } }catch(e){}
   doc.save(fname);
 }
+var _lastPDF=null;
+function _pdfPreview(doc, fname, title, kind){
+  try{ if(_lastPDF&&_lastPDF.url) URL.revokeObjectURL(_lastPDF.url); }catch(e){}
+  var url; try{ url=URL.createObjectURL(doc.output('blob')); }catch(e){ try{ url=doc.output('bloburl'); }catch(e2){ url=''; } }
+  _lastPDF={doc:doc, url:url, fname:fname};
+  var editBtn = (kind==='pf') ? '<button class="btn btn-ghost" data-pfedit="1" style="flex:1">‹ Modifier</button>'
+              : (kind==='rc') ? '<button class="btn btn-ghost" data-rcedit="1" style="flex:1">‹ Modifier</button>'
+              : '<button class="btn btn-ghost" data-cancel="1" style="flex:1">Fermer</button>';
+  openSheet('<h3>Aperçu — '+title+'</h3>'
+    +'<div style="margin:6px 0 10px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#efece1"><iframe src="'+url+'" style="width:100%;height:56vh;border:0;display:block" title="Aperçu du document"></iframe></div>'
+    +'<p class="view-sub" style="margin:0 0 10px">Parcourez le document pour le vérifier. En cas d\'erreur, revenez le modifier ; sinon, enregistrez-le. Si l\'aperçu ne s\'affiche pas, touchez « Ouvrir ».</p>'
+    +'<div style="display:flex;gap:8px;margin-bottom:10px">'+editBtn+'<a class="btn btn-ghost" href="'+url+'" target="_blank" rel="noopener" style="flex:1;text-align:center;text-decoration:none;display:flex;align-items:center;justify-content:center">Ouvrir</a></div>'
+    +'<button class="btn btn-green btn-block" data-pdfdl="1">⬇ Enregistrer / Télécharger</button>');
+}
+async function _pdfDownload(){ if(!_lastPDF||!_lastPDF.doc){ toast("Aucun document à enregistrer."); return; } await _pdfSave(_lastPDF.doc, _lastPDF.fname); toast("Document enregistré ✓"); }
 
 async function genProformaPDF(){
   if(!(window.jspdf&&window.jspdf.jsPDF)){ toast("Génération indisponible, réessayez."); return; }
@@ -2422,8 +2433,7 @@ async function genProformaPDF(){
   doc.text("Facture pro forma — valable "+(PF.valid||'30')+" jours. Prix en francs guinéens (FG).", M, y, {maxWidth:W-2*M});
   _pdfSign(doc);
   _pdfFoot(doc);
-  await _pdfSave(doc, "facture-proforma-"+((PF.client.name||"client").replace(/[^a-z0-9]+/gi,'-').toLowerCase())+".pdf");
-  closeSheet(); toast("Facture pro forma générée ✓");
+  _pdfPreview(doc, "facture-proforma-"+((PF.client.name||"client").replace(/[^a-z0-9]+/gi,'-').toLowerCase())+".pdf", "Facture pro forma", "pf");
 }
 
 async function genReceiptStandalonePDF(d){
@@ -2442,8 +2452,7 @@ async function genReceiptStandalonePDF(d){
   doc.text("Nous accusons réception de ce paiement et vous remercions pour votre confiance.", M, y, {maxWidth:W-2*M});
   _pdfSign(doc);
   _pdfFoot(doc);
-  await _pdfSave(doc, "recu-"+((d.name||"client").replace(/[^a-z0-9]+/gi,'-').toLowerCase())+".pdf");
-  closeSheet(); toast("Reçu généré ✓");
+  _pdfPreview(doc, "recu-"+((d.name||"client").replace(/[^a-z0-9]+/gi,'-').toLowerCase())+".pdf", "Reçu de paiement", "rc");
 }
 
 function renderDocuments(){
@@ -2479,7 +2488,7 @@ function proformaForm(fresh){
     +'<div class="info-row"><span class="k">Sous-total</span><b class="tnum">'+money(sub)+'</b></div>'
     +'<div class="info-row"><span class="k">Total à payer</span><b class="tnum" id="pf_total" data-sub="'+sub+'">'+money(Math.max(0,sub-(PF.remise||0)))+'</b></div>'
     +'<div style="margin:4px 0 12px;padding:9px 11px;background:rgba(12,74,57,.06);border-radius:10px;font-size:12.5px;line-height:1.35;color:var(--ink)"><b style="color:var(--green)">Montant en lettres :</b> <span id="pf_lettres">'+esc(enLettresGNF(Math.max(0,sub-(PF.remise||0))))+'</span></div>'
-    +'<div class="sheet-actions"><button class="btn btn-ghost" data-cancel="1">Fermer</button><button class="btn btn-green" data-pfgen="1">Générer le PDF</button></div>');
+    +'<div class="sheet-actions"><button class="btn btn-ghost" data-cancel="1">Fermer</button><button class="btn btn-green" data-pfgen="1">Aperçu</button></div>');
 }
 function pfAddItem(){ _pfSync(); var des=V("pf_des"), qty=Number(V("pf_qty"))||0, unit=V("pf_unit"), pu=Number(V("pf_pu"))||0;
   if(!des){ toast("Indiquez la désignation."); return; }
@@ -2490,19 +2499,22 @@ function pfTotalLive(){ var el=document.getElementById('pf_total'); if(!el) retu
 function rcAmountLive(){ var a=document.getElementById('rc_amount'); var v=a?(Number(a.value)||0):0; var l=document.getElementById('rc_lettres'); if(l) l.textContent=enLettresGNF(v); }
 function pfGen(){ _pfSync(); genProformaPDF(); }
 
-function receiptStandaloneForm(){
+var RC={name:'',phone:'',date:'',amount:'',objet:'',method:'caisse'};
+function rcReset(){ RC={name:'',phone:'',date:today(),amount:'',objet:'',method:'caisse'}; }
+function receiptStandaloneForm(fresh){
+  if(fresh) rcReset();
   openSheet('<h3>Reçu de paiement</h3>'
-    +fld("Reçu de (client)","text","rc_name","","Nom / société")
-    +'<div class="field-row">'+fld("Téléphone","text","rc_phone","","")+fld("Date","date","rc_date",today(),"")+'</div>'
-    +'<div class="field"><label for="rc_amount">Montant reçu (FG)</label><input id="rc_amount" type="number" inputmode="numeric" min="0" value="" placeholder="0" oninput="rcAmountLive()"></div>'
-    +'<div style="margin:4px 0 12px;padding:9px 11px;background:rgba(12,74,57,.06);border-radius:10px;font-size:12.5px;line-height:1.35;color:var(--ink)"><b style="color:var(--green)">Montant en lettres :</b> <span id="rc_lettres">—</span></div>'
-    +fld("Objet / motif","text","rc_objet","","ex : acompte sur commande")
-    +methodField("rc_method","caisse")
-    +'<div class="sheet-actions"><button class="btn btn-ghost" data-cancel="1">Fermer</button><button class="btn btn-green" data-rcgen="1">Générer le PDF</button></div>');
+    +fld("Reçu de (client)","text","rc_name",RC.name,"Nom / société")
+    +'<div class="field-row">'+fld("Téléphone","text","rc_phone",RC.phone,"")+fld("Date","date","rc_date",RC.date||today(),"")+'</div>'
+    +'<div class="field"><label for="rc_amount">Montant reçu (FG)</label><input id="rc_amount" type="number" inputmode="numeric" min="0" value="'+esc(RC.amount||'')+'" placeholder="0" oninput="rcAmountLive()"></div>'
+    +'<div style="margin:4px 0 12px;padding:9px 11px;background:rgba(12,74,57,.06);border-radius:10px;font-size:12.5px;line-height:1.35;color:var(--ink)"><b style="color:var(--green)">Montant en lettres :</b> <span id="rc_lettres">'+esc(RC.amount?enLettresGNF(RC.amount):'—')+'</span></div>'
+    +fld("Objet / motif","text","rc_objet",RC.objet,"ex : acompte sur commande")
+    +methodField("rc_method",RC.method||'caisse')
+    +'<div class="sheet-actions"><button class="btn btn-ghost" data-cancel="1">Fermer</button><button class="btn btn-green" data-rcgen="1">Aperçu</button></div>');
 }
-function rcGen(){ var amt=Number(V("rc_amount"))||0; if(amt<=0){ toast("Indiquez un montant."); return; }
-  var method=(V("rc_method")==='banque')?'Banque':'Espèces (caisse)';
-  genReceiptStandalonePDF({name:V("rc_name"), phone:V("rc_phone"), date:V("rc_date")||today(), amount:amt, objet:V("rc_objet"), method:method});
+function rcSync(){ RC.name=V("rc_name"); RC.phone=V("rc_phone"); RC.date=V("rc_date")||today(); RC.amount=Number(V("rc_amount"))||0; RC.objet=V("rc_objet"); RC.method=(V("rc_method")==='banque')?'banque':'caisse'; }
+function rcGen(){ rcSync(); if(RC.amount<=0){ toast("Indiquez un montant."); return; }
+  genReceiptStandalonePDF({name:RC.name, phone:RC.phone, date:RC.date||today(), amount:RC.amount, objet:RC.objet, method:(RC.method==='banque')?'Banque':'Espèces (caisse)'});
 }
 
 /* ===== SAUVEGARDE / EXPORT CSV ===== */
@@ -3771,7 +3783,7 @@ function orderSheet(id){
 
 /* ===== EVENTS ===== */
 document.addEventListener("click",function(e){
-  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin],[data-go],[data-addstock],[data-savestock],[data-receivestock],[data-achemine],[data-saveachemine],[data-triage],[data-savetriage],[data-addexp],[data-saveexp],[data-profper],[data-homeper],[data-anaper],[data-wa],[data-receiptpay],[data-wareceipt],[data-export],[data-addrule],[data-editrule],[data-saverule],[data-delrule],[data-pdfreceipt],[data-actfilter],[data-dlbackup],[data-bio],[data-push],[data-cashper],[data-cashxfer],[data-savecashxfer],[data-exyear],[data-exprint],[data-cloture],[data-giftgiven],[data-savegift],[data-resetclient],[data-editcredit],[data-saveeditcredit],[data-saveopening],[data-ordersale],[data-repeatexp],[data-supplierpay],[data-savesupplierpay],[data-ownermove],[data-saveownermove],[data-expmonth],[data-exportmonth],[data-exprintacc],[data-attach],[data-viewattach],[data-delattach],[data-addasset],[data-saveasset],[data-addloan],[data-saveloan],[data-loanpay],[data-saveloanpay],[data-cfilter],[data-togglebal],[data-settheme],[data-cprod],[data-fullbackup],[data-pfnew],[data-rcnew],[data-pfadd],[data-pfdel],[data-pfgen],[data-rcgen]");
+  var el=e.target.closest("[data-tab],[data-client],[data-back],[data-addclient],[data-editclient],[data-delclient],[data-addentry],[data-del],[data-order],[data-addprod],[data-editprod],[data-cancel],[data-saveclient],[data-saveentry],[data-saveprod],[data-delprod],[data-savestatus],[data-addcat],[data-editcat],[data-savecat],[data-delcat],[data-pin],[data-rmaccess],[data-savepin],[data-go],[data-addstock],[data-savestock],[data-receivestock],[data-achemine],[data-saveachemine],[data-triage],[data-savetriage],[data-addexp],[data-saveexp],[data-profper],[data-homeper],[data-anaper],[data-wa],[data-receiptpay],[data-wareceipt],[data-export],[data-addrule],[data-editrule],[data-saverule],[data-delrule],[data-pdfreceipt],[data-actfilter],[data-dlbackup],[data-bio],[data-push],[data-cashper],[data-cashxfer],[data-savecashxfer],[data-exyear],[data-exprint],[data-cloture],[data-giftgiven],[data-savegift],[data-resetclient],[data-editcredit],[data-saveeditcredit],[data-saveopening],[data-ordersale],[data-repeatexp],[data-supplierpay],[data-savesupplierpay],[data-ownermove],[data-saveownermove],[data-expmonth],[data-exportmonth],[data-exprintacc],[data-attach],[data-viewattach],[data-delattach],[data-addasset],[data-saveasset],[data-addloan],[data-saveloan],[data-loanpay],[data-saveloanpay],[data-cfilter],[data-togglebal],[data-settheme],[data-cprod],[data-fullbackup],[data-pfnew],[data-rcnew],[data-pfadd],[data-pfdel],[data-pfgen],[data-rcgen],[data-pfedit],[data-rcedit],[data-pdfdl]");
   if(!el) return; var d=el.dataset;
   if((d.del!==undefined||d.delclient!==undefined||d.delprod!==undefined||d.delcat!==undefined||d.delrule!==undefined)&&!isAdmin()){ toast("Suppression réservée au gérant principal."); return; }
   if(d.bio!==undefined){ toggleBio(); }
@@ -3793,11 +3805,14 @@ document.addEventListener("click",function(e){
   else if(d.cprod!==undefined){ clientProd=d.cprod; render(); }
   else if(d.fullbackup!==undefined){ exportFullBackup(); }
   else if(d.pfnew!==undefined){ proformaForm(true); }
-  else if(d.rcnew!==undefined){ receiptStandaloneForm(); }
+  else if(d.rcnew!==undefined){ receiptStandaloneForm(true); }
   else if(d.pfadd!==undefined){ pfAddItem(); }
   else if(d.pfdel!==undefined){ pfDelItem(d.pfdel); }
   else if(d.pfgen!==undefined){ pfGen(); }
   else if(d.rcgen!==undefined){ rcGen(); }
+  else if(d.pfedit!==undefined){ proformaForm(false); }
+  else if(d.rcedit!==undefined){ receiptStandaloneForm(false); }
+  else if(d.pdfdl!==undefined){ _pdfDownload(); }
   else if(d.togglebal!==undefined){ hideBal=!hideBal; lsSet('bgb_hidebal',hideBal); render(); }
   else if(d.settheme!==undefined){ setTheme(d.settheme); }
   else if(d.anaper!==undefined){ anaPeriod=d.anaper; render(); }
